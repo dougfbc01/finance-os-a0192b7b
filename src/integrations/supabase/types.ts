@@ -73,6 +73,59 @@ export type Database = {
           },
         ]
       }
+      categories: {
+        Row: {
+          color: string
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          icon: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          type: Database["public"]["Enums"]["category_type"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          type: Database["public"]["Enums"]["category_type"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          type?: Database["public"]["Enums"]["category_type"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -99,6 +152,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      subcategories: {
+        Row: {
+          category_id: string
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcategories_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {
@@ -132,7 +239,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      seed_default_categories: {
+        Args: { _workspace_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       account_type:
@@ -144,6 +254,7 @@ export type Database = {
         | "CASH"
         | "INTERNATIONAL"
         | "OTHER"
+      category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -281,6 +392,7 @@ export const Constants = {
         "INTERNATIONAL",
         "OTHER",
       ],
+      category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
     },
   },
 } as const
