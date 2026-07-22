@@ -2,7 +2,7 @@
 // Todo cálculo derivado de movimentações vive aqui (nunca em componentes).
 
 import { BaseService } from "./BaseService";
-import { MovementService } from "./MovementService";
+import { MovementServiceImpl } from "./MovementService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType } from "@/constants/enums";
 import type { Account, Movement, UUID } from "@/models";
 
@@ -42,14 +42,14 @@ class DashboardServiceImpl extends BaseService {
     for (const a of accounts) map[a.id] = Number(a.initial_balance) || 0;
     for (const m of movements) {
       if (m.account_id && map[m.account_id] !== undefined) {
-        map[m.account_id] += MovementServiceImpactOnAccount(m, m.account_id);
+        map[m.account_id] += MovementServiceImpl.impactOnAccount(m, m.account_id);
       }
       if (
         m.type === MovementType.TRANSFER &&
         m.transfer_account_id &&
         map[m.transfer_account_id] !== undefined
       ) {
-        map[m.transfer_account_id] += m.amount;
+        map[m.transfer_account_id] += MovementServiceImpl.impactOnAccount(m, m.transfer_account_id);
       }
     }
     return map;
