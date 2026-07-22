@@ -21,3 +21,5 @@ export interface Profile {
   created_at: ISODateString;
   updated_at: ISODateString;
 }
+
+export * from "./Account";

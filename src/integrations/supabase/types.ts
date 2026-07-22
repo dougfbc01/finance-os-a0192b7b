@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["account_type"]
+          color: string
+          created_at: string
+          currency: string
+          deleted_at: string | null
+          display_order: number
+          icon: string
+          id: string
+          initial_balance: number
+          institution: string | null
+          is_active: boolean
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_type?: Database["public"]["Enums"]["account_type"]
+          color?: string
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          initial_balance?: number
+          institution?: string | null
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["account_type"]
+          color?: string
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          initial_balance?: number
+          institution?: string | null
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -76,7 +135,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      account_type:
+        | "CHECKING"
+        | "SAVINGS"
+        | "DIGITAL"
+        | "WALLET"
+        | "BROKER"
+        | "CASH"
+        | "INTERNATIONAL"
+        | "OTHER"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -203,6 +270,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: [
+        "CHECKING",
+        "SAVINGS",
+        "DIGITAL",
+        "WALLET",
+        "BROKER",
+        "CASH",
+        "INTERNATIONAL",
+        "OTHER",
+      ],
+    },
   },
 } as const
