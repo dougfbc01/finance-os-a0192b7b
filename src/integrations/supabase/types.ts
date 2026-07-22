@@ -126,6 +126,120 @@ export type Database = {
           },
         ]
       }
+      movements: {
+        Row: {
+          account_id: string | null
+          amount: number
+          asset_id: string | null
+          attachments: Json
+          card_id: string | null
+          category_id: string | null
+          competence_date: string | null
+          created_at: string
+          deleted_at: string | null
+          description: string
+          due_date: string | null
+          id: string
+          import_id: string | null
+          notes: string | null
+          status: Database["public"]["Enums"]["movement_status"]
+          subcategory_id: string | null
+          tags: string[]
+          transaction_date: string
+          transfer_account_id: string | null
+          transfer_group_id: string | null
+          type: Database["public"]["Enums"]["movement_type"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          asset_id?: string | null
+          attachments?: Json
+          card_id?: string | null
+          category_id?: string | null
+          competence_date?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          import_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["movement_status"]
+          subcategory_id?: string | null
+          tags?: string[]
+          transaction_date: string
+          transfer_account_id?: string | null
+          transfer_group_id?: string | null
+          type: Database["public"]["Enums"]["movement_type"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          asset_id?: string | null
+          attachments?: Json
+          card_id?: string | null
+          category_id?: string | null
+          competence_date?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          import_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["movement_status"]
+          subcategory_id?: string | null
+          tags?: string[]
+          transaction_date?: string
+          transfer_account_id?: string | null
+          transfer_group_id?: string | null
+          type?: Database["public"]["Enums"]["movement_type"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_transfer_account_id_fkey"
+            columns: ["transfer_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -255,6 +369,19 @@ export type Database = {
         | "INTERNATIONAL"
         | "OTHER"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
+      movement_status: "PENDING" | "CLEARED" | "RECONCILED"
+      movement_type:
+        | "INCOME"
+        | "EXPENSE"
+        | "TRANSFER"
+        | "CARD_PAYMENT"
+        | "INVESTMENT"
+        | "DIVIDEND"
+        | "INTEREST"
+        | "FEE"
+        | "TAX"
+        | "REFUND"
+        | "ADJUSTMENT"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -393,6 +520,20 @@ export const Constants = {
         "OTHER",
       ],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
+      movement_status: ["PENDING", "CLEARED", "RECONCILED"],
+      movement_type: [
+        "INCOME",
+        "EXPENSE",
+        "TRANSFER",
+        "CARD_PAYMENT",
+        "INVESTMENT",
+        "DIVIDEND",
+        "INTEREST",
+        "FEE",
+        "TAX",
+        "REFUND",
+        "ADJUSTMENT",
+      ],
     },
   },
 } as const

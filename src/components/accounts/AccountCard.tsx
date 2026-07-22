@@ -10,13 +10,15 @@ import { formatCurrency } from "@/lib/format";
 
 interface AccountCardProps {
   account: Account;
+  balance?: number;
   onEdit: (account: Account) => void;
   onToggleActive: (account: Account, next: boolean) => void;
   toggling?: boolean;
 }
 
-export function AccountCard({ account, onEdit, onToggleActive, toggling }: AccountCardProps) {
+export function AccountCard({ account, balance, onEdit, onToggleActive, toggling }: AccountCardProps) {
   const Icon = getAccountIcon(account.icon);
+  const currentBalance = balance ?? Number(account.initial_balance);
   return (
     <Card className={account.is_active ? "" : "opacity-60"}>
       <CardContent className="p-5">
@@ -42,9 +44,12 @@ export function AccountCard({ account, onEdit, onToggleActive, toggling }: Accou
 
             <div className="mt-4 flex items-end justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">Saldo Inicial</p>
+                <p className="text-xs text-muted-foreground">Saldo atual</p>
                 <p className="text-lg font-semibold tabular-nums">
-                  {formatCurrency(Number(account.initial_balance), account.currency)}
+                  {formatCurrency(currentBalance, account.currency)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Inicial: {formatCurrency(Number(account.initial_balance), account.currency)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
