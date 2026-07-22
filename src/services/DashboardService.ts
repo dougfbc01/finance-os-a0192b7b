@@ -146,12 +146,5 @@ class DashboardServiceImpl extends BaseService {
   }
 }
 
-// Helper local para evitar import cíclico ao usar impactOnAccount estático.
-function MovementServiceImpactOnAccount(m: Movement, accountId: UUID) {
-  return MovementService.constructor.prototype
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (MovementService as any).constructor.impactOnAccount(m, accountId)
-    : 0;
-}
 
 export const DashboardService = new DashboardServiceImpl();
