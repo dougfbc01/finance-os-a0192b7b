@@ -36,13 +36,6 @@ const navItems: NavItem[] = [
   { title: "Contas", url: ROUTES.CONTAS, icon: Wallet },
   { title: "Categorias", url: ROUTES.CATEGORIAS, icon: Tags },
   { title: "Movimentações", url: ROUTES.MOVIMENTACOES, icon: ArrowLeftRight },
-import { APP_NAME, ROUTES } from "@/constants";
-import type { NavItem } from "@/types";
-
-const navItems: NavItem[] = [
-  { title: "Dashboard", url: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { title: "Contas", url: ROUTES.CONTAS, icon: Wallet },
-  { title: "Movimentações", url: ROUTES.MOVIMENTACOES, icon: ArrowLeftRight },
   { title: "Cartões", url: ROUTES.CARTOES, icon: CreditCard },
   { title: "Investimentos", url: ROUTES.INVESTIMENTOS, icon: TrendingUp },
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
