@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountCard, AccountFormDialog } from "@/components/accounts";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts, useToggleAccountActive } from "@/hooks/useAccounts";
+import { useAccountBalances } from "@/hooks/useDashboard";
 import type { Account } from "@/models";
 
 type Filter = "all" | "active" | "inactive";
@@ -26,6 +27,7 @@ function ContasPage() {
   const { data: workspace, isLoading: loadingWs } = useWorkspace();
   const workspaceId = workspace?.id;
   const { data: accounts = [], isLoading } = useAccounts(workspaceId);
+  const { balances } = useAccountBalances();
   const toggleMut = useToggleAccountActive();
 
   const [search, setSearch] = useState("");
@@ -43,14 +45,8 @@ function ContasPage() {
     });
   }, [accounts, search, filter]);
 
-  const openNew = () => {
-    setEditing(null);
-    setDialogOpen(true);
-  };
-  const openEdit = (account: Account) => {
-    setEditing(account);
-    setDialogOpen(true);
-  };
+  const openNew = () => { setEditing(null); setDialogOpen(true); };
+  const openEdit = (account: Account) => { setEditing(account); setDialogOpen(true); };
   const handleToggle = async (account: Account, next: boolean) => {
     try {
       await toggleMut.mutateAsync({ id: account.id, isActive: next });
@@ -116,6 +112,7 @@ function ContasPage() {
             <AccountCard
               key={account.id}
               account={account}
+              balance={balances[account.id]}
               onEdit={openEdit}
               onToggleActive={handleToggle}
               toggling={toggleMut.isPending}

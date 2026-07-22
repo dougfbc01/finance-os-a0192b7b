@@ -24,3 +24,4 @@ export interface Profile {
 
 export * from "./Account";
 export * from "./Category";
+export * from "./Movement";
