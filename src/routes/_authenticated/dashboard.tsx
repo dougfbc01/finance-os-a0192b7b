@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { DashboardGrid, dashboardWidgets } from "@/components/dashboard";
+import { APP_NAME } from "@/constants";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -12,9 +14,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <h1 className="text-4xl font-bold tracking-tight">Finance OS</h1>
-      <p className="mt-3 text-muted-foreground">Bem-vindo ao Finance OS</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">{APP_NAME}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Bem-vindo ao Finance OS</p>
+      </div>
+      <DashboardGrid widgets={dashboardWidgets} />
     </div>
   );
 }
