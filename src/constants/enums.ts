@@ -34,6 +34,13 @@ export enum MovementType {
   TRANSFER = "transfer",
 }
 
+export enum CategoryType {
+  INCOME = "INCOME",
+  EXPENSE = "EXPENSE",
+  TRANSFER = "TRANSFER",
+  INVESTMENT = "INVESTMENT",
+}
+
 export enum MovementStatus {
   PENDING = "pending",
   CLEARED = "cleared",
