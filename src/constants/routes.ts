@@ -5,6 +5,7 @@ export const ROUTES = {
   AUTH_RESET_PASSWORD: "/auth/reset-password",
   DASHBOARD: "/dashboard",
   CONTAS: "/contas",
+  CATEGORIAS: "/categorias",
   MOVIMENTACOES: "/movimentacoes",
   CARTOES: "/cartoes",
   INVESTIMENTOS: "/investimentos",
