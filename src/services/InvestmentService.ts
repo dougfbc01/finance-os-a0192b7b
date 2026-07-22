@@ -1,3 +1,7 @@
 // InvestmentService
 // Regras de investimentos. Sprint futura.
-export const InvestmentService = {};
+import { BaseService } from "./BaseService";
+
+class InvestmentServiceImpl extends BaseService {}
+
+export const InvestmentService = new InvestmentServiceImpl();

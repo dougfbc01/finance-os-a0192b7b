@@ -9,8 +9,10 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AuthLayout } from "@/components/layouts";
+import { ROUTES } from "@/constants";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -42,33 +44,27 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+      if (data.session) navigate({ to: ROUTES.DASHBOARD, replace: true });
     });
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Finance OS</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sua vida financeira, organizada.</p>
-        </div>
-        <Card>
-          <Tabs defaultValue="signin">
-            <CardHeader>
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-            <CardContent>
-              <TabsContent value="signin"><SignInForm /></TabsContent>
-              <TabsContent value="signup"><SignUpForm /></TabsContent>
-            </CardContent>
-          </Tabs>
-        </Card>
-      </div>
-    </div>
+    <AuthLayout>
+      <Card>
+        <Tabs defaultValue="signin">
+          <CardHeader>
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="signin">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+            </TabsList>
+          </CardHeader>
+          <CardContent>
+            <TabsContent value="signin"><SignInForm /></TabsContent>
+            <TabsContent value="signup"><SignUpForm /></TabsContent>
+          </CardContent>
+        </Tabs>
+      </Card>
+    </AuthLayout>
   );
 }
 

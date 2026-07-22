@@ -1,3 +1,7 @@
 // AccountService
 // Regras de contas financeiras. Será implementado em sprint futura.
-export const AccountService = {};
+import { BaseService } from "./BaseService";
+
+class AccountServiceImpl extends BaseService {}
+
+export const AccountService = new AccountServiceImpl();

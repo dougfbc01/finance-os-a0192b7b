@@ -1,3 +1,7 @@
 // MovementService
 // Regras de movimentações (receitas, despesas, transferências). Sprint futura.
-export const MovementService = {};
+import { BaseService } from "./BaseService";
+
+class MovementServiceImpl extends BaseService {}
+
+export const MovementService = new MovementServiceImpl();
