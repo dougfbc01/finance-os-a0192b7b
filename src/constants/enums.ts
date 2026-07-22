@@ -2,12 +2,31 @@
 // Ainda não utilizados — servem de contrato para as sprints futuras.
 
 export enum AccountType {
-  CHECKING = "checking",
-  SAVINGS = "savings",
-  CASH = "cash",
-  INVESTMENT = "investment",
-  OTHER = "other",
+  CHECKING = "CHECKING",
+  SAVINGS = "SAVINGS",
+  DIGITAL = "DIGITAL",
+  WALLET = "WALLET",
+  BROKER = "BROKER",
+  CASH = "CASH",
+  INTERNATIONAL = "INTERNATIONAL",
+  OTHER = "OTHER",
 }
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  [AccountType.CHECKING]: "Conta Corrente",
+  [AccountType.SAVINGS]: "Conta Poupança",
+  [AccountType.DIGITAL]: "Conta Digital",
+  [AccountType.WALLET]: "Carteira",
+  [AccountType.BROKER]: "Corretora",
+  [AccountType.CASH]: "Dinheiro em Espécie",
+  [AccountType.INTERNATIONAL]: "Conta Internacional",
+  [AccountType.OTHER]: "Outro",
+};
+
+export const ACCOUNT_TYPE_OPTIONS = Object.values(AccountType).map((v) => ({
+  value: v,
+  label: ACCOUNT_TYPE_LABELS[v],
+}));
 
 export enum MovementType {
   INCOME = "income",
