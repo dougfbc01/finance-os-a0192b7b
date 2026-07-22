@@ -84,6 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Plataforma de gestão financeira pessoal e patrimonial." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Finance OS" },
+      { name: "twitter:description", content: "Plataforma de gestão financeira pessoal e patrimonial." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a6851d86-8863-4ab2-8fda-0397f4ba6f72" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a6851d86-8863-4ab2-8fda-0397f4ba6f72" },
     ],
     links: [
       {
