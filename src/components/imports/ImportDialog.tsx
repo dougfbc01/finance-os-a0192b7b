@@ -204,12 +204,12 @@ export function ImportDialog({
               <Stat label="Receitas" value={preview.totals.incomes} />
               <Stat label="Despesas" value={preview.totals.expenses} />
             </div>
-            {preview.existingImport && (
+            {preview.existingImport ? (
               <div className="flex items-center gap-2 text-amber-600 text-sm">
                 <RefreshCw className="h-4 w-4" />
                 Arquivo já importado anteriormente — apenas registros novos serão gravados.
               </div>
-            )}
+            ) : null}
             <ScrollArea className="h-72 border rounded">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-muted/60">
