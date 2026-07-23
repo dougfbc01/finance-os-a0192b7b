@@ -126,6 +126,78 @@ export type Database = {
           },
         ]
       }
+      imports: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          duplicated_rows: number
+          file_hash: string
+          file_name: string
+          id: string
+          ignored_rows: number
+          imported_at: string
+          imported_by: string | null
+          imported_rows: number
+          log: Json
+          source: Database["public"]["Enums"]["import_source"]
+          status: Database["public"]["Enums"]["import_status"]
+          total_rows: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          duplicated_rows?: number
+          file_hash: string
+          file_name: string
+          id?: string
+          ignored_rows?: number
+          imported_at?: string
+          imported_by?: string | null
+          imported_rows?: number
+          log?: Json
+          source: Database["public"]["Enums"]["import_source"]
+          status?: Database["public"]["Enums"]["import_status"]
+          total_rows?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          duplicated_rows?: number
+          file_hash?: string
+          file_name?: string
+          id?: string
+          ignored_rows?: number
+          imported_at?: string
+          imported_by?: string | null
+          imported_rows?: number
+          log?: Json
+          source?: Database["public"]["Enums"]["import_source"]
+          status?: Database["public"]["Enums"]["import_status"]
+          total_rows?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imports_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imports_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movements: {
         Row: {
           account_id: string | null
@@ -139,6 +211,7 @@ export type Database = {
           deleted_at: string | null
           description: string
           due_date: string | null
+          duplicate_hash: string | null
           id: string
           import_id: string | null
           notes: string | null
@@ -164,6 +237,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string
           due_date?: string | null
+          duplicate_hash?: string | null
           id?: string
           import_id?: string | null
           notes?: string | null
@@ -189,6 +263,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string
           due_date?: string | null
+          duplicate_hash?: string | null
           id?: string
           import_id?: string | null
           notes?: string | null
@@ -215,6 +290,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
             referencedColumns: ["id"]
           },
           {
@@ -369,6 +451,13 @@ export type Database = {
         | "INTERNATIONAL"
         | "OTHER"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
+      import_source: "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL"
+      import_status:
+        | "PENDING"
+        | "PROCESSING"
+        | "COMPLETED"
+        | "FAILED"
+        | "PARTIAL"
       movement_status: "PENDING" | "CLEARED" | "RECONCILED"
       movement_type:
         | "INCOME"
@@ -520,6 +609,14 @@ export const Constants = {
         "OTHER",
       ],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
+      import_source: ["NUBANK_ACCOUNT", "NUBANK_CREDIT_CARD", "OFX", "MANUAL"],
+      import_status: [
+        "PENDING",
+        "PROCESSING",
+        "COMPLETED",
+        "FAILED",
+        "PARTIAL",
+      ],
       movement_status: ["PENDING", "CLEARED", "RECONCILED"],
       movement_type: [
         "INCOME",
