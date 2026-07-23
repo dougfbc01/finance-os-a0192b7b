@@ -27,6 +27,7 @@ import {
   Settings,
   LogOut,
   Tags,
+  Upload,
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import type { NavItem } from "@/types";

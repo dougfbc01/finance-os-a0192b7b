@@ -13,6 +13,7 @@ export const ROUTES = {
   PLANEJAMENTO: "/planejamento",
   RELATORIOS: "/relatorios",
   CONFIGURACOES: "/configuracoes",
+  IMPORTACOES: "/importacoes",
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
