@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { title: "Contas", url: ROUTES.CONTAS, icon: Wallet },
   { title: "Categorias", url: ROUTES.CATEGORIAS, icon: Tags },
   { title: "Movimentações", url: ROUTES.MOVIMENTACOES, icon: ArrowLeftRight },
+  { title: "Importações", url: ROUTES.IMPORTACOES, icon: Upload },
   { title: "Cartões", url: ROUTES.CARTOES, icon: CreditCard },
   { title: "Investimentos", url: ROUTES.INVESTIMENTOS, icon: TrendingUp },
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
