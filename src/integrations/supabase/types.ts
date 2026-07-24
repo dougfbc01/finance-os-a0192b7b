@@ -126,6 +126,73 @@ export type Database = {
           },
         ]
       }
+      classification_rules: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          deleted_at: string | null
+          enabled: boolean
+          id: string
+          last_matched_at: string | null
+          match_count: number
+          priority: number
+          subcategory_id: string | null
+          text_pattern: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          id?: string
+          last_matched_at?: string | null
+          match_count?: number
+          priority?: number
+          subcategory_id?: string | null
+          text_pattern: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          id?: string
+          last_matched_at?: string | null
+          match_count?: number
+          priority?: number
+          subcategory_id?: string | null
+          text_pattern?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imports: {
         Row: {
           account_id: string | null
