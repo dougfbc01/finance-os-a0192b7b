@@ -157,6 +157,40 @@ class MovementServiceImpl extends BaseService {
   }
 
   // ---------------------------------------------------------------------------
+  // Operações em massa
+  // ---------------------------------------------------------------------------
+
+  async bulkSoftDelete(ids: UUID[]): Promise<void> {
+    if (!ids.length) return;
+    const { error } = await this.client
+      .from(this.table)
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .in("id", ids);
+    if (error) this.handleError(error, "bulkSoftDelete");
+  }
+
+  async bulkUpdate(
+    ids: UUID[],
+    patch: Partial<{
+      category_id: UUID | null;
+      subcategory_id: UUID | null;
+      status: MovementStatus;
+    }>,
+  ): Promise<void> {
+    if (!ids.length) return;
+    const clean: Row = {};
+    if (patch.category_id !== undefined) clean.category_id = patch.category_id;
+    if (patch.subcategory_id !== undefined) clean.subcategory_id = patch.subcategory_id;
+    if (patch.status !== undefined) clean.status = patch.status;
+    if (!Object.keys(clean).length) return;
+    const { error } = await this.client
+      .from(this.table)
+      .update(clean as never)
+      .in("id", ids);
+    if (error) this.handleError(error, "bulkUpdate");
+  }
+
+  // ---------------------------------------------------------------------------
   // Derivados
   // ---------------------------------------------------------------------------
 
