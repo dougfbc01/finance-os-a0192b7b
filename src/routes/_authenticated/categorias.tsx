@@ -52,10 +52,13 @@ function CategoriasPage() {
     const term = search.trim().toLowerCase();
     return categories.filter((c) => {
       if (filter !== "all" && c.type !== filter) return false;
-      if (term && !c.name.toLowerCase().includes(term)) return false;
-      return true;
+      if (!term) return true;
+      if (c.name.toLowerCase().includes(term)) return true;
+      // Também casa se qualquer subcategoria contiver o termo.
+      const subs = subcategories.filter((s) => s.category_id === c.id);
+      return subs.some((s) => s.name.toLowerCase().includes(term));
     });
-  }, [categories, search, filter]);
+  }, [categories, subcategories, search, filter]);
 
   const subsByCategory = useMemo(() => {
     const map = new Map<string, Subcategory[]>();
