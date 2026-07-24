@@ -28,6 +28,8 @@ import {
   LogOut,
   Tags,
   Upload,
+  Shuffle,
+  Sparkles,
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import type { NavItem } from "@/types";
@@ -37,7 +39,9 @@ const navItems: NavItem[] = [
   { title: "Contas", url: ROUTES.CONTAS, icon: Wallet },
   { title: "Categorias", url: ROUTES.CATEGORIAS, icon: Tags },
   { title: "Movimentações", url: ROUTES.MOVIMENTACOES, icon: ArrowLeftRight },
+  { title: "Transf. Pendentes", url: ROUTES.TRANSFERENCIAS_PENDENTES, icon: Shuffle },
   { title: "Importações", url: ROUTES.IMPORTACOES, icon: Upload },
+  { title: "Regras", url: ROUTES.REGRAS, icon: Sparkles },
   { title: "Cartões", url: ROUTES.CARTOES, icon: CreditCard },
   { title: "Investimentos", url: ROUTES.INVESTIMENTOS, icon: TrendingUp },
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
