@@ -56,3 +56,25 @@ export function useDeleteMovement() {
     onSuccess: () => invalidate(qc),
   });
 }
+
+export function useBulkDeleteMovements() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: UUID[]) => MovementService.bulkSoftDelete(ids),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useBulkUpdateMovements() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ids,
+      patch,
+    }: {
+      ids: UUID[];
+      patch: Parameters<typeof MovementService.bulkUpdate>[1];
+    }) => MovementService.bulkUpdate(ids, patch),
+    onSuccess: () => invalidate(qc),
+  });
+}

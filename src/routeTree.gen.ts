@@ -14,7 +14,9 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as AuthenticatedTransferenciasPendentesRouteImport } from './routes/_authenticated/transferencias-pendentes'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedRegrasRouteImport } from './routes/_authenticated/regras'
 import { Route as AuthenticatedPlanejamentoRouteImport } from './routes/_authenticated/planejamento'
 import { Route as AuthenticatedPatrimonioRouteImport } from './routes/_authenticated/patrimonio'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
@@ -50,9 +52,20 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthenticatedTransferenciasPendentesRoute =
+  AuthenticatedTransferenciasPendentesRouteImport.update({
+    id: '/transferencias-pendentes',
+    path: '/transferencias-pendentes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRegrasRoute = AuthenticatedRegrasRouteImport.update({
+  id: '/regras',
+  path: '/regras',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPlanejamentoRoute =
@@ -124,7 +137,9 @@ export interface FileRoutesByFullPath {
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
   '/patrimonio': typeof AuthenticatedPatrimonioRoute
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
+  '/regras': typeof AuthenticatedRegrasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
 }
@@ -141,7 +156,9 @@ export interface FileRoutesByTo {
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
   '/patrimonio': typeof AuthenticatedPatrimonioRoute
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
+  '/regras': typeof AuthenticatedRegrasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
 }
@@ -160,7 +177,9 @@ export interface FileRoutesById {
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
   '/_authenticated/patrimonio': typeof AuthenticatedPatrimonioRoute
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
+  '/_authenticated/regras': typeof AuthenticatedRegrasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
 }
@@ -179,7 +198,9 @@ export interface FileRouteTypes {
     | '/movimentacoes'
     | '/patrimonio'
     | '/planejamento'
+    | '/regras'
     | '/relatorios'
+    | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
   fileRoutesByTo: FileRoutesByTo
@@ -196,7 +217,9 @@ export interface FileRouteTypes {
     | '/movimentacoes'
     | '/patrimonio'
     | '/planejamento'
+    | '/regras'
     | '/relatorios'
+    | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
   id:
@@ -214,7 +237,9 @@ export interface FileRouteTypes {
     | '/_authenticated/movimentacoes'
     | '/_authenticated/patrimonio'
     | '/_authenticated/planejamento'
+    | '/_authenticated/regras'
     | '/_authenticated/relatorios'
+    | '/_authenticated/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
   fileRoutesById: FileRoutesById
@@ -262,11 +287,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_authenticated/transferencias-pendentes': {
+      id: '/_authenticated/transferencias-pendentes'
+      path: '/transferencias-pendentes'
+      fullPath: '/transferencias-pendentes'
+      preLoaderRoute: typeof AuthenticatedTransferenciasPendentesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/relatorios': {
       id: '/_authenticated/relatorios'
       path: '/relatorios'
       fullPath: '/relatorios'
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/regras': {
+      id: '/_authenticated/regras'
+      path: '/regras'
+      fullPath: '/regras'
+      preLoaderRoute: typeof AuthenticatedRegrasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/planejamento': {
@@ -353,7 +392,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
   AuthenticatedPatrimonioRoute: typeof AuthenticatedPatrimonioRoute
   AuthenticatedPlanejamentoRoute: typeof AuthenticatedPlanejamentoRoute
+  AuthenticatedRegrasRoute: typeof AuthenticatedRegrasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedTransferenciasPendentesRoute: typeof AuthenticatedTransferenciasPendentesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -367,7 +408,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,
   AuthenticatedPatrimonioRoute: AuthenticatedPatrimonioRoute,
   AuthenticatedPlanejamentoRoute: AuthenticatedPlanejamentoRoute,
+  AuthenticatedRegrasRoute: AuthenticatedRegrasRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedTransferenciasPendentesRoute:
+    AuthenticatedTransferenciasPendentesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -393,13 +437,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

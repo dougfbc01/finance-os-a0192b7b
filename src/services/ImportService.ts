@@ -3,6 +3,7 @@
 import { BaseService } from "./BaseService";
 import { ImporterFactory } from "./importers/ImporterFactory";
 import { ImportHistoryService } from "./ImportHistoryService";
+import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./ClassificationRuleService";
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
 import type { Account, UUID } from "@/models";
@@ -62,8 +63,11 @@ class ImportServiceImpl extends BaseService {
   async buildPreview(params: BuildPreviewParams): Promise<PreviewResult & { existingImport: ImportRecord | null }> {
     const importer = ImporterFactory.create(params.source);
     const fileHash = computeFileHash(params.fileText);
-    const existingHashes = await this.loadExistingHashes(params.workspaceId);
-    const existingImport = await ImportHistoryService.findByHash(params.workspaceId, fileHash);
+    const [existingHashes, existingImport, rules] = await Promise.all([
+      this.loadExistingHashes(params.workspaceId),
+      ImportHistoryService.findByHash(params.workspaceId, fileHash),
+      ClassificationRuleService.list(params.workspaceId),
+    ]);
 
     const preview = await importer.preview(
       params.fileText,
@@ -77,6 +81,18 @@ class ImportServiceImpl extends BaseService {
       params.fileName,
       fileHash,
     );
+
+    // Aplica regras de classificação: só sobrescreve quando a linha ainda não
+    // possui categoria manual do próprio importador.
+    for (const row of preview.rows) {
+      if (row.category_id) continue;
+      const match = ClassificationRuleServiceImpl.match(row.description, rules);
+      if (match) {
+        row.category_id = match.category_id;
+        row.subcategory_id = match.subcategory_id;
+      }
+    }
+
     return { ...preview, existingImport };
   }
 

@@ -14,6 +14,8 @@ export const ROUTES = {
   RELATORIOS: "/relatorios",
   CONFIGURACOES: "/configuracoes",
   IMPORTACOES: "/importacoes",
+  TRANSFERENCIAS_PENDENTES: "/transferencias-pendentes",
+  REGRAS: "/regras",
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

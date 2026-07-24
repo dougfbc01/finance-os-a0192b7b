@@ -7,3 +7,7 @@ export { ImportService } from "./ImportService";
 export { ImportHistoryService } from "./ImportHistoryService";
 export { DashboardService } from "./DashboardService";
 export { ImporterFactory, IMPORTER_LABELS, IMPORTER_OPTIONS } from "./importers/ImporterFactory";
+export { ClassificationRuleService } from "./ClassificationRuleService";
+export { ReconciliationService } from "./ReconciliationService";
+export { CategoryService } from "./CategoryService";
+export { SubcategoryService } from "./SubcategoryService";

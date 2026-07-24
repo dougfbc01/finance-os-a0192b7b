@@ -1,10 +1,11 @@
+import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Pencil } from "lucide-react";
+import { Pencil, ArrowRight } from "lucide-react";
 import type { Account } from "@/models";
-import { ACCOUNT_TYPE_LABELS } from "@/constants";
+import { ACCOUNT_TYPE_LABELS, ROUTES } from "@/constants";
 import { getAccountIcon } from "@/lib/account-icons";
 import { formatCurrency } from "@/lib/format";
 
@@ -65,7 +66,16 @@ export function AccountCard({ account, balance, onEdit, onToggleActive, toggling
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex justify-between items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  to={ROUTES.MOVIMENTACOES}
+                  search={{ account: account.id } as never}
+                >
+                  Ver extrato
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => onEdit(account)}>
                 <Pencil className="mr-1 h-3.5 w-3.5" />
                 Editar
