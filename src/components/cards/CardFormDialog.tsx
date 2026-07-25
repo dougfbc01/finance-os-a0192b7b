@@ -106,7 +106,7 @@ export function CardFormDialog({ open, onOpenChange, workspaceId, accounts, card
             closing_day: values.closing_day,
             due_day: values.due_day,
             account_id: values.account_id || null,
-            color: values.color,
+            color: values.color ?? "#6366F1",
             notes: values.notes || null,
           },
         });
@@ -122,7 +122,7 @@ export function CardFormDialog({ open, onOpenChange, workspaceId, accounts, card
           credit_limit: values.credit_limit,
           closing_day: values.closing_day,
           due_day: values.due_day,
-          color: values.color,
+          color: values.color ?? "#6366F1",
           notes: values.notes || null,
         });
         toast.success("Cartão criado.");
