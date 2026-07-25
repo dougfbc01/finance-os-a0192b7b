@@ -4,9 +4,12 @@ import { BaseService } from "./BaseService";
 import { ImporterFactory } from "./importers/ImporterFactory";
 import { ImportHistoryService } from "./ImportHistoryService";
 import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./ClassificationRuleService";
+import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
+import { CardService } from "./CardService";
+import { CardInvoiceService } from "./CardInvoiceService";
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
-import type { Account, UUID } from "@/models";
+import type { Account, Movement, UUID } from "@/models";
 import type { ImportRecord, ImportSource, ImportLogEntry } from "@/models/Import";
 import { MovementStatus } from "@/constants/enums";
 
@@ -16,6 +19,7 @@ export interface BuildPreviewParams {
   fileText: string;
   workspaceId: UUID;
   accountId: UUID | null;
+  cardId?: UUID | null;
   accounts: Account[];
   defaults: ImportContext["defaults"];
 }
@@ -24,6 +28,7 @@ export interface CommitParams {
   preview: PreviewResult;
   workspaceId: UUID;
   accountId: UUID | null;
+  cardId?: UUID | null;
   importedBy: UUID | null;
   /** Índices das linhas a importar (por padrão, todas as válidas e não duplicadas). */
   selectedIndexes?: number[];
@@ -34,6 +39,7 @@ export interface CommitResult {
   inserted: number;
   duplicated: number;
   ignored: number;
+  autoReconciled: number;
 }
 
 class ImportServiceImpl extends BaseService {
