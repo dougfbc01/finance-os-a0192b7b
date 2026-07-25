@@ -8,6 +8,7 @@ import type { ImportSource } from "@/models/Import";
 export interface ImportContext {
   workspaceId: UUID;
   accountId: UUID | null; // conta destino da importação (obrigatório para conta bancária)
+  cardId?: UUID | null; // para importações de fatura de cartão
   accounts: Account[];
   defaults: {
     categoryId: UUID | null;
@@ -28,6 +29,7 @@ export interface PreviewRow {
   type: MovementType;
   status: MovementStatus;
   account_id: UUID | null;
+  card_id: UUID | null;
   transfer_account_id: UUID | null;
   category_id: UUID | null;
   subcategory_id: UUID | null;

@@ -57,7 +57,7 @@ class ReconciliationServiceImpl extends BaseService {
         .map((m) => ({ m, diff: daysBetween(m.transaction_date, out.transaction_date) }))
         .sort((a, b) => a.diff - b.diff)[0];
       const confidence: TransferCandidate["confidence"] =
-        matches.length === 1 && best.diff <= 1
+        matches.length === 1 && best.diff <= 2
           ? "high"
           : matches.length === 1
             ? "medium"
