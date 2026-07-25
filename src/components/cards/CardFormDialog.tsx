@@ -40,7 +40,7 @@ const schema = z.object({
   closing_day: z.coerce.number().int().min(1).max(31),
   due_day: z.coerce.number().int().min(1).max(31),
   account_id: z.string().nullable().optional(),
-  color: z.string().default("#6366F1"),
+  color: z.string().optional(),
   notes: z.string().optional(),
 });
 
