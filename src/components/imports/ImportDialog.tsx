@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/format";
 import { IMPORTER_OPTIONS, ImporterFactory } from "@/services/importers/ImporterFactory";
 import { useBuildImportPreview, useCommitImport } from "@/hooks/useImports";
+import { useCards } from "@/hooks/useCards";
 import type { Account, UUID } from "@/models";
 import type { ImportSource } from "@/models/Import";
 import type { PreviewResult } from "@/services/importers/types";
@@ -52,6 +53,7 @@ export function ImportDialog({
   const [step, setStep] = useState<Step>("select");
   const [source, setSource] = useState<ImportSource>("NUBANK_ACCOUNT");
   const [accountId, setAccountId] = useState<string>("");
+  const [cardId, setCardId] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [fileText, setFileText] = useState<string>("");
   const [preview, setPreview] = useState<(PreviewResult & { existingImport: unknown | null }) | null>(null);
@@ -59,6 +61,8 @@ export function ImportDialog({
 
   const buildPreview = useBuildImportPreview();
   const commit = useCommitImport();
+  const { data: cards = [] } = useCards(workspaceId);
+  const isCardSource = source === "NUBANK_CREDIT_CARD";
 
   const reset = () => {
     setStep("select");
@@ -66,6 +70,7 @@ export function ImportDialog({
     setFileText("");
     setPreview(null);
     setAccountId("");
+    setCardId("");
     setReimport(false);
   };
 
@@ -78,14 +83,17 @@ export function ImportDialog({
 
   const handleGeneratePreview = async () => {
     if (!fileText) { toast.error("Selecione um arquivo."); return; }
-    if (!accountId) { toast.error("Selecione a conta destino."); return; }
+    if (isCardSource) {
+      if (!cardId) { toast.error("Selecione o cartão."); return; }
+    } else if (!accountId) { toast.error("Selecione a conta destino."); return; }
     try {
       const p = await buildPreview.mutateAsync({
         source,
         fileName,
         fileText,
         workspaceId,
-        accountId,
+        accountId: isCardSource ? null : accountId,
+        cardId: isCardSource ? cardId : null,
         accounts,
         defaults: { categoryId: defaultCategoryId, subcategoryId: defaultSubcategoryId },
       });
@@ -105,10 +113,12 @@ export function ImportDialog({
       const res = await commit.mutateAsync({
         preview,
         workspaceId,
-        accountId,
+        accountId: isCardSource ? null : accountId,
+        cardId: isCardSource ? cardId : null,
         importedBy: userId,
       });
-      toast.success(`Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.`);
+      const extra = res.autoReconciled ? ` · ${res.autoReconciled} transferência(s) conciliada(s).` : "";
+      toast.success(`Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.${extra}`);
       setStep("done");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao importar");
@@ -168,15 +178,26 @@ export function ImportDialog({
                 </Select>
               </div>
               <div>
-                <Label>Conta destino</Label>
-                <Select value={accountId} onValueChange={setAccountId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
-                  <SelectContent>
-                    {accounts.filter((a) => a.is_active).map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{isCardSource ? "Cartão" : "Conta destino"}</Label>
+                {isCardSource ? (
+                  <Select value={cardId} onValueChange={setCardId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o cartão" /></SelectTrigger>
+                    <SelectContent>
+                      {cards.filter((c) => c.is_active).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                    <SelectContent>
+                      {accounts.filter((a) => a.is_active).map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 

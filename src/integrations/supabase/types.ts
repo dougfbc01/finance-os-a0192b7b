@@ -73,6 +73,164 @@ export type Database = {
           },
         ]
       }
+      card_invoices: {
+        Row: {
+          amount: number
+          card_id: string
+          closing_date: string
+          competence: string
+          created_at: string
+          deleted_at: string | null
+          due_date: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_movement_id: string | null
+          status: Database["public"]["Enums"]["card_invoice_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          amount?: number
+          card_id: string
+          closing_date: string
+          competence: string
+          created_at?: string
+          deleted_at?: string | null
+          due_date: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_movement_id?: string | null
+          status?: Database["public"]["Enums"]["card_invoice_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          card_id?: string
+          closing_date?: string
+          competence?: string
+          created_at?: string
+          deleted_at?: string | null
+          due_date?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_movement_id?: string | null
+          status?: Database["public"]["Enums"]["card_invoice_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_invoices_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_invoices_paid_movement_id_fkey"
+            columns: ["paid_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_invoices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cards: {
+        Row: {
+          account_id: string | null
+          brand: string | null
+          closing_day: number
+          color: string
+          created_at: string
+          credit_limit: number
+          deleted_at: string | null
+          display_order: number
+          due_day: number
+          holder_name: string | null
+          id: string
+          is_active: boolean
+          last_digits: string | null
+          name: string
+          notes: string | null
+          parent_card_id: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          brand?: string | null
+          closing_day: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          deleted_at?: string | null
+          display_order?: number
+          due_day: number
+          holder_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_digits?: string | null
+          name: string
+          notes?: string | null
+          parent_card_id?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string | null
+          brand?: string | null
+          closing_day?: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          deleted_at?: string | null
+          display_order?: number
+          due_day?: number
+          holder_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_digits?: string | null
+          name?: string
+          notes?: string | null
+          parent_card_id?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cards_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cards_parent_card_id_fkey"
+            columns: ["parent_card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cards_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           color: string
@@ -281,6 +439,7 @@ export type Database = {
           duplicate_hash: string | null
           id: string
           import_id: string | null
+          invoice_id: string | null
           notes: string | null
           status: Database["public"]["Enums"]["movement_status"]
           subcategory_id: string | null
@@ -307,6 +466,7 @@ export type Database = {
           duplicate_hash?: string | null
           id?: string
           import_id?: string | null
+          invoice_id?: string | null
           notes?: string | null
           status?: Database["public"]["Enums"]["movement_status"]
           subcategory_id?: string | null
@@ -333,6 +493,7 @@ export type Database = {
           duplicate_hash?: string | null
           id?: string
           import_id?: string | null
+          invoice_id?: string | null
           notes?: string | null
           status?: Database["public"]["Enums"]["movement_status"]
           subcategory_id?: string | null
@@ -364,6 +525,13 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "card_invoices"
             referencedColumns: ["id"]
           },
           {
@@ -517,6 +685,7 @@ export type Database = {
         | "CASH"
         | "INTERNATIONAL"
         | "OTHER"
+      card_invoice_status: "OPEN" | "CLOSED" | "PAID" | "OVERDUE"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
       import_source: "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL"
       import_status:
@@ -675,6 +844,7 @@ export const Constants = {
         "INTERNATIONAL",
         "OTHER",
       ],
+      card_invoice_status: ["OPEN", "CLOSED", "PAID", "OVERDUE"],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
       import_source: ["NUBANK_ACCOUNT", "NUBANK_CREDIT_CARD", "OFX", "MANUAL"],
       import_status: [

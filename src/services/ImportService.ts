@@ -4,9 +4,12 @@ import { BaseService } from "./BaseService";
 import { ImporterFactory } from "./importers/ImporterFactory";
 import { ImportHistoryService } from "./ImportHistoryService";
 import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./ClassificationRuleService";
+import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
+import { CardService } from "./CardService";
+import { CardInvoiceService } from "./CardInvoiceService";
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
-import type { Account, UUID } from "@/models";
+import type { Account, Movement, UUID } from "@/models";
 import type { ImportRecord, ImportSource, ImportLogEntry } from "@/models/Import";
 import { MovementStatus } from "@/constants/enums";
 
@@ -16,6 +19,7 @@ export interface BuildPreviewParams {
   fileText: string;
   workspaceId: UUID;
   accountId: UUID | null;
+  cardId?: UUID | null;
   accounts: Account[];
   defaults: ImportContext["defaults"];
 }
@@ -24,6 +28,7 @@ export interface CommitParams {
   preview: PreviewResult;
   workspaceId: UUID;
   accountId: UUID | null;
+  cardId?: UUID | null;
   importedBy: UUID | null;
   /** Índices das linhas a importar (por padrão, todas as válidas e não duplicadas). */
   selectedIndexes?: number[];
@@ -34,6 +39,7 @@ export interface CommitResult {
   inserted: number;
   duplicated: number;
   ignored: number;
+  autoReconciled: number;
 }
 
 class ImportServiceImpl extends BaseService {
@@ -74,6 +80,7 @@ class ImportServiceImpl extends BaseService {
       {
         workspaceId: params.workspaceId,
         accountId: params.accountId,
+        cardId: params.cardId ?? null,
         accounts: params.accounts,
         defaults: params.defaults,
         existingHashes,
@@ -102,7 +109,7 @@ class ImportServiceImpl extends BaseService {
    */
   async commit(params: CommitParams): Promise<CommitResult> {
     const t0 = Date.now();
-    const { preview, workspaceId, accountId, importedBy, selectedIndexes } = params;
+    const { preview, workspaceId, accountId, cardId, importedBy, selectedIndexes } = params;
 
     const record = await ImportHistoryService.create({
       workspace_id: workspaceId,
@@ -121,16 +128,30 @@ class ImportServiceImpl extends BaseService {
     let inserted = 0;
     let duplicated = 0;
     let ignored = 0;
+    const invoiceIds = new Set<UUID>();
 
     for (const row of preview.rows) {
       if (row.isInvalid) { ignored++; log.push({ level: "warn", message: `Linha ${row.index + 1} inválida: ${row.errors.join(", ")}`, at: new Date().toISOString(), row: row.index + 1 }); }
       else if (row.isDuplicate) { duplicated++; }
     }
 
+    // Se for importação de cartão, garante fatura correspondente por linha.
+    const card = cardId ? await CardService.getById(cardId) : null;
+    const rowInvoiceMap = new Map<number, UUID>();
+    if (card) {
+      for (const r of toInsert) {
+        const invId = await CardInvoiceService.ensureInvoice(card, r.transaction_date);
+        rowInvoiceMap.set(r.index, invId);
+        invoiceIds.add(invId);
+      }
+    }
+
     if (toInsert.length) {
       const payload = toInsert.map((r: PreviewRow) => ({
         workspace_id: workspaceId,
         account_id: r.account_id,
+        card_id: r.card_id ?? (card ? card.id : null),
+        invoice_id: rowInvoiceMap.get(r.index) ?? null,
         transfer_account_id: r.transfer_account_id,
         category_id: r.category_id,
         subcategory_id: r.subcategory_id,
@@ -154,7 +175,6 @@ class ImportServiceImpl extends BaseService {
           .insert(chunk as never)
           .select("id");
         if (error) {
-          // Conflito de hash único => marcar como duplicado; demais erros interrompem.
           const msg = String(error.message ?? error);
           if (/duplicate key/i.test(msg) || /movements_workspace_duphash_unique/i.test(msg)) {
             duplicated += chunk.length;
@@ -174,6 +194,30 @@ class ImportServiceImpl extends BaseService {
         }
         inserted += data?.length ?? chunk.length;
       }
+    }
+
+    // Recalcula os totais das faturas afetadas.
+    for (const invId of invoiceIds) {
+      try { await CardInvoiceService.recompute(invId); } catch { /* segue */ }
+    }
+
+    // Conciliação automática pós-importação (janela 2 dias, candidato único).
+    let autoReconciled = 0;
+    try {
+      const { data: mvs } = await this.client
+        .from("movements")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("transfer_group_id", null);
+      const list = ((mvs ?? []) as unknown as Movement[]).map((m) => ({ ...m, amount: Number(m.amount) }));
+      const highs = ReconciliationServiceImpl.findCandidates(list).filter((c) => c.confidence === "high");
+      autoReconciled = await ReconciliationService.applyMany(highs);
+      if (autoReconciled > 0) {
+        log.push({ level: "info", message: `${autoReconciled} transferência(s) conciliada(s) automaticamente.`, at: new Date().toISOString() });
+      }
+    } catch (e) {
+      log.push({ level: "warn", message: `Falha na conciliação automática: ${String((e as Error).message ?? e)}`, at: new Date().toISOString() });
     }
 
     const status = inserted === 0 && (duplicated > 0 || ignored > 0)
@@ -197,7 +241,7 @@ class ImportServiceImpl extends BaseService {
       log,
     });
 
-    return { importRecord: finalized, inserted, duplicated, ignored };
+    return { importRecord: finalized, inserted, duplicated, ignored, autoReconciled };
   }
 }
 

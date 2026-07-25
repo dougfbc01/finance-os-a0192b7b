@@ -27,3 +27,5 @@ export * from "./Category";
 export * from "./Movement";
 export * from "./Import";
 export * from "./ClassificationRule";
+export * from "./Card";
+export * from "./CardInvoice";

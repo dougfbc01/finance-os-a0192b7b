@@ -16,6 +16,7 @@ export interface Movement {
   category_id: UUID | null;
   subcategory_id: UUID | null;
   card_id: UUID | null;
+  invoice_id: UUID | null;
   asset_id: UUID | null;
   import_id: UUID | null;
   transfer_group_id: UUID | null;

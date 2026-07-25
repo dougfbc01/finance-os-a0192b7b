@@ -81,6 +81,7 @@ export class NubankAccountImporter implements Importer {
         type,
         status: MovementStatus.CLEARED,
         account_id: ctx.accountId,
+        card_id: null,
         transfer_account_id: null,
         category_id: ctx.defaults.categoryId,
         subcategory_id: ctx.defaults.subcategoryId,
