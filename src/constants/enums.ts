@@ -114,6 +114,20 @@ export const MOVEMENT_STATUS_OPTIONS = Object.values(MovementStatus).map((v) => 
   label: MOVEMENT_STATUS_LABELS[v],
 }));
 
+export enum CardInvoiceStatus {
+  OPEN = "OPEN",
+  CLOSED = "CLOSED",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+}
+
+export const CARD_INVOICE_STATUS_LABELS: Record<CardInvoiceStatus, string> = {
+  [CardInvoiceStatus.OPEN]: "Aberta",
+  [CardInvoiceStatus.CLOSED]: "Fechada",
+  [CardInvoiceStatus.PAID]: "Paga",
+  [CardInvoiceStatus.OVERDUE]: "Atrasada",
+};
+
 export enum CardBrand {
   VISA = "visa",
   MASTERCARD = "mastercard",
