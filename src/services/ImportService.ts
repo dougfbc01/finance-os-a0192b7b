@@ -80,6 +80,7 @@ class ImportServiceImpl extends BaseService {
       {
         workspaceId: params.workspaceId,
         accountId: params.accountId,
+        cardId: params.cardId ?? null,
         accounts: params.accounts,
         defaults: params.defaults,
         existingHashes,
