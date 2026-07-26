@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Wallet, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Scale, PiggyBank, ShieldAlert } from "lucide-react";
 import { APP_NAME } from "@/constants";
 import {
   KpiWidget,
   BalanceEvolutionWidget,
   IncomeVsExpenseWidget,
   ExpensesByCategoryWidget,
+  NetWorthWidget,
+  LiabilitiesWidget,
 } from "@/components/dashboard/widgets";
 import { useDashboardData } from "@/hooks/useDashboard";
+import { usePatrimony } from "@/hooks/usePatrimony";
 import { useCategories } from "@/hooks/useCategories";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -29,6 +32,7 @@ function DashboardPage() {
     expensesByCategory,
     isLoading,
   } = useDashboardData();
+  const { snapshot, invoices } = usePatrimony();
   const { data: categories = [] } = useCategories(workspace?.id);
 
   return (
@@ -44,8 +48,23 @@ function DashboardPage() {
         <div className="text-sm text-muted-foreground">Carregando…</div>
       ) : (
         <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KpiWidget title="Saldo disponível" value={totalBalance} icon={Wallet} />
+            <KpiWidget
+              title="Patrimônio líquido"
+              value={snapshot.netWorth}
+              icon={PiggyBank}
+              tone={snapshot.netWorth >= 0 ? "positive" : "negative"}
+            />
+            <KpiWidget
+              title="Passivo de cartões"
+              value={snapshot.liabilities}
+              icon={ShieldAlert}
+              tone="negative"
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <KpiWidget title="Saldo total" value={totalBalance} icon={Wallet} />
             <KpiWidget title="Receitas do mês" value={monthSummary.income} icon={TrendingUp} tone="positive" />
             <KpiWidget title="Despesas do mês" value={monthSummary.expense} icon={TrendingDown} tone="negative" />
             <KpiWidget
@@ -54,6 +73,18 @@ function DashboardPage() {
               icon={Scale}
               tone={monthSummary.result >= 0 ? "positive" : "negative"}
             />
+            <KpiWidget
+              title="Investimentos declarados"
+              value={snapshot.assets}
+              icon={PiggyBank}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <NetWorthWidget snapshot={snapshot} />
+            </div>
+            <LiabilitiesWidget invoices={invoices} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -117,9 +117,11 @@ class DashboardServiceImpl extends BaseService {
     return points;
   }
 
-  /** Delta global de saldo (soma sobre todas as contas do workspace). */
+  /** Delta global de saldo bancário (soma sobre todas as contas do workspace). */
   private balanceDelta(m: Movement): number {
-    if (m.type === MovementType.TRANSFER) return 0; // não muda patrimônio global
+    if (m.type === MovementType.TRANSFER) return 0; // fluxo entre contas
+    // Compras no cartão não impactam caixa (viram passivo). Pagamento sim.
+    if (m.card_id && m.type !== MovementType.CARD_PAYMENT) return 0;
     if (INCOME_TYPES.includes(m.type)) return m.amount;
     if (EXPENSE_TYPES.includes(m.type)) return -m.amount;
     if (m.type === MovementType.INVESTMENT || m.type === MovementType.CARD_PAYMENT) return -m.amount;

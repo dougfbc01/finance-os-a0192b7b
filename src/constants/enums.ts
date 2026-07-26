@@ -151,3 +151,104 @@ export enum Currency {
   USD = "USD",
   EUR = "EUR",
 }
+
+// -----------------------------------------------------------------------------
+// Patrimônio / Ativos
+// -----------------------------------------------------------------------------
+export enum AssetType {
+  BANK = "BANK",
+  CASH = "CASH",
+  CDB = "CDB",
+  TESOURO = "TESOURO",
+  LCI = "LCI",
+  LCA = "LCA",
+  DEBENTURE = "DEBENTURE",
+  ACAO = "ACAO",
+  FII = "FII",
+  ETF = "ETF",
+  BDR = "BDR",
+  CRIPTO = "CRIPTO",
+  PREVIDENCIA = "PREVIDENCIA",
+  FUNDO = "FUNDO",
+  CAIXINHA = "CAIXINHA",
+  OUTRO = "OUTRO",
+}
+
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  [AssetType.BANK]: "Conta Bancária",
+  [AssetType.CASH]: "Dinheiro",
+  [AssetType.CDB]: "CDB",
+  [AssetType.TESOURO]: "Tesouro Direto",
+  [AssetType.LCI]: "LCI",
+  [AssetType.LCA]: "LCA",
+  [AssetType.DEBENTURE]: "Debêntures",
+  [AssetType.ACAO]: "Ações",
+  [AssetType.FII]: "FIIs",
+  [AssetType.ETF]: "ETFs",
+  [AssetType.BDR]: "BDRs",
+  [AssetType.CRIPTO]: "Criptomoedas",
+  [AssetType.PREVIDENCIA]: "Previdência",
+  [AssetType.FUNDO]: "Fundos",
+  [AssetType.CAIXINHA]: "Caixinha",
+  [AssetType.OUTRO]: "Outro",
+};
+
+export const ASSET_TYPE_OPTIONS = Object.values(AssetType).map((v) => ({
+  value: v,
+  label: ASSET_TYPE_LABELS[v],
+}));
+
+/** Classes que aparecem no dashboard de investimentos (exclui BANK/CASH/CAIXINHA/OUTRO). */
+export const INVESTMENT_ASSET_TYPES: AssetType[] = [
+  AssetType.CDB, AssetType.TESOURO, AssetType.LCI, AssetType.LCA, AssetType.DEBENTURE,
+  AssetType.ACAO, AssetType.FII, AssetType.ETF, AssetType.BDR, AssetType.CRIPTO,
+  AssetType.PREVIDENCIA, AssetType.FUNDO,
+];
+
+export enum AssetClassGroup {
+  CAIXA = "CAIXA",
+  RENDA_FIXA = "RENDA_FIXA",
+  RENDA_VARIAVEL = "RENDA_VARIAVEL",
+  FUNDOS = "FUNDOS",
+  CRIPTO = "CRIPTO",
+  PREVIDENCIA = "PREVIDENCIA",
+  OUTROS = "OUTROS",
+}
+
+export const ASSET_CLASS_GROUP_LABELS: Record<AssetClassGroup, string> = {
+  [AssetClassGroup.CAIXA]: "Caixa",
+  [AssetClassGroup.RENDA_FIXA]: "Renda Fixa",
+  [AssetClassGroup.RENDA_VARIAVEL]: "Renda Variável",
+  [AssetClassGroup.FUNDOS]: "Fundos",
+  [AssetClassGroup.CRIPTO]: "Cripto",
+  [AssetClassGroup.PREVIDENCIA]: "Previdência",
+  [AssetClassGroup.OUTROS]: "Outros",
+};
+
+export function assetTypeToGroup(t: AssetType): AssetClassGroup {
+  switch (t) {
+    case AssetType.BANK:
+    case AssetType.CASH:
+    case AssetType.CAIXINHA:
+      return AssetClassGroup.CAIXA;
+    case AssetType.CDB:
+    case AssetType.TESOURO:
+    case AssetType.LCI:
+    case AssetType.LCA:
+    case AssetType.DEBENTURE:
+      return AssetClassGroup.RENDA_FIXA;
+    case AssetType.ACAO:
+    case AssetType.FII:
+    case AssetType.ETF:
+    case AssetType.BDR:
+      return AssetClassGroup.RENDA_VARIAVEL;
+    case AssetType.FUNDO:
+      return AssetClassGroup.FUNDOS;
+    case AssetType.CRIPTO:
+      return AssetClassGroup.CRIPTO;
+    case AssetType.PREVIDENCIA:
+      return AssetClassGroup.PREVIDENCIA;
+    default:
+      return AssetClassGroup.OUTROS;
+  }
+}

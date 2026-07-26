@@ -196,8 +196,11 @@ class MovementServiceImpl extends BaseService {
 
   /**
    * Impacto de uma movimentação sobre o saldo de uma conta específica.
-   * TRANSFER debita da origem (account_id) e credita no destino
-   * (transfer_account_id). Demais tipos usam MOVEMENT_TYPE_SIGN.
+   * REGRA CONTÁBIL (Mega Sprint 3):
+   *  - Movimentos vinculados a um cartão (compras/estornos com card_id) NUNCA
+   *    afetam o saldo da conta bancária. Eles compõem o passivo da fatura.
+   *  - Somente CARD_PAYMENT (quitação de fatura) altera a conta.
+   *  - TRANSFER debita da origem e credita no destino.
    */
   static impactOnAccount(m: Movement, accountId: UUID): number {
     if (m.type === MovementType.TRANSFER) {
@@ -205,6 +208,8 @@ class MovementServiceImpl extends BaseService {
       if (m.transfer_account_id === accountId) return m.amount;
       return 0;
     }
+    // Compras no cartão: passivo, não caixa.
+    if (m.card_id && m.type !== MovementType.CARD_PAYMENT) return 0;
     if (m.account_id !== accountId) return 0;
     return MOVEMENT_TYPE_SIGN[m.type] * m.amount;
   }

@@ -9,9 +9,10 @@ interface KpiWidgetProps {
   currency?: string;
   icon?: LucideIcon;
   tone?: "default" | "positive" | "negative";
+  suffix?: string;
 }
 
-export function KpiWidget({ title, value, currency = "BRL", icon: Icon, tone = "default" }: KpiWidgetProps) {
+export function KpiWidget({ title, value, currency = "BRL", icon: Icon, tone = "default", suffix }: KpiWidgetProps) {
   const toneClass =
     tone === "positive" ? "text-emerald-600" : tone === "negative" ? "text-red-600" : "";
   return (
@@ -22,7 +23,7 @@ export function KpiWidget({ title, value, currency = "BRL", icon: Icon, tone = "
           {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
         </div>
         <p className={cn("mt-2 text-2xl font-semibold tabular-nums", toneClass)}>
-          {formatCurrency(value, currency)}
+          {suffix ? `${value.toLocaleString("pt-BR")}${suffix}` : formatCurrency(value, currency)}
         </p>
       </CardContent>
     </Card>
