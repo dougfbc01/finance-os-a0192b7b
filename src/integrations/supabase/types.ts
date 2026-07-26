@@ -73,6 +73,71 @@ export type Database = {
           },
         ]
       }
+      assets: {
+        Row: {
+          acquisition_date: string | null
+          acquisition_value: number
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          created_at: string
+          currency: string
+          current_value: number
+          deleted_at: string | null
+          id: string
+          institution: string | null
+          is_active: boolean
+          name: string
+          notes: string | null
+          quantity: number
+          unit_price: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          acquisition_date?: string | null
+          acquisition_value?: number
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          currency?: string
+          current_value?: number
+          deleted_at?: string | null
+          id?: string
+          institution?: string | null
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          quantity?: number
+          unit_price?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          acquisition_date?: string | null
+          acquisition_value?: number
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          currency?: string
+          current_value?: number
+          deleted_at?: string | null
+          id?: string
+          institution?: string | null
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          quantity?: number
+          unit_price?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_invoices: {
         Row: {
           amount: number
@@ -685,6 +750,23 @@ export type Database = {
         | "CASH"
         | "INTERNATIONAL"
         | "OTHER"
+      asset_type:
+        | "BANK"
+        | "CASH"
+        | "CDB"
+        | "TESOURO"
+        | "LCI"
+        | "LCA"
+        | "DEBENTURE"
+        | "ACAO"
+        | "FII"
+        | "ETF"
+        | "BDR"
+        | "CRIPTO"
+        | "PREVIDENCIA"
+        | "FUNDO"
+        | "CAIXINHA"
+        | "OUTRO"
       card_invoice_status: "OPEN" | "CLOSED" | "PAID" | "OVERDUE"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
       import_source: "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL"
@@ -843,6 +925,24 @@ export const Constants = {
         "CASH",
         "INTERNATIONAL",
         "OTHER",
+      ],
+      asset_type: [
+        "BANK",
+        "CASH",
+        "CDB",
+        "TESOURO",
+        "LCI",
+        "LCA",
+        "DEBENTURE",
+        "ACAO",
+        "FII",
+        "ETF",
+        "BDR",
+        "CRIPTO",
+        "PREVIDENCIA",
+        "FUNDO",
+        "CAIXINHA",
+        "OUTRO",
       ],
       card_invoice_status: ["OPEN", "CLOSED", "PAID", "OVERDUE"],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
