@@ -505,6 +505,16 @@ function MovimentacoesPage() {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{acc?.name ?? "—"}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
+                      {m.card_id ? (
+                        <Badge variant="outline" style={{ borderColor: cardMap[m.card_id]?.color }}>
+                          {cardMap[m.card_id]?.name ?? "Cartão"}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {isTransfer ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
