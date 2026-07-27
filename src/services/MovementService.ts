@@ -111,6 +111,12 @@ class MovementServiceImpl extends BaseService {
   async create(input: CreateMovementInput): Promise<Movement> {
     this.validateInput(input);
 
+    const invoiceId = await this.resolveInvoiceId(
+      input.card_id ?? null,
+      input.transaction_date,
+      input.type,
+    );
+
     const payload: Row = {
       workspace_id: input.workspace_id,
       account_id: input.account_id ?? null,
@@ -119,6 +125,7 @@ class MovementServiceImpl extends BaseService {
       category_id: input.type === MovementType.TRANSFER ? null : input.category_id ?? null,
       subcategory_id: input.type === MovementType.TRANSFER ? null : input.subcategory_id ?? null,
       card_id: input.card_id ?? null,
+      invoice_id: invoiceId,
       asset_id: input.asset_id ?? null,
       type: input.type,
       status: input.status ?? MovementStatus.CLEARED,
@@ -155,6 +162,7 @@ class MovementServiceImpl extends BaseService {
       transfer_account_id: input.transfer_account_id ?? existing!.transfer_account_id,
       amount: input.amount ?? existing!.amount,
       transaction_date: input.transaction_date ?? existing!.transaction_date,
+      card_id: input.card_id ?? existing!.card_id,
     };
     this.validateInput(merged);
 
@@ -164,8 +172,22 @@ class MovementServiceImpl extends BaseService {
     if (nextType === MovementType.TRANSFER) {
       payload.category_id = null;
       payload.subcategory_id = null;
+      payload.card_id = null;
+      payload.invoice_id = null;
     } else {
       payload.transfer_account_id = null;
+    }
+
+    // Se o vínculo com cartão/data mudou, reatribui a fatura correspondente.
+    const nextCardId =
+      input.card_id !== undefined ? input.card_id : existing!.card_id;
+    const nextDate = input.transaction_date ?? existing!.transaction_date;
+    const cardChanged =
+      input.card_id !== undefined && input.card_id !== existing!.card_id;
+    const dateChanged =
+      input.transaction_date !== undefined && input.transaction_date !== existing!.transaction_date;
+    if (nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
+      payload.invoice_id = await this.resolveInvoiceId(nextCardId, nextDate, nextType);
     }
 
     const { data, error } = await this.client
@@ -177,6 +199,49 @@ class MovementServiceImpl extends BaseService {
     if (error) this.handleError(error, "update");
     return this.mapRow(data as Row);
   }
+
+  /**
+   * Garante que exista uma fatura para o par (cartão, data de compra) e retorna
+   * seu id. Nunca chamado para transferências ou pagamentos de fatura.
+   */
+  private async resolveInvoiceId(
+    cardId: UUID | null | undefined,
+    transactionDate: string,
+    type: MovementType,
+  ): Promise<UUID | null> {
+    if (!cardId) return null;
+    if (type === MovementType.TRANSFER || type === MovementType.CARD_PAYMENT) return null;
+    const card = await CardService.getById(cardId);
+    if (!card) return null;
+    const period = CardServiceImpl.computeInvoicePeriod(card, transactionDate);
+
+    const existing = await this.client
+      .from("card_invoices")
+      .select("id")
+      .eq("card_id", card.id)
+      .eq("competence", period.competence)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existing.error) this.handleError(existing.error, "resolveInvoice.find");
+    if (existing.data) return (existing.data as { id: UUID }).id;
+
+    const { data, error } = await this.client
+      .from("card_invoices")
+      .insert({
+        workspace_id: card.workspace_id,
+        card_id: card.id,
+        competence: period.competence,
+        closing_date: period.closing_date,
+        due_date: period.due_date,
+        amount: 0,
+        status: "OPEN",
+      } as never)
+      .select("id")
+      .single();
+    if (error) this.handleError(error, "resolveInvoice.create");
+    return (data as { id: UUID }).id;
+  }
+
 
   async softDelete(id: UUID): Promise<void> {
     const { error } = await this.client
