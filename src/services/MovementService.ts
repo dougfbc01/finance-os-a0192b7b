@@ -4,6 +4,7 @@
 // fora desta camada.
 
 import { BaseService } from "./BaseService";
+import { CardService, CardServiceImpl } from "./CardService";
 import {
   MovementType,
   MovementStatus,
@@ -18,6 +19,7 @@ import type {
   MovementFilters,
   UUID,
 } from "@/models";
+
 
 type Row = Record<string, unknown>;
 
