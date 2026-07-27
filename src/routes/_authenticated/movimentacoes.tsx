@@ -88,15 +88,18 @@ function MovimentacoesPage() {
   const searchParams = Route.useSearch();
 
   const { data: accounts = [] } = useAccounts(workspaceId);
+  const { data: cards = [] } = useCards(workspaceId);
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
 
   const [from, setFrom] = useState(toISODate(firstDayOfMonth()));
   const [to, setTo] = useState(toISODate(lastDayOfMonth()));
   const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
+  const [cardId, setCardId] = useState<string>(ALL);
   const [categoryId, setCategoryId] = useState<string>(ALL);
   const [type, setType] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
+  const [group, setGroup] = useState<MovementGroup>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -112,13 +115,16 @@ function MovimentacoesPage() {
       from,
       to,
       accountId: accountId === ALL ? undefined : accountId,
+      cardId: cardId === ALL ? undefined : cardId,
       categoryId: categoryId === ALL ? undefined : categoryId,
       type: type === ALL ? undefined : (type as MovementType),
       status: status === ALL ? undefined : (status as MovementStatus),
+      group: group === "all" ? undefined : group,
       search: search.trim() || undefined,
     }),
-    [from, to, accountId, categoryId, type, status, search],
+    [from, to, accountId, cardId, categoryId, type, status, group, search],
   );
+
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
   const deleteMut = useDeleteMovement();
