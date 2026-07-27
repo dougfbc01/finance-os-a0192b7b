@@ -735,6 +735,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      recompute_card_invoice: {
+        Args: { _invoice_id: string }
+        Returns: undefined
+      }
       seed_default_categories: {
         Args: { _workspace_id: string }
         Returns: undefined
