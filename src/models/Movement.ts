@@ -60,6 +60,7 @@ export interface UpdateMovementInput {
   transfer_account_id?: UUID | null;
   category_id?: UUID | null;
   subcategory_id?: UUID | null;
+  card_id?: UUID | null;
   type?: MovementType;
   status?: MovementStatus;
   description?: string;
@@ -72,12 +73,25 @@ export interface UpdateMovementInput {
   attachments?: MovementAttachment[];
 }
 
+/** Grupo lógico aplicado nas listagens (Todos, Conta, Cartão, etc.). */
+export type MovementGroup =
+  | "all"
+  | "account"
+  | "card"
+  | "transfer"
+  | "income"
+  | "expense"
+  | "investment";
+
 export interface MovementFilters {
   from?: string; // yyyy-mm-dd
   to?: string;
   accountId?: UUID | "all";
+  cardId?: UUID | "all";
   categoryId?: UUID | "all";
   type?: MovementType | "all";
   status?: MovementStatus | "all";
+  group?: MovementGroup;
   search?: string;
 }
+
