@@ -317,7 +317,31 @@ function MovimentacoesPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { v: "all", l: "Todos" },
+            { v: "account", l: "Conta bancária" },
+            { v: "card", l: "Cartão" },
+            { v: "transfer", l: "Transferências" },
+            { v: "income", l: "Receitas" },
+            { v: "expense", l: "Despesas" },
+            { v: "investment", l: "Investimentos" },
+          ] as { v: MovementGroup; l: string }[]
+        ).map((g) => (
+          <Button
+            key={g.v}
+            size="sm"
+            variant={group === g.v ? "default" : "outline"}
+            onClick={() => setGroup(g.v)}
+          >
+            {g.l}
+          </Button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+
         <div className="col-span-2 md:col-span-2">
           <label className="text-xs text-muted-foreground">Pesquisar</label>
           <div className="relative">
