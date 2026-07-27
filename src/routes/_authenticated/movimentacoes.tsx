@@ -57,7 +57,7 @@ import {
   INCOME_TYPES,
   EXPENSE_TYPES,
 } from "@/constants/enums";
-import type { Movement, MovementFilters } from "@/models";
+import type { Movement, MovementFilters, MovementGroup } from "@/models";
 import { formatCurrency, formatDate, firstDayOfMonth, lastDayOfMonth, toISODate } from "@/lib/format";
 
 type SortKey = "date" | "amount" | "account" | "category" | "subcategory" | "description";
