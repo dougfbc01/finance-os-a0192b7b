@@ -30,7 +30,9 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: [KEY] });
   qc.invalidateQueries({ queryKey: ["accounts"] });
   qc.invalidateQueries({ queryKey: ["dashboard"] });
+  qc.invalidateQueries({ queryKey: ["card_invoices"] });
 }
+
 
 export function useCreateMovement() {
   const qc = useQueryClient();

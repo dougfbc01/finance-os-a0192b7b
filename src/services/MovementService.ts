@@ -4,6 +4,7 @@
 // fora desta camada.
 
 import { BaseService } from "./BaseService";
+import { CardService, CardServiceImpl } from "./CardService";
 import {
   MovementType,
   MovementStatus,
@@ -18,6 +19,7 @@ import type {
   MovementFilters,
   UUID,
 } from "@/models";
+
 
 type Row = Record<string, unknown>;
 
@@ -49,6 +51,9 @@ class MovementServiceImpl extends BaseService {
     if (filters.accountId && filters.accountId !== "all") {
       q = q.or(`account_id.eq.${filters.accountId},transfer_account_id.eq.${filters.accountId}`);
     }
+    if (filters.cardId && filters.cardId !== "all") {
+      q = q.eq("card_id", filters.cardId);
+    }
     if (filters.categoryId && filters.categoryId !== "all") {
       q = q.eq("category_id", filters.categoryId);
     }
@@ -56,12 +61,37 @@ class MovementServiceImpl extends BaseService {
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.search) q = q.ilike("description", `%${filters.search}%`);
 
+    // Grupos lógicos (Todos/Conta/Cartão/Transferências/Receitas/Despesas/Investimentos).
+    switch (filters.group) {
+      case "account":
+        q = q.is("card_id", null).neq("type", MovementType.TRANSFER);
+        break;
+      case "card":
+        q = q.not("card_id", "is", null);
+        break;
+      case "transfer":
+        q = q.eq("type", MovementType.TRANSFER);
+        break;
+      case "income":
+        q = q.in("type", INCOME_TYPES);
+        break;
+      case "expense":
+        q = q.in("type", EXPENSE_TYPES);
+        break;
+      case "investment":
+        q = q.in("type", [MovementType.INVESTMENT, MovementType.DIVIDEND, MovementType.INTEREST]);
+        break;
+      default:
+        break;
+    }
+
     const { data, error } = await q
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) this.handleError(error, "list");
     return (data ?? []).map((r) => this.mapRow(r as Row));
   }
+
 
   async getById(id: UUID): Promise<Movement | null> {
     const { data, error } = await this.client
@@ -81,6 +111,12 @@ class MovementServiceImpl extends BaseService {
   async create(input: CreateMovementInput): Promise<Movement> {
     this.validateInput(input);
 
+    const invoiceId = await this.resolveInvoiceId(
+      input.card_id ?? null,
+      input.transaction_date,
+      input.type,
+    );
+
     const payload: Row = {
       workspace_id: input.workspace_id,
       account_id: input.account_id ?? null,
@@ -89,6 +125,7 @@ class MovementServiceImpl extends BaseService {
       category_id: input.type === MovementType.TRANSFER ? null : input.category_id ?? null,
       subcategory_id: input.type === MovementType.TRANSFER ? null : input.subcategory_id ?? null,
       card_id: input.card_id ?? null,
+      invoice_id: invoiceId,
       asset_id: input.asset_id ?? null,
       type: input.type,
       status: input.status ?? MovementStatus.CLEARED,
@@ -125,6 +162,7 @@ class MovementServiceImpl extends BaseService {
       transfer_account_id: input.transfer_account_id ?? existing!.transfer_account_id,
       amount: input.amount ?? existing!.amount,
       transaction_date: input.transaction_date ?? existing!.transaction_date,
+      card_id: input.card_id ?? existing!.card_id,
     };
     this.validateInput(merged);
 
@@ -134,8 +172,22 @@ class MovementServiceImpl extends BaseService {
     if (nextType === MovementType.TRANSFER) {
       payload.category_id = null;
       payload.subcategory_id = null;
+      payload.card_id = null;
+      payload.invoice_id = null;
     } else {
       payload.transfer_account_id = null;
+    }
+
+    // Se o vínculo com cartão/data mudou, reatribui a fatura correspondente.
+    const nextCardId =
+      input.card_id !== undefined ? input.card_id : existing!.card_id;
+    const nextDate = input.transaction_date ?? existing!.transaction_date;
+    const cardChanged =
+      input.card_id !== undefined && input.card_id !== existing!.card_id;
+    const dateChanged =
+      input.transaction_date !== undefined && input.transaction_date !== existing!.transaction_date;
+    if (nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
+      payload.invoice_id = await this.resolveInvoiceId(nextCardId, nextDate, nextType);
     }
 
     const { data, error } = await this.client
@@ -147,6 +199,49 @@ class MovementServiceImpl extends BaseService {
     if (error) this.handleError(error, "update");
     return this.mapRow(data as Row);
   }
+
+  /**
+   * Garante que exista uma fatura para o par (cartão, data de compra) e retorna
+   * seu id. Nunca chamado para transferências ou pagamentos de fatura.
+   */
+  private async resolveInvoiceId(
+    cardId: UUID | null | undefined,
+    transactionDate: string,
+    type: MovementType,
+  ): Promise<UUID | null> {
+    if (!cardId) return null;
+    if (type === MovementType.TRANSFER || type === MovementType.CARD_PAYMENT) return null;
+    const card = await CardService.getById(cardId);
+    if (!card) return null;
+    const period = CardServiceImpl.computeInvoicePeriod(card, transactionDate);
+
+    const existing = await this.client
+      .from("card_invoices")
+      .select("id")
+      .eq("card_id", card.id)
+      .eq("competence", period.competence)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existing.error) this.handleError(existing.error, "resolveInvoice.find");
+    if (existing.data) return (existing.data as { id: UUID }).id;
+
+    const { data, error } = await this.client
+      .from("card_invoices")
+      .insert({
+        workspace_id: card.workspace_id,
+        card_id: card.id,
+        competence: period.competence,
+        closing_date: period.closing_date,
+        due_date: period.due_date,
+        amount: 0,
+        status: "OPEN",
+      } as never)
+      .select("id")
+      .single();
+    if (error) this.handleError(error, "resolveInvoice.create");
+    return (data as { id: UUID }).id;
+  }
+
 
   async softDelete(id: UUID): Promise<void> {
     const { error } = await this.client
@@ -244,10 +339,12 @@ class MovementServiceImpl extends BaseService {
       if (input.account_id === input.transfer_account_id) {
         this.handleError(new Error("Origem e destino devem ser contas diferentes."), "validate");
       }
-    } else if (!input.account_id) {
-      this.handleError(new Error("Selecione uma conta."), "validate");
+    } else if (!input.account_id && !input.card_id) {
+      // Compras vinculadas a cartão dispensam conta bancária.
+      this.handleError(new Error("Selecione uma conta ou um cartão."), "validate");
     }
   }
+
 }
 
 export const MovementService = new MovementServiceImpl();

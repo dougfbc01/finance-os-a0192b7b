@@ -81,37 +81,22 @@ class CardInvoiceServiceImpl extends BaseService {
     return (data as { id: UUID }).id;
   }
 
-  /** Recalcula `amount` e ajusta status (OPEN → CLOSED após closing_date, OVERDUE após due_date). */
+  /**
+   * Recalcula `amount` e status da fatura. O trigger `movements_recompute_invoice`
+   * já mantém o valor sincronizado — este método serve como fallback defensivo
+   * e para atualizar o status quando o tempo passa (fatura vira OVERDUE/CLOSED).
+   */
   async recompute(invoiceId: UUID): Promise<void> {
-    const invoice = await this.getById(invoiceId);
-    if (!invoice) return;
-    const { data: mvs, error } = await this.client
-      .from("movements")
-      .select("*")
-      .eq("invoice_id", invoiceId)
-      .is("deleted_at", null);
-    if (error) this.handleError(error, "recompute.list");
-    const amount = CardServiceImpl.computeInvoiceAmount((mvs ?? []) as unknown as Movement[]);
-
-    const today = new Date();
-    const toDate = (s: string) => new Date(`${s}T00:00:00`);
-    let status: CardInvoiceStatus = invoice.status;
-    if (status !== "PAID") {
-      if (today > toDate(invoice.due_date)) status = "OVERDUE";
-      else if (today > toDate(invoice.closing_date)) status = "CLOSED";
-      else status = "OPEN";
-    }
-
-    const { error: e2 } = await this.client
-      .from(this.table)
-      .update({ amount, status } as never)
-      .eq("id", invoiceId);
-    if (e2) this.handleError(e2, "recompute.update");
+    const { error } = await this.client.rpc("recompute_card_invoice" as never, {
+      _invoice_id: invoiceId,
+    } as never);
+    if (error) this.handleError(error, "recompute");
   }
 
   /**
-   * Marca fatura como paga: cria um único movimento CARD_PAYMENT na conta bancária
-   * e vincula à fatura. Nunca duplica compras.
+   * Marca fatura como paga: cria um único movimento CARD_PAYMENT na conta
+   * bancária e vincula à fatura. Nunca duplica compras.
+   * O valor pago usa sempre o total computado pelo trigger.
    */
   async markPaid(params: {
     invoiceId: UUID;
@@ -120,6 +105,8 @@ class CardInvoiceServiceImpl extends BaseService {
     paidAt: string;
     amount?: number;
   }): Promise<Movement> {
+    // Garante que o valor está atualizado antes de sacar da conta.
+    await this.recompute(params.invoiceId);
     const invoice = await this.getById(params.invoiceId);
     if (!invoice) throw new Error("Fatura não encontrada.");
     if (invoice.paid_movement_id) throw new Error("Fatura já foi paga.");
@@ -145,6 +132,7 @@ class CardInvoiceServiceImpl extends BaseService {
     if (error) this.handleError(error, "markPaid.update");
     return movement;
   }
+
 
   async listMovements(invoiceId: UUID): Promise<Movement[]> {
     const { data, error } = await this.client

@@ -36,6 +36,7 @@ import {
 import { MovementFormDialog } from "@/components/movements";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useCards } from "@/hooks/useCards";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
 import {
   useBulkDeleteMovements,
@@ -44,6 +45,7 @@ import {
   useMovements,
   useUpdateMovement,
 } from "@/hooks/useMovements";
+
 import { useRememberClassification } from "@/hooks/useClassificationRules";
 import {
   MovementType,
@@ -55,7 +57,7 @@ import {
   INCOME_TYPES,
   EXPENSE_TYPES,
 } from "@/constants/enums";
-import type { Movement, MovementFilters } from "@/models";
+import type { Movement, MovementFilters, MovementGroup } from "@/models";
 import { formatCurrency, formatDate, firstDayOfMonth, lastDayOfMonth, toISODate } from "@/lib/format";
 
 type SortKey = "date" | "amount" | "account" | "category" | "subcategory" | "description";
@@ -86,15 +88,18 @@ function MovimentacoesPage() {
   const searchParams = Route.useSearch();
 
   const { data: accounts = [] } = useAccounts(workspaceId);
+  const { data: cards = [] } = useCards(workspaceId);
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
 
   const [from, setFrom] = useState(toISODate(firstDayOfMonth()));
   const [to, setTo] = useState(toISODate(lastDayOfMonth()));
   const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
+  const [cardId, setCardId] = useState<string>(ALL);
   const [categoryId, setCategoryId] = useState<string>(ALL);
   const [type, setType] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
+  const [group, setGroup] = useState<MovementGroup>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -110,13 +115,16 @@ function MovimentacoesPage() {
       from,
       to,
       accountId: accountId === ALL ? undefined : accountId,
+      cardId: cardId === ALL ? undefined : cardId,
       categoryId: categoryId === ALL ? undefined : categoryId,
       type: type === ALL ? undefined : (type as MovementType),
       status: status === ALL ? undefined : (status as MovementStatus),
+      group: group === "all" ? undefined : group,
       search: search.trim() || undefined,
     }),
-    [from, to, accountId, categoryId, type, status, search],
+    [from, to, accountId, cardId, categoryId, type, status, group, search],
   );
+
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
   const deleteMut = useDeleteMovement();
@@ -135,8 +143,10 @@ function MovimentacoesPage() {
   } | null>(null);
 
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
+  const cardMap = useMemo(() => Object.fromEntries(cards.map((c) => [c.id, c])), [cards]);
   const categoryMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const subMap = useMemo(() => Object.fromEntries(subcategories.map((s) => [s.id, s])), [subcategories]);
+
 
   const sorted = useMemo(() => {
     const arr = [...movements];
@@ -307,7 +317,31 @@ function MovimentacoesPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { v: "all", l: "Todos" },
+            { v: "account", l: "Conta bancária" },
+            { v: "card", l: "Cartão" },
+            { v: "transfer", l: "Transferências" },
+            { v: "income", l: "Receitas" },
+            { v: "expense", l: "Despesas" },
+            { v: "investment", l: "Investimentos" },
+          ] as { v: MovementGroup; l: string }[]
+        ).map((g) => (
+          <Button
+            key={g.v}
+            size="sm"
+            variant={group === g.v ? "default" : "outline"}
+            onClick={() => setGroup(g.v)}
+          >
+            {g.l}
+          </Button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+
         <div className="col-span-2 md:col-span-2">
           <label className="text-xs text-muted-foreground">Pesquisar</label>
           <div className="relative">
@@ -429,6 +463,8 @@ function MovimentacoesPage() {
                 <th className="px-3 py-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleSort("account")}>
                   Conta <SortIcon k="account" />
                 </th>
+                <th className="px-3 py-2 text-left font-medium">Cartão</th>
+
                 <th className="px-3 py-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleSort("category")}>
                   Categoria <SortIcon k="category" />
                 </th>
@@ -470,6 +506,16 @@ function MovimentacoesPage() {
                       )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{acc?.name ?? "—"}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {m.card_id ? (
+                        <Badge variant="outline" style={{ borderColor: cardMap[m.card_id]?.color }}>
+                          {cardMap[m.card_id]?.name ?? "Cartão"}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+
                     <td className="px-3 py-2 whitespace-nowrap">
                       {isTransfer ? (
                         <span className="text-muted-foreground">—</span>

@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +43,9 @@ import {
 import type { Movement } from "@/models";
 import { useCreateMovement, useUpdateMovement } from "@/hooks/useMovements";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useCards } from "@/hooks/useCards";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
+import { useRememberClassification } from "@/hooks/useClassificationRules";
 import { toISODate } from "@/lib/format";
 
 const schema = z
@@ -50,6 +63,7 @@ const schema = z
     due_date: z.string().optional().or(z.literal("")),
     account_id: z.string().optional().or(z.literal("")),
     transfer_account_id: z.string().optional().or(z.literal("")),
+    card_id: z.string().optional().or(z.literal("")),
     category_id: z.string().optional().or(z.literal("")),
     subcategory_id: z.string().optional().or(z.literal("")),
   })
@@ -65,10 +79,11 @@ const schema = z
     (v) => v.type !== MovementType.TRANSFER || v.account_id !== v.transfer_account_id,
     { message: "Origem e destino devem ser diferentes", path: ["transfer_account_id"] },
   )
-  .refine((v) => v.type === MovementType.TRANSFER || !!v.account_id, {
-    message: "Selecione uma conta",
-    path: ["account_id"],
-  });
+  // Não-transferência: precisa OU de conta OU de cartão.
+  .refine(
+    (v) => v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
+    { message: "Selecione uma conta ou um cartão", path: ["account_id"] },
+  );
 
 type FormValues = z.input<typeof schema>;
 
@@ -85,10 +100,18 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   const isEdit = !!movement;
   const createMut = useCreateMovement();
   const updateMut = useUpdateMovement();
+  const rememberMut = useRememberClassification();
 
   const { data: accounts = [] } = useAccounts(workspaceId);
+  const { data: cards = [] } = useCards(workspaceId);
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
+
+  const [rememberPrompt, setRememberPrompt] = useState<{
+    description: string;
+    categoryId: string;
+    subcategoryId: string | null;
+  } | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -103,6 +126,7 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       due_date: "",
       account_id: "",
       transfer_account_id: "",
+      card_id: "",
       category_id: "",
       subcategory_id: "",
     },
@@ -123,6 +147,7 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             due_date: movement.due_date ?? "",
             account_id: movement.account_id ?? "",
             transfer_account_id: movement.transfer_account_id ?? "",
+            card_id: movement.card_id ?? "",
             category_id: movement.category_id ?? "",
             subcategory_id: movement.subcategory_id ?? "",
           }
@@ -137,6 +162,7 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             due_date: "",
             account_id: accounts[0]?.id ?? "",
             transfer_account_id: "",
+            card_id: "",
             category_id: "",
             subcategory_id: "",
           },
@@ -145,10 +171,15 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
 
   const type = form.watch("type");
   const categoryId = form.watch("category_id");
+  const cardId = form.watch("card_id");
+
+  const canUseCard =
+    type === MovementType.EXPENSE ||
+    type === MovementType.REFUND ||
+    type === MovementType.FEE;
 
   const filteredCategories = useMemo(() => {
     if (type === MovementType.TRANSFER) return [];
-    // Mapear tipo de movimentação para tipos de categoria compatíveis.
     if (
       type === MovementType.INCOME ||
       type === MovementType.DIVIDEND ||
@@ -170,6 +201,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
 
   const onSubmit = form.handleSubmit(async (raw) => {
     const values = schema.parse(raw);
+    const isTransfer = values.type === MovementType.TRANSFER;
+    const usingCard = !isTransfer && !!values.card_id && canUseCard;
+
     const payload = {
       workspace_id: workspaceId,
       type: values.type,
@@ -180,14 +214,14 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       transaction_date: values.transaction_date,
       competence_date: values.competence_date || null,
       due_date: values.due_date || null,
-      account_id: values.account_id || null,
-      transfer_account_id:
-        values.type === MovementType.TRANSFER ? values.transfer_account_id || null : null,
-      category_id:
-        values.type === MovementType.TRANSFER ? null : values.category_id || null,
-      subcategory_id:
-        values.type === MovementType.TRANSFER ? null : values.subcategory_id || null,
+      // Compras no cartão não afetam saldo bancário; account_id fica nulo.
+      account_id: isTransfer ? values.account_id || null : usingCard ? null : values.account_id || null,
+      transfer_account_id: isTransfer ? values.transfer_account_id || null : null,
+      card_id: usingCard ? values.card_id : null,
+      category_id: isTransfer ? null : values.category_id || null,
+      subcategory_id: isTransfer ? null : values.subcategory_id || null,
     };
+
     try {
       if (isEdit && movement) {
         await updateMut.mutateAsync({ id: movement.id, input: payload });
@@ -196,175 +230,268 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
         await createMut.mutateAsync(payload);
         toast.success("Movimentação registrada");
       }
-      onOpenChange(false);
+
+      const changedCategory =
+        !isTransfer &&
+        values.category_id &&
+        (payload.description || "").trim().length > 0 &&
+        (!isEdit ||
+          movement?.category_id !== values.category_id ||
+          movement?.subcategory_id !== (values.subcategory_id || null));
+
+      if (changedCategory) {
+        setRememberPrompt({
+          description: (payload.description || "").trim(),
+          categoryId: values.category_id!,
+          subcategoryId: values.subcategory_id || null,
+        });
+      } else {
+        onOpenChange(false);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
     }
   });
 
+  const handleRememberConfirm = async () => {
+    if (!rememberPrompt) return;
+    try {
+      await rememberMut.mutateAsync({
+        workspaceId,
+        description: rememberPrompt.description,
+        categoryId: rememberPrompt.categoryId,
+        subcategoryId: rememberPrompt.subcategoryId,
+      });
+      toast.success("Regra memorizada");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao criar regra");
+    } finally {
+      setRememberPrompt(null);
+      onOpenChange(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar movimentação" : "Nova movimentação"}</DialogTitle>
-          <DialogDescription>
-            Registre uma movimentação financeira do seu workspace.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{isEdit ? "Editar movimentação" : "Nova movimentação"}</DialogTitle>
+            <DialogDescription>
+              Registre uma movimentação financeira do seu workspace.
+            </DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select
-                value={form.watch("type")}
-                onValueChange={(v) => form.setValue("type", v as MovementType, { shouldDirty: true })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MOVEMENT_TYPE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select
-                value={form.watch("status")}
-                onValueChange={(v) => form.setValue("status", v as MovementStatus, { shouldDirty: true })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MOVEMENT_STATUS_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="mov-desc">Descrição</Label>
-              <Input id="mov-desc" {...form.register("description")} maxLength={200} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Valor</Label>
-              <Input type="number" step="0.01" {...form.register("amount")} />
-              {form.formState.errors.amount && (
-                <p className="text-xs text-destructive">{form.formState.errors.amount.message as string}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Data</Label>
-              <Input type="date" {...form.register("transaction_date")} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Competência</Label>
-              <Input type="date" {...form.register("competence_date")} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Vencimento</Label>
-              <Input type="date" {...form.register("due_date")} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{type === MovementType.TRANSFER ? "Conta origem" : "Conta"}</Label>
-              <Select
-                value={form.watch("account_id") || undefined}
-                onValueChange={(v) => form.setValue("account_id", v, { shouldDirty: true })}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.account_id && (
-                <p className="text-xs text-destructive">{form.formState.errors.account_id.message as string}</p>
-              )}
-            </div>
-
-            {type === MovementType.TRANSFER ? (
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Conta destino</Label>
+                <Label>Tipo</Label>
                 <Select
-                  value={form.watch("transfer_account_id") || undefined}
-                  onValueChange={(v) => form.setValue("transfer_account_id", v, { shouldDirty: true })}
+                  value={form.watch("type")}
+                  onValueChange={(v) => {
+                    form.setValue("type", v as MovementType, { shouldDirty: true });
+                    if (v === MovementType.TRANSFER) form.setValue("card_id", "");
+                  }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MOVEMENT_TYPE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select
+                  value={form.watch("status")}
+                  onValueChange={(v) => form.setValue("status", v as MovementStatus, { shouldDirty: true })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MOVEMENT_STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="mov-desc">Descrição</Label>
+                <Input id="mov-desc" {...form.register("description")} maxLength={200} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Valor</Label>
+                <Input type="number" step="0.01" {...form.register("amount")} />
+                {form.formState.errors.amount && (
+                  <p className="text-xs text-destructive">{form.formState.errors.amount.message as string}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Data</Label>
+                <Input type="date" {...form.register("transaction_date")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Competência</Label>
+                <Input type="date" {...form.register("competence_date")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Vencimento</Label>
+                <Input type="date" {...form.register("due_date")} />
+              </div>
+
+              {canUseCard && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Cartão (opcional)</Label>
+                  <Select
+                    value={form.watch("card_id") || NONE}
+                    onValueChange={(v) => {
+                      const val = v === NONE ? "" : v;
+                      form.setValue("card_id", val, { shouldDirty: true });
+                      if (val) form.setValue("account_id", "");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Nenhum (débito em conta)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>Nenhum (débito em conta)</SelectItem>
+                      {cards
+                        .filter((c) => c.is_active)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Compras em cartão vinculam-se à fatura da competência e não reduzem o saldo bancário.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>{type === MovementType.TRANSFER ? "Conta origem" : "Conta"}</Label>
+                <Select
+                  value={form.watch("account_id") || undefined}
+                  onValueChange={(v) => form.setValue("account_id", v, { shouldDirty: true })}
+                  disabled={canUseCard && !!cardId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={canUseCard && cardId ? "— (compra no cartão)" : "Selecione…"} />
+                  </SelectTrigger>
                   <SelectContent>
                     {accounts.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {form.formState.errors.transfer_account_id && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.transfer_account_id.message as string}
-                  </p>
+                {form.formState.errors.account_id && (
+                  <p className="text-xs text-destructive">{form.formState.errors.account_id.message as string}</p>
                 )}
               </div>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Categoria</Label>
-                  <Select
-                    value={form.watch("category_id") || NONE}
-                    onValueChange={(v) => {
-                      form.setValue("category_id", v === NONE ? "" : v, { shouldDirty: true });
-                      form.setValue("subcategory_id", "", { shouldDirty: true });
-                    }}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Sem categoria</SelectItem>
-                      {filteredCategories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Subcategoria</Label>
-                  <Select
-                    value={form.watch("subcategory_id") || NONE}
-                    onValueChange={(v) => form.setValue("subcategory_id", v === NONE ? "" : v, { shouldDirty: true })}
-                    disabled={!categoryId}
-                  >
-                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {filteredSubcategories.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
 
-            <div className="space-y-1.5 md:col-span-2">
-              <Label>Observações</Label>
-              <Textarea rows={3} {...form.register("notes")} maxLength={500} />
+              {type === MovementType.TRANSFER ? (
+                <div className="space-y-1.5">
+                  <Label>Conta destino</Label>
+                  <Select
+                    value={form.watch("transfer_account_id") || undefined}
+                    onValueChange={(v) => form.setValue("transfer_account_id", v, { shouldDirty: true })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.transfer_account_id && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.transfer_account_id.message as string}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Categoria</Label>
+                    <Select
+                      value={form.watch("category_id") || NONE}
+                      onValueChange={(v) => {
+                        form.setValue("category_id", v === NONE ? "" : v, { shouldDirty: true });
+                        form.setValue("subcategory_id", "", { shouldDirty: true });
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Sem categoria</SelectItem>
+                        {filteredCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Subcategoria</Label>
+                    <Select
+                      value={form.watch("subcategory_id") || NONE}
+                      onValueChange={(v) => form.setValue("subcategory_id", v === NONE ? "" : v, { shouldDirty: true })}
+                      disabled={!categoryId}
+                    >
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>—</SelectItem>
+                        {filteredSubcategories.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Observações</Label>
+                <Textarea rows={3} {...form.register("notes")} maxLength={500} />
+              </div>
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
-              {isEdit ? "Salvar" : "Registrar"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
+                {isEdit ? "Salvar" : "Registrar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!rememberPrompt} onOpenChange={(o) => !o && (setRememberPrompt(null), onOpenChange(false))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Memorizar classificação?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja memorizar categoria e subcategoria para futuras importações com a descrição
+              {rememberPrompt ? ` "${rememberPrompt.description}"` : ""}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setRememberPrompt(null); onOpenChange(false); }}>
+              Não, obrigado
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleRememberConfirm}>Memorizar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
