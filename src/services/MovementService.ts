@@ -339,10 +339,12 @@ class MovementServiceImpl extends BaseService {
       if (input.account_id === input.transfer_account_id) {
         this.handleError(new Error("Origem e destino devem ser contas diferentes."), "validate");
       }
-    } else if (!input.account_id) {
-      this.handleError(new Error("Selecione uma conta."), "validate");
+    } else if (!input.account_id && !input.card_id) {
+      // Compras vinculadas a cartão dispensam conta bancária.
+      this.handleError(new Error("Selecione uma conta ou um cartão."), "validate");
     }
   }
+
 }
 
 export const MovementService = new MovementServiceImpl();
