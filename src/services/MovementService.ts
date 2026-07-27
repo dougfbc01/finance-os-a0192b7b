@@ -51,6 +51,9 @@ class MovementServiceImpl extends BaseService {
     if (filters.accountId && filters.accountId !== "all") {
       q = q.or(`account_id.eq.${filters.accountId},transfer_account_id.eq.${filters.accountId}`);
     }
+    if (filters.cardId && filters.cardId !== "all") {
+      q = q.eq("card_id", filters.cardId);
+    }
     if (filters.categoryId && filters.categoryId !== "all") {
       q = q.eq("category_id", filters.categoryId);
     }
@@ -58,12 +61,37 @@ class MovementServiceImpl extends BaseService {
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.search) q = q.ilike("description", `%${filters.search}%`);
 
+    // Grupos lógicos (Todos/Conta/Cartão/Transferências/Receitas/Despesas/Investimentos).
+    switch (filters.group) {
+      case "account":
+        q = q.is("card_id", null).neq("type", MovementType.TRANSFER);
+        break;
+      case "card":
+        q = q.not("card_id", "is", null);
+        break;
+      case "transfer":
+        q = q.eq("type", MovementType.TRANSFER);
+        break;
+      case "income":
+        q = q.in("type", INCOME_TYPES);
+        break;
+      case "expense":
+        q = q.in("type", EXPENSE_TYPES);
+        break;
+      case "investment":
+        q = q.in("type", [MovementType.INVESTMENT, MovementType.DIVIDEND, MovementType.INTEREST]);
+        break;
+      default:
+        break;
+    }
+
     const { data, error } = await q
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) this.handleError(error, "list");
     return (data ?? []).map((r) => this.mapRow(r as Row));
   }
+
 
   async getById(id: UUID): Promise<Movement | null> {
     const { data, error } = await this.client
