@@ -463,6 +463,8 @@ function MovimentacoesPage() {
                 <th className="px-3 py-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleSort("account")}>
                   Conta <SortIcon k="account" />
                 </th>
+                <th className="px-3 py-2 text-left font-medium">Cartão</th>
+
                 <th className="px-3 py-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleSort("category")}>
                   Categoria <SortIcon k="category" />
                 </th>
