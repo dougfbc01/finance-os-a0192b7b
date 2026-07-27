@@ -143,8 +143,10 @@ function MovimentacoesPage() {
   } | null>(null);
 
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
+  const cardMap = useMemo(() => Object.fromEntries(cards.map((c) => [c.id, c])), [cards]);
   const categoryMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const subMap = useMemo(() => Object.fromEntries(subcategories.map((s) => [s.id, s])), [subcategories]);
+
 
   const sorted = useMemo(() => {
     const arr = [...movements];
