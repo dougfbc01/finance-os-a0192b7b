@@ -278,11 +278,13 @@ export function ImportDialog({
           <div className="text-center py-6 space-y-3">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
             <p>Importação concluída com sucesso.</p>
-            <DialogFooter className="justify-center">
+            <DialogFooter className="justify-center gap-2">
+              <Button variant="outline" onClick={reset}>Importar outro arquivo</Button>
               <Button onClick={() => onOpenChange(false)}>Fechar</Button>
             </DialogFooter>
           </div>
         )}
+
       </DialogContent>
     </Dialog>
   );
