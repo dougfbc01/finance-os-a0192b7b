@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImportHistoryService } from "@/services/ImportHistoryService";
 import { ImportService, type BuildPreviewParams, type CommitParams } from "@/services/ImportService";
+import { invalidateFinancialQueries } from "./invalidate";
 import type { UUID } from "@/models";
 
 const KEY = "imports";
@@ -23,12 +24,7 @@ export function useCommitImport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (params: CommitParams) => ImportService.commit(params),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [KEY] });
-      qc.invalidateQueries({ queryKey: ["movements"] });
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-    },
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -36,9 +32,6 @@ export function useDeleteImport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: UUID) => ImportHistoryService.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [KEY] });
-      qc.invalidateQueries({ queryKey: ["movements"] });
-    },
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
