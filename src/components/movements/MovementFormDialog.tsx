@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,13 +40,25 @@ import {
   MOVEMENT_STATUS_OPTIONS,
   CategoryType,
 } from "@/constants/enums";
-import type { Movement } from "@/models";
+import type { Movement, UUID } from "@/models";
 import { useCreateMovement, useUpdateMovement } from "@/hooks/useMovements";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCards } from "@/hooks/useCards";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
-import { useRememberClassification } from "@/hooks/useClassificationRules";
+import { useAssets } from "@/hooks/useAssets";
+import {
+  useRememberClassification,
+  useBulkClassify,
+} from "@/hooks/useClassificationRules";
 import { toISODate } from "@/lib/format";
+import { AssetFormDialog } from "@/components/assets/AssetFormDialog";
+
+const INVESTMENT_OPERATIONS = [
+  { value: "APORTE", label: "Aporte" },
+  { value: "RESGATE", label: "Resgate" },
+  { value: "RENDIMENTO", label: "Rendimento" },
+  { value: "AJUSTE", label: "Ajuste" },
+] as const;
 
 const schema = z
   .object({
@@ -66,6 +78,8 @@ const schema = z
     card_id: z.string().optional().or(z.literal("")),
     category_id: z.string().optional().or(z.literal("")),
     subcategory_id: z.string().optional().or(z.literal("")),
+    asset_id: z.string().optional().or(z.literal("")),
+    investment_operation: z.string().optional().or(z.literal("")),
   })
   .refine((v) => v.type !== MovementType.TRANSFER || !!v.account_id, {
     message: "Origem obrigatória",
@@ -79,7 +93,6 @@ const schema = z
     (v) => v.type !== MovementType.TRANSFER || v.account_id !== v.transfer_account_id,
     { message: "Origem e destino devem ser diferentes", path: ["transfer_account_id"] },
   )
-  // Não-transferência: precisa OU de conta OU de cartão.
   .refine(
     (v) => v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
     { message: "Selecione uma conta ou um cartão", path: ["account_id"] },
@@ -101,14 +114,24 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   const createMut = useCreateMovement();
   const updateMut = useUpdateMovement();
   const rememberMut = useRememberClassification();
+  const bulkClassifyMut = useBulkClassify();
 
   const { data: accounts = [] } = useAccounts(workspaceId);
   const { data: cards = [] } = useCards(workspaceId);
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
+  const { data: assets = [] } = useAssets(workspaceId);
+
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
 
   const [rememberPrompt, setRememberPrompt] = useState<{
     description: string;
+    categoryId: string;
+    subcategoryId: string | null;
+  } | null>(null);
+
+  const [scanPrompt, setScanPrompt] = useState<{
+    ids: UUID[];
     categoryId: string;
     subcategoryId: string | null;
   } | null>(null);
@@ -129,11 +152,15 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       card_id: "",
       category_id: "",
       subcategory_id: "",
+      asset_id: "",
+      investment_operation: "APORTE",
     },
   });
 
   useEffect(() => {
     if (!open) return;
+    // Extrai operação de investimento das tags no formato "op:APORTE".
+    const opTag = movement?.tags?.find((t) => t.startsWith("op:"));
     form.reset(
       movement
         ? {
@@ -150,6 +177,8 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             card_id: movement.card_id ?? "",
             category_id: movement.category_id ?? "",
             subcategory_id: movement.subcategory_id ?? "",
+            asset_id: movement.asset_id ?? "",
+            investment_operation: opTag ? opTag.slice(3) : "APORTE",
           }
         : {
             type: MovementType.EXPENSE,
@@ -165,6 +194,8 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             card_id: "",
             category_id: "",
             subcategory_id: "",
+            asset_id: "",
+            investment_operation: "APORTE",
           },
     );
   }, [open, movement, accounts, form]);
@@ -199,10 +230,35 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
     [subcategories, categoryId],
   );
 
+  const isInvestmentCategory = useMemo(() => {
+    if (!categoryId) return false;
+    const cat = categories.find((c) => c.id === categoryId);
+    return cat?.type === CategoryType.INVESTMENT;
+  }, [categoryId, categories]);
+
+  const showInvestmentStep =
+    isInvestmentCategory ||
+    type === MovementType.INVESTMENT ||
+    type === MovementType.DIVIDEND ||
+    type === MovementType.INTEREST;
+
+  const activeAssets = useMemo(() => assets.filter((a) => a.is_active), [assets]);
+
   const onSubmit = form.handleSubmit(async (raw) => {
     const values = schema.parse(raw);
     const isTransfer = values.type === MovementType.TRANSFER;
     const usingCard = !isTransfer && !!values.card_id && canUseCard;
+
+    if (showInvestmentStep && !values.asset_id) {
+      toast.error("Selecione o destino do investimento (ativo).");
+      return;
+    }
+
+    // Preserva outras tags e insere/atualiza a operação
+    const baseTags = (movement?.tags ?? []).filter((t) => !t.startsWith("op:"));
+    const tags = showInvestmentStep && values.investment_operation
+      ? [...baseTags, `op:${values.investment_operation}`]
+      : baseTags;
 
     const payload = {
       workspace_id: workspaceId,
@@ -214,12 +270,13 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       transaction_date: values.transaction_date,
       competence_date: values.competence_date || null,
       due_date: values.due_date || null,
-      // Compras no cartão não afetam saldo bancário; account_id fica nulo.
       account_id: isTransfer ? values.account_id || null : usingCard ? null : values.account_id || null,
       transfer_account_id: isTransfer ? values.transfer_account_id || null : null,
       card_id: usingCard ? values.card_id : null,
       category_id: isTransfer ? null : values.category_id || null,
       subcategory_id: isTransfer ? null : values.subcategory_id || null,
+      asset_id: showInvestmentStep ? values.asset_id || null : null,
+      tags,
     };
 
     try {
@@ -256,17 +313,43 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   const handleRememberConfirm = async () => {
     if (!rememberPrompt) return;
     try {
-      await rememberMut.mutateAsync({
+      const result = await rememberMut.mutateAsync({
         workspaceId,
         description: rememberPrompt.description,
         categoryId: rememberPrompt.categoryId,
         subcategoryId: rememberPrompt.subcategoryId,
       });
       toast.success("Regra memorizada");
+      // Sprint 3.1 - Parte 4: scan automático de compatíveis.
+      if (result.matchIds.length > 0) {
+        setScanPrompt({
+          ids: result.matchIds,
+          categoryId: rememberPrompt.categoryId,
+          subcategoryId: rememberPrompt.subcategoryId,
+        });
+        setRememberPrompt(null);
+        return;
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao criar regra");
+    }
+    setRememberPrompt(null);
+    onOpenChange(false);
+  };
+
+  const handleScanConfirm = async () => {
+    if (!scanPrompt) return;
+    try {
+      const n = await bulkClassifyMut.mutateAsync({
+        ids: scanPrompt.ids,
+        categoryId: scanPrompt.categoryId,
+        subcategoryId: scanPrompt.subcategoryId,
+      });
+      toast.success(`${n} movimentações classificadas`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao classificar em massa");
     } finally {
-      setRememberPrompt(null);
+      setScanPrompt(null);
       onOpenChange(false);
     }
   };
@@ -274,7 +357,7 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar movimentação" : "Nova movimentação"}</DialogTitle>
             <DialogDescription>
@@ -338,11 +421,13 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
               <div className="space-y-1.5">
                 <Label>Competência</Label>
                 <Input type="date" {...form.register("competence_date")} />
+                <p className="text-[10px] text-muted-foreground">Preenchida automaticamente se em branco.</p>
               </div>
 
               <div className="space-y-1.5">
                 <Label>Vencimento</Label>
                 <Input type="date" {...form.register("due_date")} />
+                <p className="text-[10px] text-muted-foreground">Preenchido automaticamente se em branco.</p>
               </div>
 
               {canUseCard && (
@@ -454,6 +539,67 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                 </>
               )}
 
+              {showInvestmentStep && (
+                <div className="md:col-span-2 rounded-md border border-dashed p-3 space-y-3 bg-muted/30">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Wallet className="h-4 w-4 text-primary" />
+                    Destino do investimento
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Ativo</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={form.watch("asset_id") || undefined}
+                          onValueChange={(v) => form.setValue("asset_id", v, { shouldDirty: true })}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione um ativo…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeAssets.length === 0 && (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                Nenhum ativo cadastrado
+                              </div>
+                            )}
+                            {activeAssets.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAssetDialogOpen(true)}
+                        >
+                          Novo ativo
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Operação</Label>
+                      <Select
+                        value={form.watch("investment_operation") || "APORTE"}
+                        onValueChange={(v) => form.setValue("investment_operation", v, { shouldDirty: true })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {INVESTMENT_OPERATIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    O ativo escolhido receberá o valor via PatrimonyService — nenhuma movimentação adicional é criada.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-1.5 md:col-span-2">
                 <Label>Observações</Label>
                 <Textarea rows={3} {...form.register("notes")} maxLength={500} />
@@ -472,6 +618,12 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
         </DialogContent>
       </Dialog>
 
+      <AssetFormDialog
+        open={assetDialogOpen}
+        onOpenChange={setAssetDialogOpen}
+        workspaceId={workspaceId}
+      />
+
       <AlertDialog open={!!rememberPrompt} onOpenChange={(o) => !o && (setRememberPrompt(null), onOpenChange(false))}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -489,6 +641,28 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
               Não, obrigado
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleRememberConfirm}>Memorizar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!scanPrompt} onOpenChange={(o) => !o && (setScanPrompt(null), onOpenChange(false))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Classificar compatíveis?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {scanPrompt
+                ? `Foram encontradas ${scanPrompt.ids.length} movimentações compatíveis. Deseja classificá-las automaticamente?`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setScanPrompt(null); onOpenChange(false); }}>
+              Agora não
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleScanConfirm}>Classificar todas</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
