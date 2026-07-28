@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CardInvoiceService } from "@/services/CardInvoiceService";
+import { invalidateFinancialQueries } from "./invalidate";
 import type { UUID } from "@/models";
 
 const KEY = "card_invoices";
@@ -28,13 +29,6 @@ export function useInvoiceMovements(invoiceId: UUID | undefined) {
   });
 }
 
-function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: [KEY] });
-  qc.invalidateQueries({ queryKey: ["movements"] });
-  qc.invalidateQueries({ queryKey: ["accounts"] });
-  qc.invalidateQueries({ queryKey: ["dashboard"] });
-}
-
 export function useMarkInvoicePaid() {
   const qc = useQueryClient();
   return useMutation({
@@ -45,7 +39,7 @@ export function useMarkInvoicePaid() {
       paidAt: string;
       amount?: number;
     }) => CardInvoiceService.markPaid(params),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -53,6 +47,6 @@ export function useRecomputeInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (invoiceId: UUID) => CardInvoiceService.recompute(invoiceId),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }

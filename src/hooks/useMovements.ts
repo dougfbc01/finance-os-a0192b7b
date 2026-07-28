@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MovementService } from "@/services/MovementService";
+import { invalidateFinancialQueries } from "./invalidate";
 import type {
   CreateMovementInput,
   UpdateMovementInput,
@@ -17,7 +18,6 @@ export function useMovements(workspaceId: UUID | undefined, filters: MovementFil
   });
 }
 
-/** Fetch de todas as movimentações do workspace (base para dashboards e saldos). */
 export function useAllMovements(workspaceId: UUID | undefined) {
   return useQuery({
     queryKey: [KEY, workspaceId, "all"],
@@ -26,19 +26,11 @@ export function useAllMovements(workspaceId: UUID | undefined) {
   });
 }
 
-function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: [KEY] });
-  qc.invalidateQueries({ queryKey: ["accounts"] });
-  qc.invalidateQueries({ queryKey: ["dashboard"] });
-  qc.invalidateQueries({ queryKey: ["card_invoices"] });
-}
-
-
 export function useCreateMovement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateMovementInput) => MovementService.create(input),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -47,7 +39,7 @@ export function useUpdateMovement() {
   return useMutation({
     mutationFn: ({ id, input }: { id: UUID; input: UpdateMovementInput }) =>
       MovementService.update(id, input),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -55,7 +47,7 @@ export function useDeleteMovement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: UUID) => MovementService.softDelete(id),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -63,7 +55,7 @@ export function useBulkDeleteMovements() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: UUID[]) => MovementService.bulkSoftDelete(ids),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }
 
@@ -77,6 +69,6 @@ export function useBulkUpdateMovements() {
       ids: UUID[];
       patch: Parameters<typeof MovementService.bulkUpdate>[1];
     }) => MovementService.bulkUpdate(ids, patch),
-    onSuccess: () => invalidate(qc),
+    onSuccess: () => invalidateFinancialQueries(qc),
   });
 }

@@ -7,6 +7,7 @@ import {
 } from "@/services/ReconciliationService";
 import { useAllMovements } from "./useMovements";
 import { useWorkspace } from "./useWorkspace";
+import { invalidateFinancialQueries } from "./invalidate";
 
 export function useTransferCandidates() {
   const { data: ws } = useWorkspace();
@@ -19,11 +20,8 @@ export function useTransferCandidates() {
   return { candidates, isLoading, workspaceId: wsId };
 }
 
-function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ["movements"] });
-  qc.invalidateQueries({ queryKey: ["accounts"] });
-  qc.invalidateQueries({ queryKey: ["dashboard"] });
-}
+const invalidate = invalidateFinancialQueries;
+
 
 export function useApplyReconciliation() {
   const qc = useQueryClient();

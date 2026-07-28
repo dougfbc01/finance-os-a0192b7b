@@ -144,6 +144,65 @@ class ClassificationRuleServiceImpl extends BaseService {
       .update({ last_matched_at: new Date().toISOString() } as never)
       .in("id", ids);
   }
+
+  /**
+   * Localiza movimentações sem categoria cuja descrição casa com um padrão.
+   * Ignora transferências e pagamentos de cartão.
+   */
+  async findUnclassifiedMatches(
+    workspaceId: UUID,
+    pattern: string,
+  ): Promise<UUID[]> {
+    const needle = pattern.trim().toLowerCase();
+    if (!needle) return [];
+    const { data, error } = await this.client
+      .from("movements")
+      .select("id, description, type")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("category_id", null)
+      .not("type", "in", "(TRANSFER,CARD_PAYMENT)")
+      .ilike("description", `%${needle}%`);
+    if (error) this.handleError(error, "findUnclassifiedMatches");
+    return ((data ?? []) as { id: UUID }[]).map((r) => r.id);
+  }
+
+  /** Aplica categoria/subcategoria a um conjunto de movimentações. */
+  async bulkClassify(
+    ids: UUID[],
+    patch: { category_id: UUID | null; subcategory_id: UUID | null },
+  ): Promise<number> {
+    if (!ids.length) return 0;
+    const clean: Row = {
+      category_id: patch.category_id,
+      subcategory_id: patch.subcategory_id,
+    };
+    const { error } = await this.client
+      .from("movements")
+      .update(clean as never)
+      .in("id", ids);
+    if (error) this.handleError(error, "bulkClassify");
+    return ids.length;
+  }
+
+  /**
+   * Reprocessa todas as regras contra movimentações sem categoria do workspace.
+   * Retorna total classificado.
+   */
+  async reprocessAll(workspaceId: UUID): Promise<number> {
+    const rules = await this.list(workspaceId);
+    let total = 0;
+    for (const rule of rules) {
+      if (!rule.enabled) continue;
+      const ids = await this.findUnclassifiedMatches(workspaceId, rule.text_pattern);
+      if (!ids.length) continue;
+      total += await this.bulkClassify(ids, {
+        category_id: rule.category_id,
+        subcategory_id: rule.subcategory_id,
+      });
+    }
+    return total;
+  }
 }
 
 export const ClassificationRuleService = new ClassificationRuleServiceImpl();
