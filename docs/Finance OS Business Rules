@@ -1,0 +1,635 @@
+# Finance OS Business Rules
+
+Versão: 1.0
+
+Última atualização: 28/07/2026
+
+---
+
+# Objetivo
+
+Este documento define todas as regras de negócio do Finance OS.
+
+Nenhuma implementação poderá contrariar estas regras.
+
+Em caso de conflito entre código e este documento, este documento prevalece.
+
+---
+
+# CAPÍTULO 1 — CONTAS
+
+## REGRA 001
+
+Toda conta pertence a um único Workspace.
+
+---
+
+## REGRA 002
+
+Uma conta nunca pode possuir saldo próprio gravado.
+
+Seu saldo sempre será calculado.
+
+Saldo Atual =
+
+Saldo Inicial
+
++
+
+Movimentações
+
+---
+
+## REGRA 003
+
+Saldo Inicial nunca gera movimentação financeira.
+
+É apenas um ponto de partida.
+
+---
+
+## REGRA 004
+
+Desativar uma conta nunca altera histórico financeiro.
+
+---
+
+## REGRA 005
+
+Excluir uma conta sempre utiliza Soft Delete.
+
+---
+
+# CAPÍTULO 2 — MOVIMENTAÇÕES
+
+## REGRA 010
+
+Toda movimentação pertence a apenas uma conta.
+
+Exceto Transferências.
+
+---
+
+## REGRA 011
+
+Toda movimentação possui:
+
+Categoria
+
+Subcategoria
+
+Competência
+
+Data
+
+Valor
+
+Status
+
+---
+
+## REGRA 012
+
+O valor (amount) sempre é positivo.
+
+Nunca utilizar valores negativos.
+
+O sentido financeiro é determinado exclusivamente pelo tipo da movimentação.
+
+---
+
+## REGRA 013
+
+Receitas aumentam saldo.
+
+---
+
+## REGRA 014
+
+Despesas reduzem saldo.
+
+---
+
+## REGRA 015
+
+Transferências nunca alteram patrimônio.
+
+---
+
+## REGRA 016
+
+Transferências nunca são Receita.
+
+---
+
+## REGRA 017
+
+Transferências nunca são Despesa.
+
+---
+
+## REGRA 018
+
+Pagamento de cartão nunca é Despesa.
+
+---
+
+## REGRA 019
+
+Investimento nunca é Despesa.
+
+---
+
+## REGRA 020
+
+Resgate nunca é Receita.
+
+---
+
+# CAPÍTULO 3 — CARTÕES
+
+## REGRA 030
+
+Toda compra realizada no cartão gera apenas uma movimentação.
+
+---
+
+## REGRA 031
+
+Compras no cartão nunca reduzem saldo da conta bancária.
+
+---
+
+## REGRA 032
+
+Compras aumentam apenas o Passivo do Cartão.
+
+---
+
+## REGRA 033
+
+A Fatura é sempre calculada.
+
+Nunca possui saldo gravado.
+
+---
+
+## REGRA 034
+
+O valor da fatura é igual à soma das compras pertencentes ao seu ciclo.
+
+---
+
+## REGRA 035
+
+Excluir uma compra atualiza imediatamente a fatura.
+
+---
+
+## REGRA 036
+
+Editar uma compra atualiza imediatamente a fatura.
+
+---
+
+## REGRA 037
+
+Mover uma compra para outro cartão recalcula ambas as faturas.
+
+---
+
+## REGRA 038
+
+O pagamento da fatura reduz:
+
+Saldo Bancário
+
+↓
+
+Passivo do Cartão
+
+---
+
+## REGRA 039
+
+Pagamento da fatura nunca gera Despesa.
+
+A despesa ocorreu na compra.
+
+---
+
+## REGRA 040
+
+Enquanto a fatura não for paga:
+
+Status = PENDENTE
+
+---
+
+## REGRA 041
+
+Após pagamento:
+
+Status = PAGA
+
+---
+
+## REGRA 042
+
+Atraso somente ocorre após o vencimento.
+
+Nunca antes.
+
+---
+
+## REGRA 043
+
+Compras futuras nunca aparecem como vencidas.
+
+---
+
+## REGRA 044
+
+Cada cartão possui:
+
+Data de Fechamento
+
+Data de Vencimento
+
+---
+
+## REGRA 045
+
+A definição da fatura é baseada exclusivamente nessas datas.
+
+---
+
+# CAPÍTULO 4 — TRANSFERÊNCIAS
+
+## REGRA 050
+
+Transferências entre contas próprias nunca alteram patrimônio.
+
+---
+
+## REGRA 051
+
+Transferência:
+
+Origem ↓
+
+Destino ↑
+
+---
+
+## REGRA 052
+
+Transferências nunca aparecem nos KPIs de Receita.
+
+---
+
+## REGRA 053
+
+Transferências nunca aparecem nos KPIs de Despesa.
+
+---
+
+## REGRA 054
+
+Transferências nunca entram no Fluxo Financeiro.
+
+---
+
+## REGRA 055
+
+Transferências conciliadas desaparecem da lista de pendências.
+
+---
+
+## REGRA 056
+
+Toda conciliação atualiza automaticamente:
+
+Dashboard
+
+Extrato
+
+Contas
+
+Patrimônio
+
+---
+
+# CAPÍTULO 5 — IMPORTAÇÃO
+
+## REGRA 060
+
+Nunca importar uma movimentação duplicada.
+
+---
+
+## REGRA 061
+
+Duplicidade é identificada por:
+
+Conta
+
+Data
+
+Valor
+
+Descrição Normalizada
+
+ou FITID
+
+---
+
+## REGRA 062
+
+Importações podem ser repetidas.
+
+Movimentações existentes serão ignoradas.
+
+---
+
+## REGRA 063
+
+Importar um CSV atualizado nunca cria duplicidades.
+
+---
+
+## REGRA 064
+
+Toda importação gera um histórico.
+
+---
+
+## REGRA 065
+
+Excluir um histórico nunca exclui movimentações automaticamente.
+
+---
+
+# CAPÍTULO 6 — CLASSIFICAÇÃO
+
+## REGRA 070
+
+Toda movimentação pode possuir:
+
+Categoria
+
+Subcategoria
+
+---
+
+## REGRA 071
+
+Ao memorizar uma classificação:
+
+Criar regra
+
+---
+
+## REGRA 072
+
+Após criar a regra:
+
+Aplicar imediatamente na movimentação atual.
+
+---
+
+## REGRA 073
+
+Após criar a regra:
+
+Aplicar em todas movimentações compatíveis sem categoria.
+
+---
+
+## REGRA 074
+
+Próximas importações utilizarão automaticamente a regra.
+
+---
+
+## REGRA 075
+
+Toda utilização incrementa Match Count.
+
+---
+
+# CAPÍTULO 7 — INVESTIMENTOS
+
+## REGRA 080
+
+Aportes reduzem Conta.
+
+---
+
+## REGRA 081
+
+Aportes aumentam Ativo.
+
+---
+
+## REGRA 082
+
+Resgates fazem o caminho inverso.
+
+---
+
+## REGRA 083
+
+Rendimentos aumentam Patrimônio.
+
+---
+
+## REGRA 084
+
+Aportes nunca são Despesas.
+
+---
+
+## REGRA 085
+
+Resgates nunca são Receitas.
+
+---
+
+## REGRA 086
+
+Ao classificar uma movimentação como Investimento:
+
+Abrir assistente de destino.
+
+---
+
+## REGRA 087
+
+O usuário deverá escolher:
+
+Ativo existente
+
+ou
+
+Cadastrar novo ativo.
+
+---
+
+## REGRA 088
+
+Após confirmação:
+
+Atualizar automaticamente o ativo.
+
+---
+
+# CAPÍTULO 8 — PATRIMÔNIO
+
+## REGRA 090
+
+Patrimônio Líquido =
+
+Caixa
+
++
+
+Investimentos
+
++
+
+Bens
+
+-
+
+Passivos
+
+---
+
+## REGRA 091
+
+Saldo Bancário faz parte do patrimônio.
+
+---
+
+## REGRA 092
+
+Passivo do cartão reduz patrimônio.
+
+---
+
+## REGRA 093
+
+Transferências não alteram patrimônio.
+
+---
+
+## REGRA 094
+
+Aportes não alteram patrimônio.
+
+---
+
+## REGRA 095
+
+Resgates não alteram patrimônio.
+
+---
+
+## REGRA 096
+
+Rendimentos alteram patrimônio.
+
+---
+
+# CAPÍTULO 9 — DASHBOARD
+
+## REGRA 100
+
+Dashboard nunca realiza cálculos próprios.
+
+Sempre consome DashboardService.
+
+---
+
+## REGRA 101
+
+Todo KPI deve utilizar uma única fonte de cálculo.
+
+---
+
+## REGRA 102
+
+Receitas excluem:
+
+Transferências
+
+Resgates
+
+---
+
+## REGRA 103
+
+Despesas excluem:
+
+Transferências
+
+Pagamento de cartão
+
+Aportes
+
+---
+
+## REGRA 104
+
+Saldo Disponível considera apenas contas bancárias.
+
+---
+
+## REGRA 105
+
+Patrimônio Líquido considera todos os ativos e passivos.
+
+---
+
+## REGRA 106
+
+Passivo Cartão considera apenas faturas pendentes.
+
+---
+
+# CAPÍTULO 10 — CACHE
+
+## REGRA 110
+
+Toda alteração financeira invalida:
+
+Movements
+
+Accounts
+
+Dashboard
+
+Assets
+
+Cards
+
+Invoices
+
+Imports
+
+---
+
+## REGRA 111
+
+Nenhuma tela deve exigir F5.
+
+---
+
+## REGRA 112
+
+Toda atualização deve refletir imediatamente em todo o sistema.
+
+---
+
+Este documento deverá crescer continuamente conforme novas funcionalidades forem adicionadas ao Finance OS.
