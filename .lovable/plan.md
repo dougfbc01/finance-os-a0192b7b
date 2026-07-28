@@ -1,105 +1,67 @@
-# Mega Sprint 3 — Plano de Execução
+## Sprint 3.1 — Consolidação da Regra de Negócio
 
-Escopo grande e com impacto contábil. Antes de escrever código, valide os pontos abaixo. Nenhuma refatoração; apenas mudanças aditivas + correção da regra do cartão.
+Escopo integralmente concentrado nas camadas existentes (Services, Hooks, Componentes). Nenhuma alteração de arquitetura.
 
-## Etapa 1 — Correção contábil do cartão
+### Parte 1 — Cartão (status e projeção)
+- **Migração SQL**:
+  - Ao criar uma movimentação com `card_id` (compra), forçar `status = PENDING` (default via trigger `BEFORE INSERT`).
+  - Estender `recompute_card_invoice`: ao marcar fatura como `PAID`, atualizar todas as movimentações da fatura para `status = CLEARED`. Ao reabrir (não pago), reverter para `PENDING`.
+  - Confirmar que trigger `movements_recompute_invoice` cobre INSERT/UPDATE/DELETE (incluindo soft-delete via `deleted_at`).
+- **MovementService.create/update**: default de status para compras em cartão = `PENDING`.
+- **CardInvoiceService.markPaid**: após inserir o `CARD_PAYMENT`, chama um novo passo que promove as movimentações da fatura para `CLEARED` (garantia client-side, mesmo com trigger).
+- **DashboardService / PatrimonyService**: garantir que passivo do cartão soma faturas OPEN/CLOSED/OVERDUE (já ok) e KPIs "Passivo Cartões" consideram compras PENDING.
 
-**Problema atual:** compras no cartão são tratadas como `EXPENSE` na conta bancária (reduzem saldo imediatamente) e o pagamento gera `CARD_PAYMENT`, causando dupla contabilização.
+### Parte 2 — Competência e Vencimento (auto-preenchimento)
+- Centralizar no `MovementService.create/update`:
+  - Conta: `competence_date` e `due_date` default = `transaction_date` quando nulos.
+  - Cartão (compra): `competence_date = transaction_date`; `due_date = period.due_date` (via `CardServiceImpl.computeInvoicePeriod`).
+  - `CARD_PAYMENT`: `competence_date = due_date = transaction_date`.
+- Manter campos editáveis no formulário — apenas preenchimento default no service quando vierem `null`.
 
-**Nova regra:**
-- Compras no cartão viram movimentações `EXPENSE` com `card_id` + `invoice_id` preenchidos, `account_id = NULL`. Aparecem em relatórios de despesa e alimentam passivo, **não** alteram saldo de conta.
-- Somente `CARD_PAYMENT` (gerado no pagamento da fatura) altera saldo de conta e quita fatura.
-- Passivo de cartões = soma das faturas em aberto + compras da fatura corrente.
+### Parte 3 — Investimentos (fluxo em 2 passos)
+- **Modelo**: adicionar sub-tipo em `MovementService` reutilizando `MovementType.INVESTMENT/DIVIDEND/INTEREST` + novo campo lógico `investment_operation` (armazenado em `tags` ou coluna dedicada — usaremos `notes`-agnóstico via `tags: ["op:APORTE|RESGATE|RENDIMENTO|AJUSTE"]` para não migrar schema agora).
+- **MovementFormDialog**: quando categoria selecionada for do tipo `INVESTMENT`, exibir segunda etapa:
+  1. Seletor de destino: dropdown com todos os `assets` do workspace (caixinhas/investimentos/carteiras filtrados por `asset_type`); botão "Novo ativo" abre `AssetFormDialog` inline.
+  2. Seletor de operação: Aporte / Resgate / Rendimento / Ajuste.
+- Salvar `asset_id` na movimentação (campo já existe). Nunca criar movimentações extras.
+- `PatrimonyService` continua agregando via `assets.current_value` (nenhuma mudança).
 
-**Alterações:**
-- `MovementService.impactOnAccount`: se `card_id != null`, retorna 0 (não impacta conta bancária) — mesmo para `EXPENSE`.
-- `DashboardService.balanceDelta`: idem — ignora movimentos vinculados a cartão para saldo bancário.
-- `DashboardService`: novos derivados `totalLiabilities`, `netWorth`, `totalAssets`.
-- Migração de dados: nada destrutivo; apenas garantir que compras com `card_id` já não afetem saldo por conta do novo cálculo (retroativo automaticamente).
+### Parte 4 — Classificação inteligente (scan automático)
+- `ClassificationRuleService`: novo método `applyToUnclassified(workspaceId, ruleId)` que:
+  - Busca movimentações do workspace com `category_id IS NULL` (e não TRANSFER/CARD_PAYMENT) cuja descrição case com `text_pattern`.
+  - Retorna lista de ids compatíveis (sem aplicar).
+  - Método `bulkClassify(ids, {category_id, subcategory_id})` para aplicar.
+- Hook `useRememberClassification` → após sucesso, dispara scan; UI mostra `AlertDialog` "Foram encontradas N movimentações compatíveis. Deseja classificá-las?". Confirmar chama `bulkClassify` e invalida caches.
 
-## Etapa 2 — Patrimônio (`assets`)
+### Parte 5 — Transferências (garantia)
+- Auditar `DashboardService` (income/expense/cashflow/DRE/KPIs/gráficos) para garantir filtro `type !== TRANSFER` e `type !== CARD_PAYMENT` em todos os agregados de receita/despesa. Ajustar pontos faltantes.
 
-**Migração:**
-- Enum `asset_type` (BANK, CASH, CDB, TESOURO, LCI, LCA, DEBENTURE, ACAO, FII, ETF, BDR, CRIPTO, PREVIDENCIA, FUNDO, CAIXINHA, OUTRO).
-- Tabela `assets` com todos os campos listados + RLS + GRANTs + soft delete + trigger updated_at.
-- Sem seed inicial.
+### Parte 6 — Reprocessamento
+- Página `configuracoes.tsx`: nova seção "Classificação Inteligente" com botão **"Reprocessar Regras"** que:
+  - Carrega todas as regras + movimentações sem categoria.
+  - Aplica `ClassificationRuleService.match` em cada uma; agrupa por regra e chama `bulkClassify`.
+  - Mostra toast com total classificado; invalida caches.
 
-**Models/Services/Hooks:**
-- `src/models/Asset.ts`
-- `src/services/AssetService.ts` (CRUD + cálculo de valor total, rentabilidade = `current_value - acquisition_value`).
-- `src/services/PatrimonyService.ts` (agregações: por classe, por instituição, patrimônio líquido combinando `assets` + saldos + passivo de cartão).
-- `src/services/InvestmentService.ts` (filtra `assets` de classes de investimento; rentabilidade %).
-- `src/hooks/useAssets.ts`, `usePatrimony.ts`.
+### Parte 7 — Refresh automático
+- Padronizar em cada hook mutation uma função `invalidateAll(qc)` que invalida:
+  `movements`, `accounts`, `dashboard`, `patrimony`, `cards`, `card_invoices`, `assets`, `imports`.
+- Aplicar em: `useMovements`, `useCardInvoices`, `useAssets`, `useImports`, `useReconciliation`, `useClassificationRules`, `useCards`.
 
-**Regra Caixinhas:** classificadas como `asset_type = CAIXINHA`. Transferência Conta → Caixinha é um `TRANSFER` normal (não altera patrimônio) — no MVP a caixinha aparece como ativo manual; ajuste automático de saldo da caixinha será feito manualmente pelo usuário (documentado; integração automática fica para a etapa de importação futura).
+### Parte 8 — Validações (checklist final)
+- ✓ `MovementService.impactOnAccount` já garante que compras com `card_id` retornam 0.
+- ✓ `CardInvoiceService.markPaid` cria exatamente um `CARD_PAYMENT`.
+- ✓ Recompute de fatura via trigger elimina fatura zerada com compras.
+- ✓ `PatrimonyService.snapshot.netWorth = totalAssets - liabilities`.
+- ✓ Autopreenchimento de competência/vencimento no `MovementService`.
+- ✓ `asset_id` obrigatório quando `type ∈ INVESTMENT/DIVIDEND/INTEREST` e categoria de investimento.
+- ✓ Soft-delete dispara trigger → todas as telas se atualizam via `invalidateAll`.
 
-## Etapa 3 — Dashboard Patrimonial
+### Detalhes técnicos (para revisão)
+- Migrações SQL: 1 migration adicionando (a) trigger `BEFORE INSERT` para default de status em compras de cartão; (b) atualização da função `recompute_card_invoice` para sincronizar status das movimentações quando `PAID/OPEN`.
+- Nenhum novo schema de coluna — operação de investimento gravada em `tags` (`op:APORTE` etc.) para evitar migração desnecessária.
+- Nenhuma mudança em contratos públicos existentes; apenas extensões.
 
-Nova página `/patrimonio` (substitui placeholder) com widgets:
-- Patrimônio Líquido (Ativos − Passivos)
-- Ativos Totais, Passivos Totais
-- Patrimônio por Classe (pizza)
-- Distribuição por Instituição (pizza)
-- Evolução Patrimonial (últimos 6 meses — usa saldos + snapshot atual de assets, sem histórico ainda: linha simplificada baseada em cashflow + valor atual dos ativos)
-- Rentabilidade (tabela por ativo)
-- Cards: Caixa, Investimentos, Cartões (passivo)
-
-Dashboard financeiro atual ganha novos KPIs: **Saldo disponível**, **Patrimônio líquido**, **Passivo de cartões** — usando `PatrimonyService`.
-
-Rota `/investimentos` também sai do placeholder: listagem simples dos ativos das classes de investimento com quantidade, PM, valor atual, rentabilidade.
-
-## Etapa 4 — Arquitetura de importação futura
-
-Sem integração externa. Apenas:
-- Novos tipos em `src/services/importers/types.ts`: `AssetImportRow`, `AssetImporter`.
-- Stubs vazios: `B3Importer.ts`, `NubankCaixinhasImporter.ts` (retornam `NotImplemented`).
-- `ImporterFactory` mapeia origens novas para os stubs.
-
-## Etapa 5 — Regressão
-
-Validar manualmente via preview:
-- Importações Nubank conta + cartão (cartão não altera saldo).
-- Pagamento de fatura reduz saldo e quita.
-- Transferências entre contas continuam neutras.
-- Dashboard financeiro exibe corretamente saldo × patrimônio.
-
-## Arquivos
-
-**Novos**
-```
-supabase migration: create_assets_table
-src/models/Asset.ts
-src/services/AssetService.ts
-src/services/PatrimonyService.ts
-src/services/InvestmentService.ts (reescrito de stub)
-src/hooks/useAssets.ts
-src/hooks/usePatrimony.ts
-src/components/assets/AssetFormDialog.tsx
-src/components/assets/AssetCard.tsx
-src/components/dashboard/widgets/NetWorthWidget.tsx
-src/components/dashboard/widgets/AssetsByClassWidget.tsx
-src/components/dashboard/widgets/AssetsByInstitutionWidget.tsx
-src/components/dashboard/widgets/LiabilitiesWidget.tsx
-src/services/importers/B3Importer.ts (stub)
-src/services/importers/NubankCaixinhasImporter.ts (stub)
-```
-
-**Alterados**
-```
-src/services/MovementService.ts        (impactOnAccount ignora card_id)
-src/services/DashboardService.ts       (balanceDelta ignora card_id; agrega passivo/patrimônio)
-src/constants/enums.ts                 (AssetType)
-src/models/index.ts                    (export Asset)
-src/routes/_authenticated/patrimonio.tsx      (nova página)
-src/routes/_authenticated/investimentos.tsx   (nova página)
-src/routes/_authenticated/dashboard.tsx       (novos KPIs)
-src/services/importers/types.ts        (AssetImporter)
-src/services/importers/ImporterFactory.ts
-src/hooks/useDashboard.ts              (retorna passivo/patrimônio)
-```
-
-## Confirmar antes de executar
-
-1. Compras existentes que já reduziram saldo: aceitável que o saldo "suba" automaticamente após o deploy (é a correção contábil esperada)?
-2. Widget de "Evolução Patrimonial" no MVP: sem histórico de ativos, ok apresentar linha derivada apenas do cashflow + valor atual dos ativos (constante retroativo)?
-3. Caixinhas neste sprint: cadastro manual como asset (`CAIXINHA`), sem sincronização automática com movimentações — apenas arquitetura pronta?
+### Fora do escopo
+- Não altera layouts, temas, rotas ou navegação.
+- Não introduz relatórios/DRE novos — apenas garante filtros corretos.
+- Não muda importadores.
