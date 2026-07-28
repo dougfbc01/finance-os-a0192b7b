@@ -117,6 +117,17 @@ class MovementServiceImpl extends BaseService {
       input.type,
     );
 
+    // Autopreenchimento de competência/vencimento (Sprint 3.1 - Parte 2)
+    const { competence, dueDate, cardStatus } = await this.resolveDates(
+      input,
+      invoiceId,
+    );
+
+    const isCardPurchase =
+      !!input.card_id &&
+      input.type !== MovementType.TRANSFER &&
+      input.type !== MovementType.CARD_PAYMENT;
+
     const payload: Row = {
       workspace_id: input.workspace_id,
       account_id: input.account_id ?? null,
@@ -128,13 +139,13 @@ class MovementServiceImpl extends BaseService {
       invoice_id: invoiceId,
       asset_id: input.asset_id ?? null,
       type: input.type,
-      status: input.status ?? MovementStatus.CLEARED,
+      status: input.status ?? (isCardPurchase ? MovementStatus.PENDING : cardStatus),
       description: (input.description ?? "").trim(),
       notes: input.notes ?? null,
       amount: Math.abs(Number(input.amount)),
       transaction_date: input.transaction_date,
-      competence_date: input.competence_date ?? null,
-      due_date: input.due_date ?? null,
+      competence_date: input.competence_date ?? competence,
+      due_date: input.due_date ?? dueDate,
       tags: input.tags ?? [],
       attachments: input.attachments ?? [],
       transfer_group_id:
@@ -149,6 +160,39 @@ class MovementServiceImpl extends BaseService {
     if (error) this.handleError(error, "create");
     return this.mapRow(data as Row);
   }
+
+  /**
+   * Deriva competence_date, due_date e status inicial conforme a origem
+   * (conta bancária, compra em cartão, pagamento de fatura).
+   */
+  private async resolveDates(
+    input: CreateMovementInput,
+    invoiceId: UUID | null,
+  ): Promise<{ competence: string; dueDate: string; cardStatus: MovementStatus }> {
+    const txn = input.transaction_date;
+    // Compra em cartão → competence = data, vencimento = due_date da fatura
+    if (
+      input.card_id &&
+      input.type !== MovementType.TRANSFER &&
+      input.type !== MovementType.CARD_PAYMENT
+    ) {
+      let due = txn;
+      if (invoiceId) {
+        const { data } = await this.client
+          .from("card_invoices")
+          .select("due_date")
+          .eq("id", invoiceId)
+          .maybeSingle();
+        if (data && (data as { due_date?: string }).due_date) {
+          due = (data as { due_date: string }).due_date;
+        }
+      }
+      return { competence: txn, dueDate: due, cardStatus: MovementStatus.PENDING };
+    }
+    // Pagamento de fatura, conta ou transferência → competence = vencimento = data
+    return { competence: txn, dueDate: txn, cardStatus: MovementStatus.CLEARED };
+  }
+
 
   async update(id: UUID, input: UpdateMovementInput): Promise<Movement> {
     const existing = await this.getById(id);
