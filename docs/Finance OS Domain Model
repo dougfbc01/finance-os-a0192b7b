@@ -1,0 +1,566 @@
+# Finance OS Domain Model
+
+Versão: 1.0
+
+Última atualização: 28/07/2026
+
+---
+
+# Objetivo
+
+Este documento descreve o domínio do Finance OS.
+
+Ele define os conceitos de negócio, como eles se relacionam e quais são suas responsabilidades.
+
+Nenhuma implementação deverá criar novos conceitos sem atualizar este documento.
+
+---
+
+# Filosofia
+
+O Finance OS não controla dinheiro.
+
+Ele controla eventos financeiros.
+
+Cada evento gera um ou mais efeitos sobre:
+
+- Caixa
+- Passivos
+- Ativos
+- Patrimônio
+
+Todo o restante do sistema é consequência desses eventos.
+
+---
+
+# Modelo Geral
+
+Workspace
+
+├── Contas
+
+├── Cartões
+
+│      └── Faturas
+
+├── Movimentações
+
+├── Categorias
+
+│      └── Subcategorias
+
+├── Ativos
+
+├── Patrimônio
+
+├── Importações
+
+├── Regras
+
+├── Dashboard
+
+└── Relatórios
+
+---
+
+# Workspace
+
+Representa um ambiente financeiro independente.
+
+Responsabilidades
+
+- isolar dados
+
+- controlar permissões
+
+- agrupar toda informação financeira
+
+Nunca contém regra financeira.
+
+---
+
+# Conta
+
+Representa um local onde existe dinheiro disponível.
+
+Exemplos
+
+Conta Corrente
+
+Conta Digital
+
+Carteira
+
+Dinheiro
+
+Conta Internacional
+
+Corretora
+
+Uma Conta possui:
+
+saldo inicial
+
+movimentações
+
+cartões vinculados
+
+Nunca possui saldo armazenado.
+
+Saldo sempre é calculado.
+
+---
+
+# Cartão
+
+Representa um meio de pagamento.
+
+Nunca representa dinheiro.
+
+Nunca possui saldo.
+
+Possui apenas:
+
+limite
+
+fechamento
+
+vencimento
+
+faturas
+
+compras
+
+---
+
+# Fatura
+
+A Fatura não é uma entidade financeira.
+
+Ela é uma projeção.
+
+Seu valor sempre será:
+
+Soma das compras pertencentes ao ciclo.
+
+Ela nunca armazena saldo próprio.
+
+---
+
+# Compra no Cartão
+
+Uma compra no cartão é uma Movimentação.
+
+Ela produz:
+
+Passivo ↑
+
+Não altera Caixa.
+
+Não altera Patrimônio.
+
+---
+
+# Pagamento da Fatura
+
+É uma Movimentação.
+
+Produz:
+
+Caixa ↓
+
+Passivo ↓
+
+Nunca gera despesa.
+
+---
+
+# Conta Bancária
+
+Representa dinheiro disponível.
+
+É a única origem utilizada para:
+
+PIX
+
+TED
+
+Débito
+
+Pagamento
+
+Saques
+
+Transferências
+
+---
+
+# Movimentação
+
+É o núcleo do sistema.
+
+Todo evento financeiro gera exatamente uma movimentação.
+
+Uma movimentação pode produzir um ou mais efeitos financeiros.
+
+Nunca existirão tabelas paralelas de movimentações.
+
+---
+
+# Categoria
+
+Classifica o objetivo financeiro.
+
+Exemplos
+
+Moradia
+
+Alimentação
+
+Educação
+
+Transporte
+
+Investimentos
+
+---
+
+# Subcategoria
+
+Especializa uma categoria.
+
+Exemplo
+
+Categoria
+
+Alimentação
+
+↓
+
+Subcategoria
+
+Mercado
+
+Padaria
+
+Restaurante
+
+Delivery
+
+---
+
+# Ativo
+
+Representa patrimônio.
+
+Exemplos
+
+Caixinha
+
+Tesouro
+
+ETF
+
+FII
+
+Ações
+
+BDR
+
+Cripto
+
+Veículo
+
+Imóvel
+
+O Ativo nunca conhece contas bancárias.
+
+Ele apenas recebe eventos.
+
+---
+
+# Patrimônio
+
+É uma visão consolidada.
+
+Nunca possui tabela própria.
+
+Sempre será calculado.
+
+Patrimônio Líquido =
+
+Caixa
+
++
+
+Ativos
+
+-
+
+Passivos
+
+---
+
+# Importação
+
+Representa apenas a origem dos dados.
+
+Nunca modifica regras financeiras.
+
+Sua responsabilidade termina após criar movimentações.
+
+---
+
+# Regra de Classificação
+
+Representa conhecimento aprendido pelo sistema.
+
+Uma regra possui:
+
+texto
+
+categoria
+
+subcategoria
+
+prioridade
+
+histórico de utilização
+
+Ela nunca altera dados sozinha.
+
+Sempre será aplicada por um Service.
+
+---
+
+# Dashboard
+
+Não possui inteligência própria.
+
+É apenas uma representação gráfica dos cálculos realizados pelos Services.
+
+---
+
+# Services
+
+Os Services representam o comportamento do domínio.
+
+Nunca existirão regras financeiras fora deles.
+
+Services existentes
+
+AccountService
+
+MovementService
+
+DashboardService
+
+CardService
+
+InvoiceService
+
+AssetService
+
+InvestmentService
+
+ImportService
+
+PatrimonyService
+
+ClassificationRuleService
+
+ReconciliationService
+
+ImportHistoryService
+
+---
+
+# Fluxo Financeiro
+
+Evento
+
+↓
+
+Movimentação
+
+↓
+
+Service
+
+↓
+
+Atualização do Domínio
+
+↓
+
+Dashboard
+
+↓
+
+Relatórios
+
+---
+
+# Fluxo de Importação
+
+Arquivo
+
+↓
+
+Importer
+
+↓
+
+Preview
+
+↓
+
+Validação
+
+↓
+
+Movimentações
+
+↓
+
+Regras de Classificação
+
+↓
+
+Conciliação
+
+↓
+
+Dashboard
+
+---
+
+# Fluxo de Cartão
+
+Compra
+
+↓
+
+Movimentação
+
+↓
+
+Fatura Projetada
+
+↓
+
+Pagamento
+
+↓
+
+Redução do Passivo
+
+↓
+
+Atualização do Caixa
+
+---
+
+# Fluxo de Investimento
+
+Transferência
+
+↓
+
+Classificação como Investimento
+
+↓
+
+Escolha do Ativo
+
+↓
+
+Atualização do Patrimônio
+
+↓
+
+Dashboard
+
+---
+
+# Relações do Domínio
+
+Workspace
+
+↓
+
+Contas
+
+↓
+
+Movimentações
+
+↓
+
+Categorias
+
+↓
+
+Dashboard
+
+----------------------------
+
+Workspace
+
+↓
+
+Cartões
+
+↓
+
+Compras
+
+↓
+
+Faturas
+
+----------------------------
+
+Workspace
+
+↓
+
+Ativos
+
+↓
+
+Patrimônio
+
+↓
+
+Dashboard
+
+----------------------------
+
+Workspace
+
+↓
+
+Importações
+
+↓
+
+Movimentações
+
+↓
+
+Regras
+
+↓
+
+Dashboard
+
+---
+
+# Fonte da Verdade
+
+O domínio do sistema sempre prevalece sobre detalhes de implementação.
+
+Se uma solução técnica contrariar este documento, a implementação deverá ser alterada.
+
+Nunca o contrário.
