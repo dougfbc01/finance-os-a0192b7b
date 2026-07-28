@@ -1,0 +1,760 @@
+# Finance OS Database
+
+Versão: 1.0
+
+Última atualização: 28/07/2026
+
+---
+
+# Objetivo
+
+Documentar toda a estrutura do banco de dados do Finance OS.
+
+Este documento define:
+
+- tabelas
+- relacionamentos
+- enums
+- índices
+- regras de persistência
+- responsabilidades
+
+Sempre que uma tabela for criada ou alterada este documento deverá ser atualizado.
+
+---
+
+# Princípios
+
+## Workspace First
+
+Toda entidade financeira pertence a um Workspace.
+
+Obrigatório possuir:
+
+workspace_id
+
+com RLS.
+
+---
+
+## Soft Delete
+
+Nenhuma entidade financeira será removida fisicamente.
+
+Todas possuem
+
+deleted_at
+
+---
+
+## Auditoria
+
+Todas as tabelas financeiras possuem:
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+## UUID
+
+Todas as PKs utilizam UUID.
+
+Nunca utilizar SERIAL.
+
+---
+
+# Relacionamentos
+
+Workspace
+
+↓
+
+Accounts
+
+↓
+
+Movements
+
+↓
+
+Cards
+
+↓
+
+Invoices
+
+↓
+
+Assets
+
+↓
+
+Imports
+
+↓
+
+Classification Rules
+
+---
+
+# Tabelas
+
+---
+
+## workspaces
+
+Responsável pelo isolamento dos dados.
+
+Campos
+
+id
+
+owner_id
+
+name
+
+created_at
+
+---
+
+## profiles
+
+Dados do usuário.
+
+Campos
+
+id
+
+workspace_id
+
+name
+
+email
+
+avatar_url
+
+created_at
+
+---
+
+## accounts
+
+Representa contas financeiras.
+
+Exemplos
+
+Conta Corrente
+
+Poupança
+
+Carteira
+
+Conta Internacional
+
+Corretora
+
+Dinheiro
+
+Campos
+
+id
+
+workspace_id
+
+name
+
+institution
+
+account_type
+
+currency
+
+initial_balance
+
+color
+
+icon
+
+display_order
+
+is_active
+
+created_at
+
+updated_at
+
+deleted_at
+
+Relacionamentos
+
+Workspace
+
+↓
+
+Accounts
+
+↓
+
+Movements
+
+---
+
+## categories
+
+Categorias financeiras.
+
+Campos
+
+id
+
+workspace_id
+
+name
+
+type
+
+color
+
+icon
+
+display_order
+
+is_system
+
+is_active
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+## subcategories
+
+Subcategorias.
+
+Relacionamento
+
+Categoria
+
+↓
+
+Subcategoria
+
+---
+
+## movements
+
+Tabela central do sistema.
+
+Nunca criar outra tabela para movimentações financeiras.
+
+Campos
+
+id
+
+workspace_id
+
+account_id
+
+transfer_account_id
+
+card_id
+
+asset_id
+
+category_id
+
+subcategory_id
+
+import_id
+
+transfer_group_id
+
+type
+
+status
+
+description
+
+notes
+
+amount
+
+transaction_date
+
+competence_date
+
+due_date
+
+tags
+
+attachments
+
+duplicate_hash
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+Responsabilidades
+
+Receitas
+
+Despesas
+
+Transferências
+
+Pagamento Cartão
+
+Investimentos
+
+Dividendos
+
+Juros
+
+Taxas
+
+Impostos
+
+Reembolsos
+
+Ajustes
+
+---
+
+Nunca armazenar saldo.
+
+---
+
+## cards
+
+Representa cartões de crédito.
+
+Campos
+
+id
+
+workspace_id
+
+account_id
+
+name
+
+institution
+
+brand
+
+closing_day
+
+due_day
+
+credit_limit
+
+color
+
+is_active
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+Relacionamento
+
+Conta Bancária
+
+↓
+
+Cartão
+
+↓
+
+Compras
+
+↓
+
+Fatura
+
+---
+
+## card_invoices
+
+IMPORTANTE
+
+Esta tabela NÃO armazena saldo.
+
+Ela apenas identifica:
+
+competência
+
+vencimento
+
+status
+
+As compras pertencentes ao ciclo determinam automaticamente seu valor.
+
+Campos
+
+id
+
+workspace_id
+
+card_id
+
+reference_month
+
+closing_date
+
+due_date
+
+status
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+## assets
+
+Representa patrimônio.
+
+Tipos
+
+Caixinha
+
+CDB
+
+Tesouro
+
+FII
+
+ETF
+
+Ações
+
+BDR
+
+Cripto
+
+Imóvel
+
+Veículo
+
+Outros
+
+Campos
+
+id
+
+workspace_id
+
+name
+
+asset_type
+
+institution
+
+current_value
+
+quantity
+
+average_price
+
+currency
+
+is_active
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+## imports
+
+Histórico de importações.
+
+Campos
+
+id
+
+workspace_id
+
+source
+
+file_name
+
+file_hash
+
+status
+
+total_rows
+
+imported_rows
+
+duplicated_rows
+
+ignored_rows
+
+log
+
+created_at
+
+---
+
+## classification_rules
+
+Responsável pela classificação automática.
+
+Campos
+
+id
+
+workspace_id
+
+text_pattern
+
+category_id
+
+subcategory_id
+
+priority
+
+enabled
+
+match_count
+
+last_matched_at
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+# ENUMS
+
+## account_type
+
+CHECKING
+
+SAVINGS
+
+DIGITAL
+
+BROKER
+
+WALLET
+
+CASH
+
+INTERNATIONAL
+
+OTHER
+
+---
+
+## movement_type
+
+INCOME
+
+EXPENSE
+
+TRANSFER
+
+CARD_PURCHASE
+
+CARD_PAYMENT
+
+INVESTMENT
+
+DIVIDEND
+
+INTEREST
+
+FEE
+
+TAX
+
+REFUND
+
+ADJUSTMENT
+
+---
+
+## movement_status
+
+PENDING
+
+CLEARED
+
+RECONCILED
+
+CANCELLED
+
+---
+
+## asset_type
+
+CAIXINHA
+
+CDB
+
+LCI
+
+LCA
+
+TESOURO
+
+FII
+
+ETF
+
+STOCK
+
+BDR
+
+CRYPTO
+
+PENSION
+
+REAL_ESTATE
+
+VEHICLE
+
+OTHER
+
+---
+
+## invoice_status
+
+OPEN
+
+PENDING
+
+PAID
+
+OVERDUE
+
+CANCELLED
+
+---
+
+# Índices Obrigatórios
+
+Accounts
+
+workspace_id
+
+lower(name)
+
+Movements
+
+workspace_id
+
+transaction_date
+
+account_id
+
+category_id
+
+duplicate_hash
+
+transfer_group_id
+
+Cards
+
+workspace_id
+
+Invoices
+
+card_id
+
+reference_month
+
+Assets
+
+workspace_id
+
+asset_type
+
+Imports
+
+workspace_id
+
+file_hash
+
+Classification Rules
+
+workspace_id
+
+text_pattern
+
+---
+
+# Triggers
+
+Obrigatórios
+
+set_updated_at()
+
+Todas as tabelas.
+
+---
+
+recalculate_invoice()
+
+Sempre que ocorrer:
+
+INSERT Movement
+
+UPDATE Movement
+
+DELETE Movement
+
+Mudança de card_id
+
+Mudança de competência
+
+Mudança de vencimento
+
+---
+
+# Nunca permitido
+
+Salvar saldo de conta.
+
+Salvar saldo da fatura.
+
+Salvar patrimônio líquido.
+
+Salvar dashboard.
+
+Todos esses valores deverão ser calculados pelos Services.
+
+---
+
+# Fonte Oficial
+
+Toda alteração estrutural no banco deverá atualizar este documento antes de qualquer implementação.
