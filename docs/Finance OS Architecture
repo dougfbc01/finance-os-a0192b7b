@@ -1,0 +1,306 @@
+# Finance OS Architecture
+
+Versão: 1.0
+Última atualização: 28/07/2026
+
+---
+
+# Objetivo
+
+O Finance OS é um sistema de gestão financeira pessoal desenvolvido para ser modular, escalável e orientado por regras de negócio.
+
+Todo comportamento financeiro deve estar centralizado na camada de Services.
+
+Componentes React nunca implementam regras de negócio.
+
+---
+
+# Arquitetura
+
+Frontend
+
+React
+TypeScript
+TanStack Router
+TanStack Query
+Shadcn/UI
+React Hook Form
+Zod
+
+Backend
+
+Supabase
+
+PostgreSQL
+
+RLS
+
+Storage
+
+Authentication
+
+Google OAuth
+
+Email/Senha
+
+---
+
+# Camadas
+
+Routes
+
+↓
+
+Components
+
+↓
+
+Hooks
+
+↓
+
+Services
+
+↓
+
+Supabase
+
+---
+
+# Responsabilidade das camadas
+
+## Routes
+
+Responsável apenas por:
+
+- navegação
+- carregamento da página
+- composição da tela
+
+Nunca contém regra financeira.
+
+---
+
+## Components
+
+Responsáveis apenas por interface.
+
+Nunca realizam cálculos financeiros.
+
+Nunca acessam diretamente o banco.
+
+---
+
+## Hooks
+
+Toda comunicação entre interface e Services.
+
+Responsáveis por:
+
+React Query
+
+Cache
+
+Mutations
+
+Invalidate
+
+Nunca implementam regras financeiras.
+
+---
+
+## Services
+
+Toda regra do sistema deve existir aqui.
+
+Exemplos:
+
+saldo
+
+cartões
+
+transferências
+
+investimentos
+
+patrimônio
+
+importações
+
+classificação
+
+dashboard
+
+Nunca duplicar regras em Components.
+
+---
+
+## Database
+
+Responsável apenas por:
+
+persistência
+
+RLS
+
+constraints
+
+índices
+
+triggers técnicos
+
+Nunca colocar regra financeira complexa no banco.
+
+---
+
+# Princípios
+
+Single Source of Truth
+
+Toda informação deve possuir apenas um local responsável.
+
+Exemplo
+
+Saldo
+
+↓
+
+DashboardService
+
+Nunca recalcular em outro lugar.
+
+---
+
+Derived Data
+
+Sempre que possível utilizar dados derivados.
+
+Nunca salvar informações que possam ser recalculadas.
+
+Exemplo
+
+Saldo
+
+↓
+
+Inicial
+
++
+
+Movimentações
+
+---
+
+Soft Delete
+
+Nenhuma entidade financeira deve ser removida fisicamente.
+
+Sempre utilizar
+
+deleted_at
+
+---
+
+Workspace Isolation
+
+Todos os dados pertencem a um Workspace.
+
+Toda consulta deve respeitar workspace_id.
+
+---
+
+React Query
+
+Toda mutation deve invalidar:
+
+movements
+
+accounts
+
+dashboard
+
+cards
+
+assets
+
+imports
+
+Sempre através do helper invalidateFinancialQueries().
+
+---
+
+Services existentes
+
+AccountService
+
+MovementService
+
+DashboardService
+
+ImportService
+
+CategoryService
+
+SubcategoryService
+
+CardService
+
+InvoiceService
+
+AssetService
+
+InvestmentService
+
+PatrimonyService
+
+ClassificationRuleService
+
+ReconciliationService
+
+ImportHistoryService
+
+---
+
+Importadores
+
+ImporterFactory
+
+↓
+
+NubankAccountImporter
+
+↓
+
+NubankCreditCardImporter
+
+↓
+
+OFXImporter
+
+↓
+
+B3Importer
+
+↓
+
+NubankCaixinhasImporter
+
+---
+
+Objetivos futuros
+
+IA
+
+OCR
+
+Open Finance
+
+PIX
+
+Integração Bancária
+
+Automação
+
+Planejamento Financeiro
+
+Alertas Inteligentes
