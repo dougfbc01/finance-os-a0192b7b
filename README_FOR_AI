@@ -174,3 +174,45 @@ Atualização automática
 Testes do fluxo
 
 Somente depois considerar a funcionalidade concluída.
+
+# Fluxo Completo Obrigatório
+
+Nenhuma funcionalidade pode ser considerada implementada apenas por possuir interface.
+
+Toda funcionalidade deve possuir:
+
+✓ Banco de dados
+
+✓ Models
+
+✓ Services
+
+✓ Hooks
+
+✓ Componentes
+
+✓ Rotas
+
+✓ Integração completa
+
+✓ Atualização automática do Dashboard
+
+✓ Atualização automática dos KPIs
+
+✓ Atualização automática das Contas
+
+✓ Atualização automática do Patrimônio
+
+✓ Atualização automática dos Cartões (quando aplicável)
+
+✓ Fluxo de criação
+
+✓ Fluxo de edição
+
+✓ Fluxo de exclusão
+
+✓ Fluxo de importação (quando aplicável)
+
+✓ Fluxo de sincronização
+
+Caso qualquer etapa esteja ausente, a funcionalidade deve permanecer como "Em Desenvolvimento" e não pode ser considerada concluída.
