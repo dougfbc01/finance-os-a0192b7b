@@ -1,0 +1,321 @@
+# Finance OS - Workflows
+
+Este documento descreve TODOS os fluxos do sistema.
+
+---
+
+# 1. Importação Bancária
+
+Fluxo:
+
+Usuário seleciona arquivo
+
+↓
+
+Sistema identifica o Importer
+
+↓
+
+Pré-processamento
+
+↓
+
+Aplica regras de classificação
+
+↓
+
+Detecta duplicados
+
+↓
+
+Detecta transferências
+
+↓
+
+Gera Preview
+
+↓
+
+Usuário confirma
+
+↓
+
+Grava Import
+
+↓
+
+Grava Movimentações
+
+↓
+
+Atualiza Dashboard
+
+↓
+
+Atualiza Contas
+
+↓
+
+Atualiza Cartões
+
+↓
+
+Atualiza Patrimônio
+
+↓
+
+Atualiza KPIs
+
+---
+
+# 2. Cadastro Manual
+
+Usuário cria movimentação
+
+↓
+
+Valida dados
+
+↓
+
+Salva
+
+↓
+
+Atualiza Conta
+
+↓
+
+Atualiza Dashboard
+
+↓
+
+Atualiza Patrimônio
+
+↓
+
+Atualiza Cartão (quando houver)
+
+---
+
+# 3. Editar Movimentação
+
+Editar
+
+↓
+
+Salvar
+
+↓
+
+Reprocessar regras
+
+↓
+
+Atualizar dashboards
+
+↓
+
+Atualizar saldo
+
+↓
+
+Atualizar patrimônio
+
+↓
+
+Atualizar cartão
+
+---
+
+# 4. Excluir Movimentação
+
+Soft Delete
+
+↓
+
+Recalcular Conta
+
+↓
+
+Recalcular Cartão
+
+↓
+
+Recalcular Patrimônio
+
+↓
+
+Atualizar Dashboard
+
+---
+
+# 5. Compra Cartão
+
+Importação
+
+↓
+
+Card Purchase
+
+↓
+
+Vincular Cartão
+
+↓
+
+Encontrar Fatura
+
+↓
+
+Adicionar Compra
+
+↓
+
+Recalcular Fatura
+
+↓
+
+Atualizar Passivo
+
+---
+
+# 6. Pagamento Fatura
+
+Pagamento
+
+↓
+
+Criar CARD_PAYMENT
+
+↓
+
+Baixar Fatura
+
+↓
+
+Diminuir Saldo Conta
+
+↓
+
+Remover Passivo
+
+---
+
+# 7. Transferência
+
+Conta Origem
+
+↓
+
+Conta Destino
+
+↓
+
+Mesmo transfer_group_id
+
+↓
+
+Impacto ZERO patrimônio
+
+↓
+
+Impacto ZERO DRE
+
+---
+
+# 8. Investimento
+
+Transferência
+
+↓
+
+Categoria Investimento
+
+↓
+
+Selecionar Ativo
+
+↓
+
+Registrar Aporte
+
+↓
+
+Atualizar Patrimônio
+
+↓
+
+Atualizar Dashboard
+
+---
+
+# 9. Resgate
+
+Selecionar Ativo
+
+↓
+
+Informar Valor
+
+↓
+
+Criar Resgate
+
+↓
+
+Gerar Entrada Conta
+
+↓
+
+Atualizar Patrimônio
+
+---
+
+# 10. Reprocessar Regras
+
+Selecionar Workspace
+
+↓
+
+Buscar regras
+
+↓
+
+Buscar movimentações sem categoria
+
+↓
+
+Aplicar regras
+
+↓
+
+Atualizar Dashboard
+
+---
+
+# 11. Reprocessar KPIs
+
+Sempre que houver alteração financeira:
+
+Movimentações
+
+↓
+
+Contas
+
+↓
+
+Cartões
+
+↓
+
+Patrimônio
+
+↓
+
+Dashboard
+
+↓
+
+Widgets
