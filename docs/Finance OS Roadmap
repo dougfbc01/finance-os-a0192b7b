@@ -1,0 +1,341 @@
+# Finance OS - Roadmap
+
+## Objetivo
+
+Este documento define a ordem oficial de evolução do Finance OS.
+
+Nenhuma funcionalidade deve ser implementada fora desta sequência sem necessidade técnica.
+
+Cada etapa depende da anterior estar totalmente funcional.
+
+---
+
+# STATUS DO PROJETO
+
+## ✅ Fase 1 — Infraestrutura
+
+Concluído
+
+- Arquitetura Base
+- BaseService
+- Layouts
+- Constantes
+- Models
+- Hooks
+- Dashboard Base
+
+Status
+
+COMPLETO
+
+---
+
+## ✅ Fase 2 — Contas
+
+Concluído
+
+- Contas Bancárias
+- CRUD
+- Saldos
+- Workspace
+- RLS
+
+Status
+
+COMPLETO
+
+---
+
+## ✅ Fase 3 — Categorias
+
+Concluído
+
+- Categorias
+- Subcategorias
+- Seed automático
+- Regras básicas
+
+Status
+
+COMPLETO
+
+---
+
+## ✅ Fase 4 — Núcleo Financeiro
+
+Concluído
+
+- Movimentações
+- Dashboard
+- Extrato
+- Transferências
+- KPIs
+
+Status
+
+COMPLETO
+
+---
+
+## ✅ Fase 5 — Importação
+
+Concluído
+
+- CSV
+- OFX
+- Histórico
+- Preview
+- Duplicidade
+
+Status
+
+COMPLETO
+
+---
+
+# EM DESENVOLVIMENTO
+
+## Fase 6 — Cartões
+
+Status
+
+EM DESENVOLVIMENTO
+
+Objetivos
+
+✔ Cadastro de cartões
+
+✔ Fechamento
+
+✔ Vencimento
+
+✔ Compras
+
+✔ Pagamento
+
+✔ Projeção de faturas
+
+Pendências
+
+- Revisar projeção das faturas
+- Revisar KPIs
+- Revisar passivos
+- Revisar integração Dashboard
+- Revisar exclusão de compras
+- Revisar importação de faturas
+- Revisar classificação automática
+- Garantir consistência entre Extrato, Cartão e Dashboard
+
+Esta fase somente será considerada concluída quando:
+
+- nenhuma compra desaparecer da fatura
+- nenhum pagamento duplicar movimentações
+- patrimônio permanecer correto
+- dashboard permanecer consistente
+
+---
+
+## Fase 7 — Patrimônio
+
+Status
+
+EM DESENVOLVIMENTO
+
+Objetivos
+
+Ativos
+
+Caixinhas
+
+Investimentos
+
+Veículos
+
+Imóveis
+
+Outros bens
+
+Pendências
+
+Aportes
+
+Resgates
+
+Dividendos
+
+Atualização automática
+
+Rentabilidade
+
+Integração completa com Dashboard
+
+---
+
+# PRÓXIMA FASE
+
+## Fase 8 — Inteligência Financeira
+
+Ainda não iniciar.
+
+Funcionalidades
+
+Regras inteligentes
+
+Sugestões automáticas
+
+Categorias automáticas
+
+Conciliação automática
+
+Machine Learning simples
+
+Predição de classificação
+
+Análise de recorrência
+
+---
+
+## Fase 9 — Planejamento Financeiro
+
+Ainda não iniciar.
+
+Objetivos
+
+Orçamento
+
+Metas
+
+Reserva de emergência
+
+Fluxo de caixa futuro
+
+Alertas
+
+Projeções
+
+---
+
+## Fase 10 — Relatórios
+
+Ainda não iniciar.
+
+Objetivos
+
+DRE
+
+Fluxo de Caixa
+
+Patrimônio
+
+Rentabilidade
+
+Evolução
+
+Exportações
+
+PDF
+
+Excel
+
+---
+
+## Fase 11 — Multi Workspace
+
+Ainda não iniciar.
+
+Objetivos
+
+Empresa
+
+Pessoa Física
+
+Pessoa Jurídica
+
+Consolidação
+
+Compartilhamento
+
+Permissões
+
+---
+
+## Fase 12 — Aplicativo Mobile
+
+Ainda não iniciar.
+
+Objetivos
+
+Android
+
+iOS
+
+Offline
+
+Push
+
+Widgets
+
+---
+
+# Regras de Desenvolvimento
+
+Antes de iniciar qualquer funcionalidade:
+
+1. Ler toda a pasta /docs
+
+2. Verificar dependências
+
+3. Confirmar se a fase anterior está concluída
+
+4. Não implementar funcionalidades futuras
+
+5. Não criar atalhos arquiteturais
+
+6. Toda regra financeira deve permanecer nos Services
+
+7. Toda alteração financeira deve atualizar automaticamente:
+
+- Dashboard
+- Contas
+- Cartões
+- Patrimônio
+- KPIs
+
+---
+
+# Definition of Done
+
+Uma fase só é considerada concluída quando:
+
+✓ Código implementado
+
+✓ Typecheck sem erros
+
+✓ Build sem erros
+
+✓ Fluxo completo funcionando
+
+✓ Dashboard consistente
+
+✓ Patrimônio consistente
+
+✓ Sem necessidade de reload
+
+✓ Testes realizados
+
+✓ Documentação atualizada
+
+Se qualquer item acima falhar, a fase permanece como EM DESENVOLVIMENTO.
+
+---
+
+# Próxima Prioridade
+
+Prioridade máxima atual:
+
+1. Finalizar definitivamente o módulo de Cartões.
+2. Finalizar definitivamente o módulo de Patrimônio.
+3. Garantir consistência entre Dashboard, Contas, Cartões e Patrimônio.
+4. Somente então iniciar Inteligência Financeira.
+
+É proibido iniciar funcionalidades das próximas fases enquanto Cartões e Patrimônio não estiverem completamente estáveis.
