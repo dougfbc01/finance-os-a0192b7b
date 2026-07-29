@@ -1,0 +1,391 @@
+# Finance OS - Services
+
+## Objetivo
+
+Toda regra de negócio do Finance OS deve existir exclusivamente na camada de Services.
+
+Componentes React nunca implementam regras financeiras.
+
+Eles apenas:
+
+- exibem dados
+- capturam ações do usuário
+- chamam Hooks
+
+Hooks apenas chamam Services.
+
+Services concentram toda lógica.
+
+---
+
+# Arquitetura
+
+UI
+
+↓
+
+Hooks
+
+↓
+
+Services
+
+↓
+
+Supabase
+
+---
+
+# BaseService
+
+Todos os Services herdam BaseService.
+
+Responsabilidades:
+
+- acesso ao Supabase
+- tratamento de erros
+- validações comuns
+- paginação
+- auditoria
+
+Nunca implementar regra financeira aqui.
+
+---
+
+# AccountService
+
+Responsável por:
+
+- CRUD de contas
+
+- ativar/desativar
+
+- validar duplicidade
+
+- saldo inicial
+
+Nunca calcula saldo atual.
+
+Saldo atual pertence ao DashboardService.
+
+---
+
+# MovementService
+
+É o coração do sistema.
+
+Responsável por:
+
+- criar movimentações
+
+- editar
+
+- excluir
+
+- validar categorias
+
+- validar cartões
+
+- validar investimentos
+
+- validar transferências
+
+- memorizar classificação
+
+- disparar reprocessamentos
+
+Nunca calcula dashboards.
+
+Nunca calcula patrimônio.
+
+---
+
+# DashboardService
+
+Responsável exclusivamente por indicadores.
+
+Calcula:
+
+- saldo disponível
+
+- receitas
+
+- despesas
+
+- resultado
+
+- evolução
+
+- patrimônio líquido
+
+- passivo cartões
+
+- gráficos
+
+Sempre deriva os dados.
+
+Nunca grava resultados.
+
+---
+
+# ImportService
+
+Responsável pelo pipeline completo.
+
+Fluxo:
+
+Arquivo
+
+↓
+
+Detectar Importer
+
+↓
+
+Preview
+
+↓
+
+Aplicar regras
+
+↓
+
+Detectar duplicados
+
+↓
+
+Detectar transferências
+
+↓
+
+Importar
+
+↓
+
+Atualizar sistema
+
+Não conhece UI.
+
+---
+
+# CardService
+
+Responsável por:
+
+- cartões
+
+- fechamento
+
+- vencimento
+
+- projeção de faturas
+
+- compras
+
+- pagamentos
+
+Nunca grava saldo da fatura.
+
+Sempre recalcula.
+
+---
+
+# InvoiceService
+
+Responsável apenas pela projeção.
+
+Funções:
+
+getInvoice()
+
+getCurrentInvoice()
+
+calculateInvoice()
+
+recalculate()
+
+A fatura nunca possui saldo persistido.
+
+Sempre é calculada.
+
+---
+
+# InvestmentService
+
+Responsável por:
+
+Aportes
+
+Resgates
+
+Dividendos
+
+Juros
+
+Rentabilidade
+
+Posição
+
+Nunca movimenta contas diretamente.
+
+Solicita ao MovementService.
+
+---
+
+# AssetService
+
+Responsável por:
+
+CRUD dos ativos
+
+Tipos
+
+Instituições
+
+Classes
+
+Valor Atual
+
+Nunca calcula patrimônio.
+
+---
+
+# PatrimonyService
+
+Calcula:
+
+Patrimônio Líquido
+
+↓
+
+Caixa
+
++
+
+Investimentos
+
++
+
+Imóveis
+
++
+
+Veículos
+
++
+
+Outros
+
+-
+
+Passivos
+
+Nunca grava valores.
+
+Sempre deriva.
+
+---
+
+# ClassificationRuleService
+
+Responsável por:
+
+Criar regras
+
+Editar
+
+Excluir
+
+Aplicar
+
+Reprocessar
+
+Memorizar
+
+Nunca altera UI.
+
+---
+
+# ReconciliationService
+
+Responsável por:
+
+Transferências
+
+Duplicidades
+
+Conciliação
+
+Merge
+
+Validação
+
+Nunca altera Dashboard diretamente.
+
+Após concluir:
+
+invalidateFinancialQueries()
+
+---
+
+# Importers
+
+Cada banco possui um Importer próprio.
+
+Todos implementam:
+
+parse()
+
+preview()
+
+validate()
+
+commit()
+
+Nunca possuem regra financeira.
+
+Apenas transformam dados.
+
+---
+
+# Regra Geral
+
+Sempre que qualquer Service alterar dados financeiros deve executar:
+
+invalidateFinancialQueries()
+
+para atualizar:
+
+- Dashboard
+
+- Contas
+
+- Cartões
+
+- Patrimônio
+
+- KPIs
+
+- Widgets
+
+---
+
+# Proibição
+
+É proibido implementar regra financeira em:
+
+React Components
+
+Pages
+
+Dialogs
+
+Forms
+
+Tables
+
+Cards
+
+Widgets
+
+Toda regra pertence aos Services.
