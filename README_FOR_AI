@@ -1,0 +1,176 @@
+# README_FOR_AI.md
+
+# Finance OS
+
+Este projeto utiliza desenvolvimento orientado por arquitetura.
+
+Toda implementação deve seguir obrigatoriamente a documentação localizada na pasta `/docs`.
+
+Esta documentação é a fonte oficial de regras de negócio, arquitetura, modelo de dados e fluxo do sistema.
+
+Em caso de divergência entre código existente e documentação, a documentação prevalece.
+
+---
+
+# Ordem obrigatória
+
+Antes de qualquer implementação:
+
+1. Ler todos os arquivos da pasta `/docs`.
+
+2. Compreender a arquitetura antes de escrever código.
+
+3. Não criar soluções temporárias ("quick fixes").
+
+4. Não criar duplicação de regras de negócio.
+
+5. Não alterar a arquitetura sem necessidade.
+
+---
+
+# Arquitetura
+
+Toda regra financeira pertence exclusivamente aos Services.
+
+Componentes React devem apenas:
+
+- exibir dados
+- capturar ações do usuário
+- chamar Hooks
+- nunca calcular regras financeiras
+
+Hooks apenas orquestram chamadas.
+
+Services concentram toda a inteligência do sistema.
+
+---
+
+# Regras fundamentais
+
+Nunca gravar valores derivados no banco.
+
+Os seguintes valores devem sempre ser calculados:
+
+- saldo das contas
+- patrimônio líquido
+- saldo disponível
+- valor das faturas
+- posição de investimentos
+- indicadores do dashboard
+
+A única fonte da verdade são as movimentações financeiras.
+
+---
+
+# Dashboard
+
+Qualquer alteração financeira deve atualizar automaticamente:
+
+- Dashboard
+- Contas
+- Cartões
+- Patrimônio
+- Investimentos
+- KPIs
+
+Nunca exigir reload da página.
+
+---
+
+# Banco de Dados
+
+Toda tabela nova deve possuir:
+
+- Workspace
+- RLS
+- Soft Delete
+- Updated At
+- Auditoria
+
+Seguir o padrão definido em Finance OS Database.md.
+
+---
+
+# Código
+
+Priorizar:
+
+SOLID
+
+Clean Architecture
+
+Services
+
+Strategy Pattern
+
+Repository Pattern (quando necessário)
+
+Baixo acoplamento
+
+Alta coesão
+
+---
+
+# Antes de iniciar qualquer Sprint
+
+Verificar:
+
+Finance OS Roadmap.md
+
+Finance OS Architecture.md
+
+Finance OS Business Rules.md
+
+Finance OS Services.md
+
+Finance OS Workflows.md
+
+Finance OS Database.md
+
+Finance OS UI Rules.md
+
+---
+
+# Definition of Done
+
+Uma funcionalidade somente será considerada pronta quando:
+
+✓ Fluxo completo funcionando
+
+✓ Dashboard consistente
+
+✓ Patrimônio consistente
+
+✓ Typecheck sem erros
+
+✓ Build sem erros
+
+✓ Sem regressões
+
+✓ Sem necessidade de atualizar a página
+
+✓ Documentação atualizada
+
+---
+
+# Regra Principal
+
+Nunca implementar apenas a interface.
+
+Sempre implementar:
+
+Banco
+
+Services
+
+Hooks
+
+Componentes
+
+Rotas
+
+Atualização automática
+
+Testes do fluxo
+
+Somente depois considerar a funcionalidade concluída.
