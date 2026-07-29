@@ -216,3 +216,26 @@ Toda funcionalidade deve possuir:
 ✓ Fluxo de sincronização
 
 Caso qualquer etapa esteja ausente, a funcionalidade deve permanecer como "Em Desenvolvimento" e não pode ser considerada concluída.
+
+## Encerramento de Sprint
+
+Nunca declare uma Sprint como "concluída" sem executar uma auditoria final.
+
+Ao final de cada Sprint apresente obrigatoriamente:
+
+- Arquivos criados
+- Arquivos alterados
+- Migrations executadas
+- Services alterados
+- Hooks alterados
+- Componentes alterados
+- Rotas alteradas
+- Regras de negócio afetadas
+- Fluxos implementados
+- Fluxos ainda pendentes
+- Riscos conhecidos
+- Resultado da auditoria arquitetural
+- Resultado do typecheck
+- Resultado do build
+
+Somente após todos os itens acima a Sprint poderá ser considerada concluída.
