@@ -1,0 +1,491 @@
+# Finance OS - UI Rules
+
+## Objetivo
+
+Padronizar toda a interface do Finance OS.
+
+Todas as páginas devem seguir este documento.
+
+Nenhuma tela deve possuir comportamento diferente sem motivo técnico.
+
+---
+
+# Estrutura das páginas
+
+Toda página possui:
+
+Header
+
+↓
+
+Filtros
+
+↓
+
+KPIs (quando aplicável)
+
+↓
+
+Tabela ou Cards
+
+↓
+
+Paginação
+
+↓
+
+Ações
+
+Nunca inverter essa ordem.
+
+---
+
+# Header
+
+Sempre conter:
+
+Título
+
+Descrição
+
+Botão principal
+
+Exemplo:
+
+Movimentações
+
+"Gerencie todas as movimentações financeiras."
+
+[ Nova Movimentação ]
+
+---
+
+# Botões
+
+Botão principal
+
+Sempre azul
+
+Sempre no canto superior direito
+
+Botões destrutivos
+
+Sempre vermelhos
+
+Sempre solicitar confirmação.
+
+---
+
+# Pesquisa
+
+Toda listagem deve possuir pesquisa.
+
+A pesquisa deve ignorar:
+
+Maiúsculas
+
+Minúsculas
+
+Acentuação
+
+Espaços duplicados
+
+Pesquisar também por campos relacionados.
+
+Exemplo:
+
+Categorias
+
+↓
+
+Pesquisar também Subcategorias
+
+Contas
+
+↓
+
+Pesquisar Instituição
+
+Movimentações
+
+↓
+
+Pesquisar
+
+Descrição
+
+Categoria
+
+Subcategoria
+
+Conta
+
+Cartão
+
+Tags
+
+---
+
+# Ordenação
+
+Toda tabela deve permitir ordenar.
+
+Padrão:
+
+A-Z
+
+Z-A
+
+Maior Valor
+
+Menor Valor
+
+Mais recente
+
+Mais antigo
+
+---
+
+# Paginação
+
+Listagens grandes nunca carregam tudo.
+
+Sempre utilizar paginação.
+
+Padrão:
+
+50 registros.
+
+Opções:
+
+50
+
+100
+
+250
+
+500
+
+---
+
+# Seleção múltipla
+
+Sempre disponível nas tabelas.
+
+Após selecionar:
+
+Classificar
+
+Editar
+
+Excluir
+
+Alterar Categoria
+
+Alterar Subcategoria
+
+Alterar Conta
+
+Exportar
+
+Nunca executar ação imediatamente.
+
+Sempre confirmar.
+
+---
+
+# Filtros
+
+Todos os filtros devem permanecer após atualizar a página.
+
+Utilizar URL ou estado persistido.
+
+Exemplo
+
+/perfil?categoria=mercado
+
+---
+
+# Formulários
+
+Campos obrigatórios:
+
+*
+
+Campos inválidos:
+
+borda vermelha
+
+mensagem abaixo
+
+Nunca utilizar alert().
+
+---
+
+# Datas
+
+Conta Corrente
+
+Competência = Data da Movimentação
+
+Vencimento = Data da Movimentação
+
+Cartão
+
+Competência = Data da Compra
+
+Vencimento = Data da Fatura
+
+Usuário pode alterar manualmente.
+
+---
+
+# Cartões
+
+Compras
+
+Sempre aparecem como
+
+Pendente
+
+Até existir pagamento.
+
+Nunca aparecem como
+
+Pago
+
+Automaticamente.
+
+---
+
+# Faturas
+
+Nunca possuem saldo gravado.
+
+Sempre mostrar:
+
+Total
+
+Pago
+
+Aberto
+
+Vencimento
+
+Status
+
+Status possíveis:
+
+Aberta
+
+Fechada
+
+Paga
+
+Atrasada
+
+Nunca mostrar R$ 0,00 quando houver compras.
+
+---
+
+# Dashboard
+
+Sempre atualizado automaticamente.
+
+Após qualquer alteração financeira:
+
+Contas
+
+↓
+
+Movimentações
+
+↓
+
+Cartões
+
+↓
+
+Investimentos
+
+↓
+
+Patrimônio
+
+↓
+
+KPIs
+
+↓
+
+Widgets
+
+Nunca exigir F5.
+
+---
+
+# Contas
+
+Ao clicar numa conta
+
+↓
+
+Abrir Extrato filtrado
+
+Filtro automático:
+
+account_id
+
+---
+
+# Cartões
+
+Ao clicar num cartão
+
+↓
+
+Abrir Fatura Atual
+
+---
+
+# Investimentos
+
+Ao clicar no ativo
+
+↓
+
+Abrir histórico
+
+↓
+
+Aportes
+
+↓
+
+Resgates
+
+↓
+
+Rentabilidade
+
+---
+
+# Importações
+
+Após concluir uma importação:
+
+Limpar estado completo da tela
+
+Permitir nova importação imediatamente
+
+Sem necessidade de sair da página
+
+---
+
+# Classificação Inteligente
+
+Quando usuário alterar:
+
+Categoria
+
+ou
+
+Subcategoria
+
+Perguntar:
+
+"Deseja memorizar esta classificação?"
+
+Se SIM
+
+↓
+
+Criar regra
+
+↓
+
+Executar reprocessamento
+
+↓
+
+Atualizar movimentações compatíveis
+
+↓
+
+Atualizar Dashboard
+
+Sem necessidade de nova importação.
+
+---
+
+# Exclusão
+
+Toda exclusão deve atualizar automaticamente:
+
+Movimentações
+
+Contas
+
+Cartões
+
+Patrimônio
+
+Dashboard
+
+Sem reload.
+
+---
+
+# Toasts
+
+Sempre utilizar mensagens curtas.
+
+Exemplos:
+
+Movimentação salva.
+
+Importação concluída.
+
+Transferência conciliada.
+
+Categoria atualizada.
+
+Nunca utilizar mensagens técnicas.
+
+---
+
+# Estados vazios
+
+Toda tela deve possuir Empty State.
+
+Exemplo:
+
+Nenhuma movimentação encontrada.
+
+[ Nova Movimentação ]
+
+---
+
+# Performance
+
+Nenhuma ação deve bloquear a interface.
+
+Sempre utilizar:
+
+Loading
+
+Skeleton
+
+Progress
+
+Background Refresh
+
+Sempre que possível.
+
+---
+
+# Regra Final
+
+Toda alteração financeira deve refletir imediatamente em todo o sistema.
+
+O usuário nunca deve precisar atualizar a página para visualizar o resultado.
