@@ -34,8 +34,10 @@ interface ImportDialogProps {
   onOpenChange: (open: boolean) => void;
   workspaceId: UUID;
   accounts: Account[];
-  defaultCategoryId: UUID | null;
-  defaultSubcategoryId: UUID | null;
+  /** @deprecated Sprint 3.4: importação não aplica categoria padrão. */
+  defaultCategoryId?: UUID | null;
+  /** @deprecated Sprint 3.4: importação não aplica categoria padrão. */
+  defaultSubcategoryId?: UUID | null;
   userId: UUID | null;
 }
 
@@ -46,8 +48,6 @@ export function ImportDialog({
   onOpenChange,
   workspaceId,
   accounts,
-  defaultCategoryId,
-  defaultSubcategoryId,
   userId,
 }: ImportDialogProps) {
   const [step, setStep] = useState<Step>("select");
