@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { ImportDialog } from "@/components/imports/ImportDialog";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useCategories, useSubcategories } from "@/hooks/useCategories";
 import { useDeleteImport, useImports } from "@/hooks/useImports";
 import { IMPORTER_LABELS } from "@/services/importers/ImporterFactory";
 import type { ImportRecord } from "@/models/Import";
@@ -29,8 +28,6 @@ function ImportacoesPage() {
   const { user } = useAuth();
   const wsId = ws?.id as string | undefined;
   const { data: accounts = [] } = useAccounts(wsId);
-  const { data: categories = [] } = useCategories(wsId);
-  const { data: subcategories = [] } = useSubcategories(wsId);
   const { data: imports = [], isLoading } = useImports(wsId);
   const del = useDeleteImport();
   const [open, setOpen] = useState(false);
