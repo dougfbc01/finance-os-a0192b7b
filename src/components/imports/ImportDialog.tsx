@@ -95,7 +95,8 @@ export function ImportDialog({
         accountId: isCardSource ? null : accountId,
         cardId: isCardSource ? cardId : null,
         accounts,
-        defaults: { categoryId: defaultCategoryId, subcategoryId: defaultSubcategoryId },
+        // Sprint 3.4: linhas nascem "Sem categoria"; classificação vem só das regras.
+        defaults: { categoryId: null, subcategoryId: null },
       });
       if (p.existingImport && !reimport) {
         toast.warning("Este arquivo já foi importado antes. Marque \"Reimportar\" para continuar.");

@@ -102,8 +102,9 @@ export class OFXImporter implements Importer {
         account_id: ctx.accountId,
         card_id: null,
         transfer_account_id: null,
-        category_id: ctx.defaults.categoryId,
-        subcategory_id: ctx.defaults.subcategoryId,
+        // Sprint 3.4: importação nunca preenche categoria; só regras automáticas classificam.
+        category_id: null,
+        subcategory_id: null,
         duplicate_hash: hash,
         isDuplicate,
         isTransfer: false,
