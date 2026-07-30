@@ -261,13 +261,23 @@ class MovementServiceImpl extends BaseService {
 
     const existing = await this.client
       .from("card_invoices")
-      .select("id")
+      .select("id, closing_date, due_date")
       .eq("card_id", card.id)
       .eq("competence", period.competence)
       .is("deleted_at", null)
       .maybeSingle();
     if (existing.error) this.handleError(existing.error, "resolveInvoice.find");
-    if (existing.data) return (existing.data as { id: UUID }).id;
+    if (existing.data) {
+      const row = existing.data as { id: UUID; closing_date: string; due_date: string };
+      // Sprint 3.4: mantém as datas da fatura coerentes com closing_day/due_day do cartão.
+      if (row.closing_date !== period.closing_date || row.due_date !== period.due_date) {
+        await this.client
+          .from("card_invoices")
+          .update({ closing_date: period.closing_date, due_date: period.due_date } as never)
+          .eq("id", row.id);
+      }
+      return row.id;
+    }
 
     const { data, error } = await this.client
       .from("card_invoices")
