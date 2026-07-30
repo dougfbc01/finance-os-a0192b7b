@@ -14,6 +14,18 @@ type Row = Record<string, unknown>;
 class CardInvoiceServiceImpl extends BaseService {
   private readonly table = "card_invoices" as const;
 
+  /**
+   * Sprint 3.4 — o status exibido é sempre derivado das datas (projeção pura).
+   * A coluna `status` só é fonte de verdade para PAID.
+   */
+  private withDerivedStatus(row: CardInvoice): CardInvoice {
+    return {
+      ...row,
+      amount: Number(row.amount),
+      status: CardServiceImpl.computeInvoiceStatus(row) as CardInvoiceStatus,
+    };
+  }
+
   async listByWorkspace(workspaceId: UUID): Promise<CardInvoice[]> {
     const { data, error } = await this.client
       .from(this.table)
@@ -22,7 +34,7 @@ class CardInvoiceServiceImpl extends BaseService {
       .is("deleted_at", null)
       .order("competence", { ascending: false });
     if (error) this.handleError(error, "listByWorkspace");
-    return ((data ?? []) as unknown as CardInvoice[]).map((i) => ({ ...i, amount: Number(i.amount) }));
+    return ((data ?? []) as unknown as CardInvoice[]).map((i) => this.withDerivedStatus(i));
   }
 
   async listByCard(cardId: UUID): Promise<CardInvoice[]> {
@@ -33,7 +45,7 @@ class CardInvoiceServiceImpl extends BaseService {
       .is("deleted_at", null)
       .order("competence", { ascending: false });
     if (error) this.handleError(error, "listByCard");
-    return ((data ?? []) as unknown as CardInvoice[]).map((i) => ({ ...i, amount: Number(i.amount) }));
+    return ((data ?? []) as unknown as CardInvoice[]).map((i) => this.withDerivedStatus(i));
   }
 
   async getById(id: UUID): Promise<CardInvoice | null> {
@@ -45,7 +57,7 @@ class CardInvoiceServiceImpl extends BaseService {
       .maybeSingle();
     if (error) this.handleError(error, "getById");
     if (!data) return null;
-    return { ...(data as unknown as CardInvoice), amount: Number((data as Row).amount) };
+    return this.withDerivedStatus(data as unknown as CardInvoice);
   }
 
   /**
@@ -56,13 +68,23 @@ class CardInvoiceServiceImpl extends BaseService {
     const period = CardServiceImpl.computeInvoicePeriod(card, purchaseDate);
     const existing = await this.client
       .from(this.table)
-      .select("id")
+      .select("id, closing_date, due_date")
       .eq("card_id", card.id)
       .eq("competence", period.competence)
       .is("deleted_at", null)
       .maybeSingle();
     if (existing.error) this.handleError(existing.error, "ensureInvoice.find");
-    if (existing.data) return (existing.data as { id: UUID }).id;
+    if (existing.data) {
+      const row = existing.data as { id: UUID; closing_date: string; due_date: string };
+      // Corrige faturas legadas com datas divergentes da regra atual do cartão.
+      if (row.closing_date !== period.closing_date || row.due_date !== period.due_date) {
+        await this.client
+          .from(this.table)
+          .update({ closing_date: period.closing_date, due_date: period.due_date } as never)
+          .eq("id", row.id);
+      }
+      return row.id;
+    }
 
     const { data, error } = await this.client
       .from(this.table)
@@ -87,9 +109,12 @@ class CardInvoiceServiceImpl extends BaseService {
    * e para atualizar o status quando o tempo passa (fatura vira OVERDUE/CLOSED).
    */
   async recompute(invoiceId: UUID): Promise<void> {
-    const { error } = await this.client.rpc("recompute_card_invoice" as never, {
-      _invoice_id: invoiceId,
-    } as never);
+    const { error } = await this.client.rpc(
+      "recompute_card_invoice" as never,
+      {
+        _invoice_id: invoiceId,
+      } as never,
+    );
     if (error) this.handleError(error, "recompute");
   }
 
@@ -132,7 +157,6 @@ class CardInvoiceServiceImpl extends BaseService {
     if (error) this.handleError(error, "markPaid.update");
     return movement;
   }
-
 
   async listMovements(invoiceId: UUID): Promise<Movement[]> {
     const { data, error } = await this.client

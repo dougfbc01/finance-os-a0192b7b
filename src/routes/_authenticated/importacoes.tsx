@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { ImportDialog } from "@/components/imports/ImportDialog";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useCategories, useSubcategories } from "@/hooks/useCategories";
 import { useDeleteImport, useImports } from "@/hooks/useImports";
 import { IMPORTER_LABELS } from "@/services/importers/ImporterFactory";
 import type { ImportRecord } from "@/models/Import";
@@ -18,7 +17,10 @@ export const Route = createFileRoute("/_authenticated/importacoes")({
   head: () => ({
     meta: [
       { title: "Importações — Finance OS" },
-      { name: "description", content: "Importe extratos bancários e faturas de cartão automaticamente." },
+      {
+        name: "description",
+        content: "Importe extratos bancários e faturas de cartão automaticamente.",
+      },
     ],
   }),
   component: ImportacoesPage,
@@ -29,24 +31,18 @@ function ImportacoesPage() {
   const { user } = useAuth();
   const wsId = ws?.id as string | undefined;
   const { data: accounts = [] } = useAccounts(wsId);
-  const { data: categories = [] } = useCategories(wsId);
-  const { data: subcategories = [] } = useSubcategories(wsId);
   const { data: imports = [], isLoading } = useImports(wsId);
   const del = useDeleteImport();
   const [open, setOpen] = useState(false);
 
-  const defaults = useMemo(() => {
-    const outros = categories.find((c) => c.name.toLowerCase() === "outros");
-    const diversos = outros
-      ? subcategories.find((s) => s.category_id === outros.id && s.name.toLowerCase() === "diversos")
-      : null;
-    return { categoryId: outros?.id ?? null, subcategoryId: diversos?.id ?? null };
-  }, [categories, subcategories]);
-
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este registro de importação? As movimentações permanecem.")) return;
-    try { await del.mutateAsync(id); toast.success("Registro removido."); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao excluir."); }
+    try {
+      await del.mutateAsync(id);
+      toast.success("Registro removido.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao excluir.");
+    }
   };
 
   return (
@@ -55,7 +51,8 @@ function ImportacoesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Importações</h1>
           <p className="text-sm text-muted-foreground">
-            Importe extratos CSV do Nubank ou OFX. O sistema evita duplicidades e reconhece pagamentos de fatura.
+            Importe extratos CSV do Nubank ou OFX. O sistema evita duplicidades e reconhece
+            pagamentos de fatura.
           </p>
         </div>
         <Button onClick={() => setOpen(true)} disabled={!wsId || accounts.length === 0}>
@@ -65,11 +62,17 @@ function ImportacoesPage() {
       </div>
 
       {accounts.length === 0 && (
-        <Card><CardContent className="p-6 text-sm text-muted-foreground">Cadastre pelo menos uma conta antes de importar.</CardContent></Card>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Cadastre pelo menos uma conta antes de importar.
+          </CardContent>
+        </Card>
       )}
 
       <Card>
-        <CardHeader><CardTitle>Histórico</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Histórico</CardTitle>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Carregando…</div>
@@ -100,10 +103,18 @@ function ImportacoesPage() {
                       </td>
                       <td className="px-3 py-2">{IMPORTER_LABELS[imp.source]}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{imp.total_rows}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{imp.imported_rows}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-amber-600">{imp.duplicated_rows}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-red-600">{imp.ignored_rows}</td>
-                      <td className="px-3 py-2"><StatusBadge status={imp.status} /></td>
+                      <td className="px-3 py-2 text-right tabular-nums text-emerald-600">
+                        {imp.imported_rows}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-600">
+                        {imp.duplicated_rows}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-red-600">
+                        {imp.ignored_rows}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={imp.status} />
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(imp.id)}>
                           <Trash2 className="h-4 w-4" />
@@ -124,8 +135,6 @@ function ImportacoesPage() {
           onOpenChange={setOpen}
           workspaceId={wsId}
           accounts={accounts}
-          defaultCategoryId={defaults.categoryId}
-          defaultSubcategoryId={defaults.subcategoryId}
           userId={user?.id ?? null}
         />
       )}
@@ -135,11 +144,11 @@ function ImportacoesPage() {
 
 function StatusBadge({ status }: { status: ImportRecord["status"] }) {
   const map: Record<ImportRecord["status"], { label: string; cls: string }> = {
-    PENDING:   { label: "Pendente", cls: "" },
-    PROCESSING:{ label: "Processando", cls: "" },
+    PENDING: { label: "Pendente", cls: "" },
+    PROCESSING: { label: "Processando", cls: "" },
     COMPLETED: { label: "Concluída", cls: "bg-emerald-600 text-white" },
-    PARTIAL:   { label: "Parcial", cls: "bg-amber-500 text-white" },
-    FAILED:    { label: "Falhou", cls: "bg-red-600 text-white" },
+    PARTIAL: { label: "Parcial", cls: "bg-amber-500 text-white" },
+    FAILED: { label: "Falhou", cls: "bg-red-600 text-white" },
   };
   const m = map[status];
   return <Badge className={m.cls}>{m.label}</Badge>;

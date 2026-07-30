@@ -117,36 +117,96 @@ class CardServiceImpl extends BaseService {
   // -------------------------------------------------------------------------
 
   /**
-   * Dada uma data de compra e o cartão, retorna o período da fatura correspondente.
-   * Regra padrão brasileira:
-   * - Se compra ocorre até o dia de fechamento → fecha no mês corrente.
-   * - Caso contrário → fecha no mês seguinte.
-   * - Vencimento é no próximo `due_day` após o fechamento.
-   * - Competência = mês do vencimento.
+   * Sprint 3.4 — Competência da fatura.
+   *
+   * A fatura de competência M contém as compras do intervalo:
+   *   (closing_day do mês M-2, exclusivo]  ->  [closing_day do mês M-1, inclusivo]
+   * e vence no due_day do mês M.
+   *
+   * Exemplo (fecha 28 / vence 06):
+   *   29/06..28/07 -> fatura de Agosto  (fecha 28/07, vence 06/08)
+   *   29/07..28/08 -> fatura de Setembro (fecha 28/08, vence 06/09)
+   *
+   * Nunca usar apenas o mês da transaction_date: o fechamento é sempre
+   * calculado a partir de closing_day e o vencimento a partir de due_day.
    */
-  static computeInvoicePeriod(card: Pick<Card, "closing_day" | "due_day">, purchaseDate: string): InvoicePeriod {
+  static computeInvoicePeriod(
+    card: Pick<Card, "closing_day" | "due_day">,
+    purchaseDate: string,
+  ): InvoicePeriod {
     const [y, m, d] = purchaseDate.split("-").map(Number);
     let cy = y;
-    let cm = m - 1;
-    if (d > card.closing_day) cm += 1;
-    // normaliza mês
-    while (cm > 11) { cm -= 12; cy += 1; }
+    let cm = m - 1; // mês 0-based do fechamento
+
+    // Compra APÓS o fechamento do mês corrente entra na fatura que fecha no mês seguinte.
+    const closingThisMonth = Math.min(card.closing_day, daysInMonth(cy, cm));
+    if (d > closingThisMonth) cm += 1;
+    while (cm > 11) {
+      cm -= 12;
+      cy += 1;
+    }
+
     const closingDayEff = Math.min(card.closing_day, daysInMonth(cy, cm));
     const closingDate = new Date(cy, cm, closingDayEff);
 
+    // Início do período: dia seguinte ao fechamento anterior.
+    let py = cy;
+    let pm = cm - 1;
+    while (pm < 0) {
+      pm += 12;
+      py -= 1;
+    }
+    const prevClosing = new Date(py, pm, Math.min(card.closing_day, daysInMonth(py, pm)));
+    const periodStart = new Date(
+      prevClosing.getFullYear(),
+      prevClosing.getMonth(),
+      prevClosing.getDate() + 1,
+    );
+
+    // Vencimento: primeiro due_day igual/posterior ao fechamento.
     let dy = cy;
     let dm = cm;
-    if (card.due_day <= card.closing_day) dm += 1;
-    while (dm > 11) { dm -= 12; dy += 1; }
+    if (card.due_day <= closingDayEff) dm += 1;
+    while (dm > 11) {
+      dm -= 12;
+      dy += 1;
+    }
     const dueDayEff = Math.min(card.due_day, daysInMonth(dy, dm));
     const dueDate = new Date(dy, dm, dueDayEff);
 
+    // Competência = mês do vencimento.
     const competence = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
     return {
       competence: toISO(competence),
       closing_date: toISO(closingDate),
       due_date: toISO(dueDate),
+      period_start: toISO(periodStart),
+      period_end: toISO(closingDate),
     };
+  }
+
+  /**
+   * Sprint 3.4 — Status derivado da fatura (projeção pura, nunca persistido
+   * como verdade única):
+   *   PAID    -> possui pagamento vinculado
+   *   OVERDUE -> hoje > due_date e não paga
+   *   CLOSED  -> hoje > closing_date e hoje <= due_date
+   *   OPEN    -> hoje <= closing_date
+   */
+  static computeInvoiceStatus(
+    invoice: {
+      closing_date: string;
+      due_date: string;
+      paid_at?: string | null;
+      paid_movement_id?: string | null;
+      status?: string;
+    },
+    today: string = toISO(new Date()),
+  ): "OPEN" | "CLOSED" | "OVERDUE" | "PAID" {
+    if (invoice.status === "PAID" || invoice.paid_at || invoice.paid_movement_id) return "PAID";
+    if (today > invoice.due_date) return "OVERDUE";
+    if (today > invoice.closing_date) return "CLOSED";
+    return "OPEN";
   }
 
   /** Total das compras (EXPENSE/REFUND) da fatura, com REFUND subtraindo. */
@@ -162,9 +222,7 @@ class CardServiceImpl extends BaseService {
 
   /** Gasto total (aberto + fechado, exceto PAID) para uso do limite. */
   static computeUsedLimit(invoices: { amount: number; status: string }[]): number {
-    return invoices
-      .filter((i) => i.status !== "PAID")
-      .reduce((s, i) => s + Number(i.amount), 0);
+    return invoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + Number(i.amount), 0);
   }
 }
 

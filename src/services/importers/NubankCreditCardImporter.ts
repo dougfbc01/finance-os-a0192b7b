@@ -16,17 +16,34 @@ export class NubankCreditCardImporter implements Importer {
     const valid = rows.filter((r) => {
       const date = parseDate(String(r["date"] ?? r["Data"] ?? ""));
       const amount = parseAmount(String(r["amount"] ?? r["Valor"] ?? ""));
-      if (!date || !Number.isFinite(amount)) { invalid++; return false; }
+      if (!date || !Number.isFinite(amount)) {
+        invalid++;
+        return false;
+      }
       return true;
     });
     return { valid, invalid };
   }
 
-  async preview(fileText: string, ctx: ImportContext, fileName: string, fileHash: string): Promise<PreviewResult> {
+  async preview(
+    fileText: string,
+    ctx: ImportContext,
+    fileName: string,
+    fileHash: string,
+  ): Promise<PreviewResult> {
     const rows = this.parse(fileText);
     const preview: PreviewRow[] = [];
     const seenInFile = new Set<string>();
-    const totals = { total: rows.length, valid: 0, invalid: 0, duplicated: 0, transfers: 0, incomes: 0, expenses: 0, cardPayments: 0 };
+    const totals = {
+      total: rows.length,
+      valid: 0,
+      invalid: 0,
+      duplicated: 0,
+      transfers: 0,
+      incomes: 0,
+      expenses: 0,
+      cardPayments: 0,
+    };
 
     rows.forEach((r, idx) => {
       const date = parseDate(String(r["date"] ?? r["Data"] ?? ""));
@@ -71,8 +88,9 @@ export class NubankCreditCardImporter implements Importer {
         account_id: null,
         card_id: ctx.cardId ?? null,
         transfer_account_id: null,
-        category_id: ctx.defaults.cardCategoryId ?? ctx.defaults.categoryId,
-        subcategory_id: ctx.defaults.cardSubcategoryId ?? ctx.defaults.subcategoryId,
+        // Sprint 3.4: importação nunca preenche categoria; só regras automáticas classificam.
+        category_id: null,
+        subcategory_id: null,
         duplicate_hash: hash,
         isDuplicate,
         isTransfer: false,
