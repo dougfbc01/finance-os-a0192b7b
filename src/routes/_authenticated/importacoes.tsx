@@ -35,14 +35,6 @@ function ImportacoesPage() {
   const del = useDeleteImport();
   const [open, setOpen] = useState(false);
 
-  const defaults = useMemo(() => {
-    const outros = categories.find((c) => c.name.toLowerCase() === "outros");
-    const diversos = outros
-      ? subcategories.find((s) => s.category_id === outros.id && s.name.toLowerCase() === "diversos")
-      : null;
-    return { categoryId: outros?.id ?? null, subcategoryId: diversos?.id ?? null };
-  }, [categories, subcategories]);
-
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este registro de importação? As movimentações permanecem.")) return;
     try { await del.mutateAsync(id); toast.success("Registro removido."); }
@@ -124,8 +116,6 @@ function ImportacoesPage() {
           onOpenChange={setOpen}
           workspaceId={wsId}
           accounts={accounts}
-          defaultCategoryId={defaults.categoryId}
-          defaultSubcategoryId={defaults.subcategoryId}
           userId={user?.id ?? null}
         />
       )}
