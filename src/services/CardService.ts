@@ -141,7 +141,10 @@ class CardServiceImpl extends BaseService {
     // Compra APÓS o fechamento do mês corrente entra na fatura que fecha no mês seguinte.
     const closingThisMonth = Math.min(card.closing_day, daysInMonth(cy, cm));
     if (d > closingThisMonth) cm += 1;
-    while (cm > 11) { cm -= 12; cy += 1; }
+    while (cm > 11) {
+      cm -= 12;
+      cy += 1;
+    }
 
     const closingDayEff = Math.min(card.closing_day, daysInMonth(cy, cm));
     const closingDate = new Date(cy, cm, closingDayEff);
@@ -149,15 +152,25 @@ class CardServiceImpl extends BaseService {
     // Início do período: dia seguinte ao fechamento anterior.
     let py = cy;
     let pm = cm - 1;
-    while (pm < 0) { pm += 12; py -= 1; }
+    while (pm < 0) {
+      pm += 12;
+      py -= 1;
+    }
     const prevClosing = new Date(py, pm, Math.min(card.closing_day, daysInMonth(py, pm)));
-    const periodStart = new Date(prevClosing.getFullYear(), prevClosing.getMonth(), prevClosing.getDate() + 1);
+    const periodStart = new Date(
+      prevClosing.getFullYear(),
+      prevClosing.getMonth(),
+      prevClosing.getDate() + 1,
+    );
 
     // Vencimento: primeiro due_day igual/posterior ao fechamento.
     let dy = cy;
     let dm = cm;
     if (card.due_day <= closingDayEff) dm += 1;
-    while (dm > 11) { dm -= 12; dy += 1; }
+    while (dm > 11) {
+      dm -= 12;
+      dy += 1;
+    }
     const dueDayEff = Math.min(card.due_day, daysInMonth(dy, dm));
     const dueDate = new Date(dy, dm, dueDayEff);
 
@@ -181,7 +194,13 @@ class CardServiceImpl extends BaseService {
    *   OPEN    -> hoje <= closing_date
    */
   static computeInvoiceStatus(
-    invoice: { closing_date: string; due_date: string; paid_at?: string | null; paid_movement_id?: string | null; status?: string },
+    invoice: {
+      closing_date: string;
+      due_date: string;
+      paid_at?: string | null;
+      paid_movement_id?: string | null;
+      status?: string;
+    },
     today: string = toISO(new Date()),
   ): "OPEN" | "CLOSED" | "OVERDUE" | "PAID" {
     if (invoice.status === "PAID" || invoice.paid_at || invoice.paid_movement_id) return "PAID";
@@ -203,9 +222,7 @@ class CardServiceImpl extends BaseService {
 
   /** Gasto total (aberto + fechado, exceto PAID) para uso do limite. */
   static computeUsedLimit(invoices: { amount: number; status: string }[]): number {
-    return invoices
-      .filter((i) => i.status !== "PAID")
-      .reduce((s, i) => s + Number(i.amount), 0);
+    return invoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + Number(i.amount), 0);
   }
 }
 

@@ -45,17 +45,34 @@ export class OFXImporter implements Importer {
     let invalid = 0;
     const valid = rows.filter((r) => {
       const t = r as unknown as OfxTrn;
-      if (!t.date || !Number.isFinite(t.amount)) { invalid++; return false; }
+      if (!t.date || !Number.isFinite(t.amount)) {
+        invalid++;
+        return false;
+      }
       return true;
     });
     return { valid, invalid };
   }
 
-  async preview(fileText: string, ctx: ImportContext, fileName: string, fileHash: string): Promise<PreviewResult> {
+  async preview(
+    fileText: string,
+    ctx: ImportContext,
+    fileName: string,
+    fileHash: string,
+  ): Promise<PreviewResult> {
     const trns = parseOfx(fileText);
     const preview: PreviewRow[] = [];
     const seen = new Set<string>();
-    const totals = { total: trns.length, valid: 0, invalid: 0, duplicated: 0, transfers: 0, incomes: 0, expenses: 0, cardPayments: 0 };
+    const totals = {
+      total: trns.length,
+      valid: 0,
+      invalid: 0,
+      duplicated: 0,
+      transfers: 0,
+      incomes: 0,
+      expenses: 0,
+      cardPayments: 0,
+    };
 
     trns.forEach((t, idx) => {
       const errors: string[] = [];

@@ -62,5 +62,10 @@ export interface Importer {
   readonly source: ImportSource;
   parse(fileText: string): Record<string, unknown>[];
   validate(rows: Record<string, unknown>[]): { valid: Record<string, unknown>[]; invalid: number };
-  preview(fileText: string, ctx: ImportContext, fileName: string, fileHash: string): Promise<PreviewResult>;
+  preview(
+    fileText: string,
+    ctx: ImportContext,
+    fileName: string,
+    fileHash: string,
+  ): Promise<PreviewResult>;
 }

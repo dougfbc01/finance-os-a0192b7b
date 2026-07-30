@@ -56,7 +56,9 @@ export function ImportDialog({
   const [cardId, setCardId] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [fileText, setFileText] = useState<string>("");
-  const [preview, setPreview] = useState<(PreviewResult & { existingImport: unknown | null }) | null>(null);
+  const [preview, setPreview] = useState<
+    (PreviewResult & { existingImport: unknown | null }) | null
+  >(null);
   const [reimport, setReimport] = useState(false);
 
   const buildPreview = useBuildImportPreview();
@@ -82,10 +84,19 @@ export function ImportDialog({
   };
 
   const handleGeneratePreview = async () => {
-    if (!fileText) { toast.error("Selecione um arquivo."); return; }
+    if (!fileText) {
+      toast.error("Selecione um arquivo.");
+      return;
+    }
     if (isCardSource) {
-      if (!cardId) { toast.error("Selecione o cartão."); return; }
-    } else if (!accountId) { toast.error("Selecione a conta destino."); return; }
+      if (!cardId) {
+        toast.error("Selecione o cartão.");
+        return;
+      }
+    } else if (!accountId) {
+      toast.error("Selecione a conta destino.");
+      return;
+    }
     try {
       const p = await buildPreview.mutateAsync({
         source,
@@ -99,7 +110,7 @@ export function ImportDialog({
         defaults: { categoryId: null, subcategoryId: null },
       });
       if (p.existingImport && !reimport) {
-        toast.warning("Este arquivo já foi importado antes. Marque \"Reimportar\" para continuar.");
+        toast.warning('Este arquivo já foi importado antes. Marque "Reimportar" para continuar.');
       }
       setPreview(p);
       setStep("preview");
@@ -118,8 +129,12 @@ export function ImportDialog({
         cardId: isCardSource ? cardId : null,
         importedBy: userId,
       });
-      const extra = res.autoReconciled ? ` · ${res.autoReconciled} transferência(s) conciliada(s).` : "";
-      toast.success(`Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.${extra}`);
+      const extra = res.autoReconciled
+        ? ` · ${res.autoReconciled} transferência(s) conciliada(s).`
+        : "";
+      toast.success(
+        `Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.${extra}`,
+      );
       setStep("done");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao importar");
@@ -129,12 +144,19 @@ export function ImportDialog({
   const previewRows = useMemo(() => preview?.rows ?? [], [preview]);
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Importar Arquivo</DialogTitle>
           <DialogDescription>
-            Suporte a CSV Nubank (conta e cartão) e OFX. Duplicidades são detectadas automaticamente.
+            Suporte a CSV Nubank (conta e cartão) e OFX. Duplicidades são detectadas
+            automaticamente.
           </DialogDescription>
         </DialogHeader>
 
@@ -152,7 +174,13 @@ export function ImportDialog({
             >
               <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-2 text-sm">
-                {fileName ? <><b>{fileName}</b> pronto — clique em Preview.</> : "Arraste um arquivo ou clique para selecionar."}
+                {fileName ? (
+                  <>
+                    <b>{fileName}</b> pronto — clique em Preview.
+                  </>
+                ) : (
+                  "Arraste um arquivo ou clique para selecionar."
+                )}
               </p>
               <input
                 id="import-file-input"
@@ -170,10 +198,14 @@ export function ImportDialog({
               <div>
                 <Label>Origem</Label>
                 <Select value={source} onValueChange={(v) => setSource(v as ImportSource)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {IMPORTER_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -182,20 +214,32 @@ export function ImportDialog({
                 <Label>{isCardSource ? "Cartão" : "Conta destino"}</Label>
                 {isCardSource ? (
                   <Select value={cardId} onValueChange={setCardId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o cartão" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cartão" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {cards.filter((c) => c.is_active).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
+                      {cards
+                        .filter((c) => c.is_active)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <Select value={accountId} onValueChange={setAccountId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {accounts.filter((a) => a.is_active).map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
+                      {accounts
+                        .filter((a) => a.is_active)
+                        .map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -203,12 +247,18 @@ export function ImportDialog({
             </div>
 
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" checked={reimport} onChange={(e) => setReimport(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={reimport}
+                onChange={(e) => setReimport(e.target.checked)}
+              />
               Reimportar mesmo se o arquivo já tiver sido processado antes
             </label>
 
             <DialogFooter>
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
               <Button onClick={handleGeneratePreview} disabled={buildPreview.isPending}>
                 {buildPreview.isPending ? "Analisando…" : "Gerar Preview"}
               </Button>
@@ -248,17 +298,25 @@ export function ImportDialog({
                     <tr key={r.index} className="border-t">
                       <td className="px-2 py-1 tabular-nums">{r.transaction_date}</td>
                       <td className="px-2 py-1">{r.description}</td>
-                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(r.amount)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">
+                        {formatCurrency(r.amount)}
+                      </td>
                       <td className="px-2 py-1">{MOVEMENT_TYPE_LABELS[r.type]}</td>
                       <td className="px-2 py-1">
                         {r.isInvalid ? (
-                          <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Inválido</Badge>
+                          <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Inválido
+                          </Badge>
                         ) : r.isDuplicate ? (
                           <Badge variant="secondary">Duplicado</Badge>
                         ) : r.isCardPayment ? (
                           <Badge>Pgto Fatura</Badge>
                         ) : (
-                          <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3" />OK</Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            OK
+                          </Badge>
                         )}
                       </td>
                     </tr>
@@ -267,7 +325,9 @@ export function ImportDialog({
               </table>
             </ScrollArea>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setStep("select")}>Voltar</Button>
+              <Button variant="ghost" onClick={() => setStep("select")}>
+                Voltar
+              </Button>
               <Button onClick={handleCommit} disabled={commit.isPending}>
                 {commit.isPending ? "Importando…" : `Confirmar (${preview.totals.valid})`}
               </Button>
@@ -280,22 +340,35 @@ export function ImportDialog({
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
             <p>Importação concluída com sucesso.</p>
             <DialogFooter className="justify-center gap-2">
-              <Button variant="outline" onClick={reset}>Importar outro arquivo</Button>
+              <Button variant="outline" onClick={reset}>
+                Importar outro arquivo
+              </Button>
               <Button onClick={() => onOpenChange(false)}>Fechar</Button>
             </DialogFooter>
           </div>
         )}
-
       </DialogContent>
     </Dialog>
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: "positive" | "warn" | "danger" }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "positive" | "warn" | "danger";
+}) {
   const cls =
-    tone === "positive" ? "text-emerald-600" :
-    tone === "warn" ? "text-amber-600" :
-    tone === "danger" ? "text-red-600" : "";
+    tone === "positive"
+      ? "text-emerald-600"
+      : tone === "warn"
+        ? "text-amber-600"
+        : tone === "danger"
+          ? "text-red-600"
+          : "";
   return (
     <div className="rounded border p-2">
       <div className="text-muted-foreground">{label}</div>

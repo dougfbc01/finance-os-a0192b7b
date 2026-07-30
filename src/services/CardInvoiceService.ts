@@ -109,9 +109,12 @@ class CardInvoiceServiceImpl extends BaseService {
    * e para atualizar o status quando o tempo passa (fatura vira OVERDUE/CLOSED).
    */
   async recompute(invoiceId: UUID): Promise<void> {
-    const { error } = await this.client.rpc("recompute_card_invoice" as never, {
-      _invoice_id: invoiceId,
-    } as never);
+    const { error } = await this.client.rpc(
+      "recompute_card_invoice" as never,
+      {
+        _invoice_id: invoiceId,
+      } as never,
+    );
     if (error) this.handleError(error, "recompute");
   }
 
@@ -154,7 +157,6 @@ class CardInvoiceServiceImpl extends BaseService {
     if (error) this.handleError(error, "markPaid.update");
     return movement;
   }
-
 
   async listMovements(invoiceId: UUID): Promise<Movement[]> {
     const { data, error } = await this.client

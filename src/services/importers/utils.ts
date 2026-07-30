@@ -1,8 +1,18 @@
 // Utilitários compartilhados entre importadores.
 
 const MONTHS_PT: Record<string, number> = {
-  jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5,
-  jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11,
+  jan: 0,
+  fev: 1,
+  mar: 2,
+  abr: 3,
+  mai: 4,
+  jun: 5,
+  jul: 6,
+  ago: 7,
+  set: 8,
+  out: 9,
+  nov: 10,
+  dez: 11,
 };
 
 /** Converte "DD/MM/YYYY" ou "YYYY-MM-DD" para "yyyy-mm-dd". */
@@ -22,7 +32,8 @@ export function parseDate(input: string): string | null {
   m = /^(\d{1,2})[-\s]([A-Za-zçÇ]{3})[-\s](\d{4})$/.exec(s);
   if (m) {
     const mm = MONTHS_PT[m[2].toLowerCase().slice(0, 3)];
-    if (mm !== undefined) return `${m[3]}-${String(mm + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    if (mm !== undefined)
+      return `${m[3]}-${String(mm + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   }
   const d = new Date(s);
   if (!Number.isNaN(d.getTime())) {
@@ -34,7 +45,9 @@ export function parseDate(input: string): string | null {
 /** Converte valor BR ("-1.234,56") ou US ("1234.56") para número. */
 export function parseAmount(input: string | number | undefined | null): number {
   if (typeof input === "number") return input;
-  const s = String(input ?? "").trim().replace(/\s/g, "");
+  const s = String(input ?? "")
+    .trim()
+    .replace(/\s/g, "");
   if (!s) return NaN;
   const hasComma = s.includes(",");
   const hasDot = s.includes(".");
@@ -96,7 +109,11 @@ export function parseCSV(text: string): Record<string, string>[] {
     let inQ = false;
     for (let i = 0; i < clean.length; i++) {
       const ch = clean[i];
-      if (ch === '"') { inQ = !inQ; cur += ch; continue; }
+      if (ch === '"') {
+        inQ = !inQ;
+        cur += ch;
+        continue;
+      }
       if ((ch === "\n" || ch === "\r") && !inQ) {
         if (ch === "\r" && clean[i + 1] === "\n") i++;
         if (cur.length) lines.push(cur);
@@ -109,7 +126,8 @@ export function parseCSV(text: string): Record<string, string>[] {
   }
   if (!lines.length) return [];
 
-  const detectDelim = (line: string) => (line.split(";").length > line.split(",").length ? ";" : ",");
+  const detectDelim = (line: string) =>
+    line.split(";").length > line.split(",").length ? ";" : ",";
   const delim = detectDelim(lines[0]);
 
   const splitRow = (line: string): string[] => {
@@ -119,11 +137,19 @@ export function parseCSV(text: string): Record<string, string>[] {
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; continue; }
+        if (inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+          continue;
+        }
         inQ = !inQ;
         continue;
       }
-      if (ch === delim && !inQ) { out.push(cur); cur = ""; continue; }
+      if (ch === delim && !inQ) {
+        out.push(cur);
+        cur = "";
+        continue;
+      }
       cur += ch;
     }
     out.push(cur);
@@ -136,7 +162,9 @@ export function parseCSV(text: string): Record<string, string>[] {
     const cells = splitRow(lines[i]);
     if (cells.every((c) => !c.length)) continue;
     const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => { obj[h] = cells[idx] ?? ""; });
+    headers.forEach((h, idx) => {
+      obj[h] = cells[idx] ?? "";
+    });
     rows.push(obj);
   }
   return rows;

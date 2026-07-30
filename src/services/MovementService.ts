@@ -20,7 +20,6 @@ import type {
   UUID,
 } from "@/models";
 
-
 type Row = Record<string, unknown>;
 
 class MovementServiceImpl extends BaseService {
@@ -31,7 +30,8 @@ class MovementServiceImpl extends BaseService {
       ...(r as unknown as Movement),
       amount: Number((r as { amount: unknown }).amount),
       tags: ((r as { tags?: unknown }).tags as string[] | null) ?? [],
-      attachments: ((r as { attachments?: unknown }).attachments as Movement["attachments"] | null) ?? [],
+      attachments:
+        ((r as { attachments?: unknown }).attachments as Movement["attachments"] | null) ?? [],
     };
   }
 
@@ -92,7 +92,6 @@ class MovementServiceImpl extends BaseService {
     return (data ?? []).map((r) => this.mapRow(r as Row));
   }
 
-
   async getById(id: UUID): Promise<Movement | null> {
     const { data, error } = await this.client
       .from(this.table)
@@ -118,10 +117,7 @@ class MovementServiceImpl extends BaseService {
     );
 
     // Autopreenchimento de competência/vencimento (Sprint 3.1 - Parte 2)
-    const { competence, dueDate, cardStatus } = await this.resolveDates(
-      input,
-      invoiceId,
-    );
+    const { competence, dueDate, cardStatus } = await this.resolveDates(input, invoiceId);
 
     const isCardPurchase =
       !!input.card_id &&
@@ -132,9 +128,9 @@ class MovementServiceImpl extends BaseService {
       workspace_id: input.workspace_id,
       account_id: input.account_id ?? null,
       transfer_account_id:
-        input.type === MovementType.TRANSFER ? input.transfer_account_id ?? null : null,
-      category_id: input.type === MovementType.TRANSFER ? null : input.category_id ?? null,
-      subcategory_id: input.type === MovementType.TRANSFER ? null : input.subcategory_id ?? null,
+        input.type === MovementType.TRANSFER ? (input.transfer_account_id ?? null) : null,
+      category_id: input.type === MovementType.TRANSFER ? null : (input.category_id ?? null),
+      subcategory_id: input.type === MovementType.TRANSFER ? null : (input.subcategory_id ?? null),
       card_id: input.card_id ?? null,
       invoice_id: invoiceId,
       asset_id: input.asset_id ?? null,
@@ -193,7 +189,6 @@ class MovementServiceImpl extends BaseService {
     return { competence: txn, dueDate: txn, cardStatus: MovementStatus.CLEARED };
   }
 
-
   async update(id: UUID, input: UpdateMovementInput): Promise<Movement> {
     const existing = await this.getById(id);
     if (!existing) this.handleError(new Error("Movimentação não encontrada."), "update");
@@ -223,11 +218,9 @@ class MovementServiceImpl extends BaseService {
     }
 
     // Se o vínculo com cartão/data mudou, reatribui a fatura correspondente.
-    const nextCardId =
-      input.card_id !== undefined ? input.card_id : existing!.card_id;
+    const nextCardId = input.card_id !== undefined ? input.card_id : existing!.card_id;
     const nextDate = input.transaction_date ?? existing!.transaction_date;
-    const cardChanged =
-      input.card_id !== undefined && input.card_id !== existing!.card_id;
+    const cardChanged = input.card_id !== undefined && input.card_id !== existing!.card_id;
     const dateChanged =
       input.transaction_date !== undefined && input.transaction_date !== existing!.transaction_date;
     if (nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
@@ -295,7 +288,6 @@ class MovementServiceImpl extends BaseService {
     if (error) this.handleError(error, "resolveInvoice.create");
     return (data as { id: UUID }).id;
   }
-
 
   async softDelete(id: UUID): Promise<void> {
     const { error } = await this.client
@@ -398,7 +390,6 @@ class MovementServiceImpl extends BaseService {
       this.handleError(new Error("Selecione uma conta ou um cartão."), "validate");
     }
   }
-
 }
 
 export const MovementService = new MovementServiceImpl();

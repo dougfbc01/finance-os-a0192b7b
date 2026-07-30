@@ -2,7 +2,13 @@
 // Cabeçalhos: Data, Valor, Identificador, Descrição.
 import { MovementType, MovementStatus } from "@/constants/enums";
 import type { Importer, ImportContext, PreviewResult, PreviewRow } from "./types";
-import { buildDuplicateHash, normalizeDescription, parseAmount, parseCSV, parseDate } from "./utils";
+import {
+  buildDuplicateHash,
+  normalizeDescription,
+  parseAmount,
+  parseCSV,
+  parseDate,
+} from "./utils";
 
 const FATURA_RE = /pagamento.*fatura|fatura.*pagamento|pagamento de fatura/i;
 const TRANSFER_RE = /transfer[eêê]ncia|ted|doc|pix (enviado|recebido)/i;
@@ -19,17 +25,34 @@ export class NubankAccountImporter implements Importer {
     const valid = rows.filter((r) => {
       const date = parseDate(String(r["Data"] ?? r["data"] ?? ""));
       const amount = parseAmount(String(r["Valor"] ?? r["valor"] ?? ""));
-      if (!date || !Number.isFinite(amount)) { invalid++; return false; }
+      if (!date || !Number.isFinite(amount)) {
+        invalid++;
+        return false;
+      }
       return true;
     });
     return { valid, invalid };
   }
 
-  async preview(fileText: string, ctx: ImportContext, fileName: string, fileHash: string): Promise<PreviewResult> {
+  async preview(
+    fileText: string,
+    ctx: ImportContext,
+    fileName: string,
+    fileHash: string,
+  ): Promise<PreviewResult> {
     const rows = this.parse(fileText);
     const preview: PreviewRow[] = [];
     const seenInFile = new Set<string>();
-    const totals = { total: rows.length, valid: 0, invalid: 0, duplicated: 0, transfers: 0, incomes: 0, expenses: 0, cardPayments: 0 };
+    const totals = {
+      total: rows.length,
+      valid: 0,
+      invalid: 0,
+      duplicated: 0,
+      transfers: 0,
+      incomes: 0,
+      expenses: 0,
+      cardPayments: 0,
+    };
 
     rows.forEach((r, idx) => {
       const date = parseDate(String(r["Data"] ?? r["data"] ?? ""));
