@@ -23,4 +23,8 @@ export interface InvoicePeriod {
   competence: string; // yyyy-mm-01
   closing_date: string;
   due_date: string;
+  /** Primeiro dia de compras da fatura (dia seguinte ao fechamento anterior). */
+  period_start?: string;
+  /** Último dia de compras da fatura (= closing_date). */
+  period_end?: string;
 }
