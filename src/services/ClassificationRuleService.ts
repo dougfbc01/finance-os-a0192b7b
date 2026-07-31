@@ -11,6 +11,21 @@ import type {
 
 type Row = Record<string, unknown>;
 
+/** Relatório de reprocessamento de regras (dry run ou aplicado). */
+export interface ReprocessReport {
+  /** Movimentações analisadas (sem categoria, exceto transferências/pagamentos). */
+  analyzed: number;
+  withoutCategory: number;
+  /** Quantas seriam classificadas pelas regras atuais. */
+  wouldClassify: number;
+  /** Quantas continuariam sem categoria. */
+  wouldRemain: number;
+  /** Quantas foram efetivamente classificadas (0 no dry run). */
+  classified: number;
+  elapsedMs: number;
+  applied: boolean;
+}
+
 class ClassificationRuleServiceImpl extends BaseService {
   private readonly table = "classification_rules" as const;
 
