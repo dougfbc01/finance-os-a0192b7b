@@ -213,7 +213,16 @@ class ImportServiceImpl extends BaseService {
 
     // Recalcula os totais das faturas afetadas.
     for (const invId of invoiceIds) {
-      try { await CardInvoiceService.recompute(invId); } catch { /* segue */ }
+      try {
+        await CardInvoiceService.recompute(invId);
+      } catch (e) {
+        logFinanceError("invoices", "recompute", e);
+        log.push({
+          level: "error",
+          message: `Falha ao recalcular fatura ${invId}: ${String((e as Error).message ?? e)}`,
+          at: new Date().toISOString(),
+        });
+      }
     }
 
     // Conciliação automática pós-importação (janela 2 dias, candidato único).

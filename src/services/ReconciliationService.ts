@@ -104,8 +104,9 @@ class ReconciliationServiceImpl extends BaseService {
       try {
         await this.apply(c);
         count++;
-      } catch {
-        // Continua os demais.
+      } catch (e) {
+        // Nunca silencioso (Sprint 3.6): registra e segue com os demais.
+        logFinanceError("reconciliation", "applyMany", e);
       }
     }
     return count;
