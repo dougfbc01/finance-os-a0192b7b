@@ -85,6 +85,13 @@ export function useBulkClassify() {
   });
 }
 
+/** Simulação (dry run) do reprocessamento — não grava nada. */
+export function useDryRunReprocess() {
+  return useMutation({
+    mutationFn: (workspaceId: UUID) => ClassificationRuleService.dryRunReprocess(workspaceId),
+  });
+}
+
 export function useReprocessRules() {
   const qc = useQueryClient();
   return useMutation({

@@ -3,6 +3,7 @@
 // diferença máxima de 2 dias. Nunca altera patrimônio.
 import { BaseService } from "./BaseService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType, MovementStatus } from "@/constants/enums";
+import { logFinanceError } from "@/lib/logger";
 import type { Movement, UUID } from "@/models";
 
 export interface TransferCandidate {
@@ -104,8 +105,9 @@ class ReconciliationServiceImpl extends BaseService {
       try {
         await this.apply(c);
         count++;
-      } catch {
-        // Continua os demais.
+      } catch (e) {
+        // Nunca silencioso (Sprint 3.6): registra e segue com os demais.
+        logFinanceError("reconciliation", "applyMany", e);
       }
     }
     return count;

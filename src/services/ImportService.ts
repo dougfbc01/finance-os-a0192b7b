@@ -12,6 +12,7 @@ import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types
 import type { Account, Movement, UUID } from "@/models";
 import type { ImportRecord, ImportSource, ImportLogEntry } from "@/models/Import";
 import { MovementStatus } from "@/constants/enums";
+import { logFinanceError } from "@/lib/logger";
 
 export interface BuildPreviewParams {
   source: ImportSource;
@@ -136,13 +137,27 @@ class ImportServiceImpl extends BaseService {
     }
 
     // Se for importação de cartão, garante fatura correspondente por linha.
+    // Pagamentos de fatura e transferências NUNCA recebem invoice_id — caso
+    // contrário abatem o total da fatura (causa raiz das faturas zeradas).
     const card = cardId ? await CardService.getById(cardId) : null;
     const rowInvoiceMap = new Map<number, UUID>();
     if (card) {
       for (const r of toInsert) {
-        const invId = await CardInvoiceService.ensureInvoice(card, r.transaction_date);
-        rowInvoiceMap.set(r.index, invId);
-        invoiceIds.add(invId);
+        if (r.type === "CARD_PAYMENT" || r.type === "TRANSFER") continue;
+        try {
+          const invId = await CardInvoiceService.ensureInvoice(card, r.transaction_date);
+          rowInvoiceMap.set(r.index, invId);
+          invoiceIds.add(invId);
+        } catch (e) {
+          logFinanceError("imports", "ensureInvoice", e);
+          log.push({
+            level: "error",
+            message: `Falha ao criar fatura para ${r.transaction_date}: ${String((e as Error).message ?? e)}`,
+            at: new Date().toISOString(),
+            row: r.index + 1,
+          });
+          throw e;
+        }
       }
     }
 
@@ -198,7 +213,16 @@ class ImportServiceImpl extends BaseService {
 
     // Recalcula os totais das faturas afetadas.
     for (const invId of invoiceIds) {
-      try { await CardInvoiceService.recompute(invId); } catch { /* segue */ }
+      try {
+        await CardInvoiceService.recompute(invId);
+      } catch (e) {
+        logFinanceError("invoices", "recompute", e);
+        log.push({
+          level: "error",
+          message: `Falha ao recalcular fatura ${invId}: ${String((e as Error).message ?? e)}`,
+          at: new Date().toISOString(),
+        });
+      }
     }
 
     // Conciliação automática pós-importação (janela 2 dias, candidato único).

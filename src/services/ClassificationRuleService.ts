@@ -1,6 +1,7 @@
 // ClassificationRuleService — CRUD e aplicação de regras de classificação.
 // Regras casam por substring (case-insensitive) contra a descrição da movimentação.
 import { BaseService } from "./BaseService";
+import { logFinanceError } from "@/lib/logger";
 import type {
   ClassificationRule,
   CreateClassificationRuleInput,
@@ -9,6 +10,21 @@ import type {
 } from "@/models";
 
 type Row = Record<string, unknown>;
+
+/** Relatório de reprocessamento de regras (dry run ou aplicado). */
+export interface ReprocessReport {
+  /** Movimentações analisadas (sem categoria, exceto transferências/pagamentos). */
+  analyzed: number;
+  withoutCategory: number;
+  /** Quantas seriam classificadas pelas regras atuais. */
+  wouldClassify: number;
+  /** Quantas continuariam sem categoria. */
+  wouldRemain: number;
+  /** Quantas foram efetivamente classificadas (0 no dry run). */
+  classified: number;
+  elapsedMs: number;
+  applied: boolean;
+}
 
 class ClassificationRuleServiceImpl extends BaseService {
   private readonly table = "classification_rules" as const;
@@ -186,22 +202,82 @@ class ClassificationRuleServiceImpl extends BaseService {
   }
 
   /**
-   * Reprocessa todas as regras contra movimentações sem categoria do workspace.
-   * Retorna total classificado.
+   * DRY RUN (Sprint 3.6) — simula o reprocessamento sem gravar nada.
+   * Só considera movimentações SEM categoria; nunca sobrescreve classificação manual.
    */
-  async reprocessAll(workspaceId: UUID): Promise<number> {
-    const rules = await this.list(workspaceId);
-    let total = 0;
-    for (const rule of rules) {
-      if (!rule.enabled) continue;
-      const ids = await this.findUnclassifiedMatches(workspaceId, rule.text_pattern);
-      if (!ids.length) continue;
-      total += await this.bulkClassify(ids, {
-        category_id: rule.category_id,
-        subcategory_id: rule.subcategory_id,
-      });
+  async dryRunReprocess(workspaceId: UUID): Promise<ReprocessReport> {
+    const t0 = Date.now();
+    const rules = (await this.list(workspaceId)).filter((r) => r.enabled);
+
+    const { data, error } = await this.client
+      .from("movements")
+      .select("id, description")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("category_id", null)
+      .not("type", "in", "(TRANSFER,CARD_PAYMENT)");
+    if (error) {
+      logFinanceError("rules", "dryRunReprocess", error);
+      this.handleError(error, "dryRunReprocess");
     }
-    return total;
+
+    const rows = (data ?? []) as { id: UUID; description: string }[];
+    const plan = new Map<UUID, { category_id: UUID | null; subcategory_id: UUID | null }>();
+    for (const row of rows) {
+      const match = ClassificationRuleServiceImpl.match(row.description, rules);
+      if (match && match.category_id) {
+        plan.set(row.id, {
+          category_id: match.category_id,
+          subcategory_id: match.subcategory_id,
+        });
+      }
+    }
+
+    return {
+      analyzed: rows.length,
+      withoutCategory: rows.length,
+      wouldClassify: plan.size,
+      wouldRemain: rows.length - plan.size,
+      classified: 0,
+      elapsedMs: Date.now() - t0,
+      applied: false,
+    };
+  }
+
+  /**
+   * Reprocessa as regras contra movimentações SEM categoria do workspace.
+   * Nunca sobrescreve classificação manual. Retorna relatório completo.
+   */
+  async reprocessAll(workspaceId: UUID): Promise<ReprocessReport> {
+    const t0 = Date.now();
+    const dry = await this.dryRunReprocess(workspaceId);
+    const rules = (await this.list(workspaceId)).filter((r) => r.enabled);
+
+    let classified = 0;
+    for (const rule of rules) {
+      if (!rule.category_id) continue;
+      try {
+        const ids = await this.findUnclassifiedMatches(workspaceId, rule.text_pattern);
+        if (!ids.length) continue;
+        classified += await this.bulkClassify(ids, {
+          category_id: rule.category_id,
+          subcategory_id: rule.subcategory_id,
+        });
+      } catch (e) {
+        logFinanceError("rules", `reprocessAll:${rule.text_pattern}`, e);
+        throw e;
+      }
+    }
+
+    return {
+      analyzed: dry.analyzed,
+      withoutCategory: dry.withoutCategory,
+      wouldClassify: dry.wouldClassify,
+      wouldRemain: Math.max(0, dry.analyzed - classified),
+      classified,
+      elapsedMs: Date.now() - t0,
+      applied: true,
+    };
   }
 }
 

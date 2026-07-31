@@ -54,8 +54,15 @@ export class NubankCreditCardImporter implements Importer {
       if (!date) errors.push("Data inválida");
       if (!Number.isFinite(raw)) errors.push("Valor inválido");
 
-      // Fatura: valor positivo é despesa; negativo é estorno.
-      const type = raw >= 0 ? MovementType.EXPENSE : MovementType.REFUND;
+      // Sprint 3.6 — causa raiz das faturas zeradas: linhas de pagamento da
+      // fatura ("Pagamento recebido") vinham como estorno e abatiam o total da
+      // fatura. Pagamento de fatura é CARD_PAYMENT e nunca compõe a fatura.
+      const isPayment = /pagamento/i.test(description);
+      const type = isPayment
+        ? MovementType.CARD_PAYMENT
+        : raw >= 0
+          ? MovementType.EXPENSE
+          : MovementType.REFUND;
       const amount = Math.abs(raw || 0);
       const hash = buildDuplicateHash({
         workspaceId: ctx.workspaceId,
@@ -73,7 +80,8 @@ export class NubankCreditCardImporter implements Importer {
       else if (isDuplicate) totals.duplicated++;
       else {
         totals.valid++;
-        if (type === MovementType.EXPENSE) totals.expenses++;
+        if (isPayment) totals.cardPayments++;
+        else if (type === MovementType.EXPENSE) totals.expenses++;
         else totals.incomes++;
       }
 
@@ -94,7 +102,7 @@ export class NubankCreditCardImporter implements Importer {
         duplicate_hash: hash,
         isDuplicate,
         isTransfer: false,
-        isCardPayment: false,
+        isCardPayment: isPayment,
         isInvalid: invalid,
         errors,
       });
