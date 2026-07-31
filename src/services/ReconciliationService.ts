@@ -3,6 +3,7 @@
 // diferença máxima de 2 dias. Nunca altera patrimônio.
 import { BaseService } from "./BaseService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType, MovementStatus } from "@/constants/enums";
+import { logFinanceError } from "@/lib/logger";
 import type { Movement, UUID } from "@/models";
 
 export interface TransferCandidate {
