@@ -735,9 +735,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      financial_health_check: { Args: { _workspace_id: string }; Returns: Json }
       recompute_card_invoice: {
         Args: { _invoice_id: string }
         Returns: undefined
+      }
+      recompute_workspace_invoices: {
+        Args: { _workspace_id: string }
+        Returns: number
       }
       seed_default_categories: {
         Args: { _workspace_id: string }
