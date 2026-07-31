@@ -80,7 +80,8 @@ export class NubankCreditCardImporter implements Importer {
       else if (isDuplicate) totals.duplicated++;
       else {
         totals.valid++;
-        if (type === MovementType.EXPENSE) totals.expenses++;
+        if (isPayment) totals.cardPayments++;
+        else if (type === MovementType.EXPENSE) totals.expenses++;
         else totals.incomes++;
       }
 
@@ -101,7 +102,7 @@ export class NubankCreditCardImporter implements Importer {
         duplicate_hash: hash,
         isDuplicate,
         isTransfer: false,
-        isCardPayment: false,
+        isCardPayment: isPayment,
         isInvalid: invalid,
         errors,
       });
