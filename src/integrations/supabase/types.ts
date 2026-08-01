@@ -416,6 +416,88 @@ export type Database = {
           },
         ]
       }
+      health_check_runs: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          id: string
+          issues: number
+          report: Json
+          source: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          issues?: number
+          report?: Json
+          source?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          issues?: number
+          report?: Json
+          source?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_check_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_check_schedules: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          frequency: string
+          hour_utc: number
+          id: string
+          last_run_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          frequency?: string
+          hour_utc?: number
+          id?: string
+          last_run_at?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          frequency?: string
+          hour_utc?: number
+          id?: string
+          last_run_at?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_check_schedules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imports: {
         Row: {
           account_id: string | null
