@@ -171,6 +171,9 @@ function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
+      <HealthCheckSchedulePanel workspaceId={ws?.id} />
+
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
