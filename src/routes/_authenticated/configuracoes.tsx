@@ -20,6 +20,7 @@ import { useDryRunReprocess, useReprocessRules } from "@/hooks/useClassification
 import { useRebuildInvoices, useRunHealthCheck } from "@/hooks/useHealthCheck";
 import { HealthCheckServiceImpl, type HealthCheckReport } from "@/services/HealthCheckService";
 import { HealthCheckSchedulePanel } from "@/components/configuracoes/HealthCheckSchedulePanel";
+import { HealthCheckHistoryPanel } from "@/components/configuracoes/HealthCheckHistoryPanel";
 import type { ReprocessReport } from "@/services/ClassificationRuleService";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
