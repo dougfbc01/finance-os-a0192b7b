@@ -18,6 +18,27 @@ export interface HealthCheckReport {
   checkedAt: string;
 }
 
+export type HealthCheckFrequency = "DAILY" | "WEEKLY";
+
+export interface HealthCheckSchedule {
+  id: UUID;
+  workspace_id: UUID;
+  enabled: boolean;
+  frequency: HealthCheckFrequency;
+  hour_utc: number;
+  last_run_at: string | null;
+}
+
+export interface HealthCheckAlert {
+  id: UUID;
+  workspace_id: UUID;
+  issues: number;
+  report: Record<string, unknown>;
+  source: string;
+  acknowledged_at: string | null;
+  created_at: string;
+}
+
 const LABELS: Record<string, string> = {
   invoices_orfas: "Faturas órfãs (cartão inexistente)",
   invoices_zeradas: "Faturas zeradas com lançamentos",
@@ -69,6 +90,80 @@ class HealthCheckServiceImpl extends BaseService {
       this.handleError(error, "rebuildInvoices");
     }
     return Number(data ?? 0);
+  }
+
+  /** Agendamento do workspace (null quando nunca configurado). */
+  async getSchedule(workspaceId: UUID): Promise<HealthCheckSchedule | null> {
+    const { data, error } = await this.client
+      .from("health_check_schedules")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    if (error) {
+      logFinanceError("health", "getSchedule", error);
+      this.handleError(error, "getSchedule");
+    }
+    return (data as HealthCheckSchedule | null) ?? null;
+  }
+
+  async saveSchedule(
+    workspaceId: UUID,
+    input: { enabled: boolean; frequency: HealthCheckFrequency; hourUtc: number },
+  ): Promise<HealthCheckSchedule> {
+    const { data, error } = await this.client
+      .from("health_check_schedules")
+      .upsert(
+        {
+          workspace_id: workspaceId,
+          enabled: input.enabled,
+          frequency: input.frequency,
+          hour_utc: input.hourUtc,
+        },
+        { onConflict: "workspace_id" },
+      )
+      .select("*")
+      .single();
+    if (error) {
+      logFinanceError("health", "saveSchedule", error);
+      this.handleError(error, "saveSchedule");
+    }
+    return data as HealthCheckSchedule;
+  }
+
+  /** Alertas gerados pelas execuções automáticas (mais recentes primeiro). */
+  async listAlerts(workspaceId: UUID, limit = 10): Promise<HealthCheckAlert[]> {
+    const { data, error } = await this.client
+      .from("health_check_runs")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      logFinanceError("health", "listAlerts", error);
+      this.handleError(error, "listAlerts");
+    }
+    return (data ?? []) as HealthCheckAlert[];
+  }
+
+  async acknowledgeAlert(alertId: UUID): Promise<void> {
+    const { error } = await this.client
+      .from("health_check_runs")
+      .update({ acknowledged_at: new Date().toISOString() })
+      .eq("id", alertId);
+    if (error) {
+      logFinanceError("health", "acknowledgeAlert", error);
+      this.handleError(error, "acknowledgeAlert");
+    }
+  }
+
+  /** Descreve os itens com problema de um relatório persistido. */
+  static describeReport(report: Record<string, unknown>): HealthCheckItem[] {
+    return Object.keys(LABELS)
+      .map((key) => {
+        const count = Number(report?.[key] ?? 0);
+        return { key, label: LABELS[key], count, ok: count === 0 };
+      })
+      .filter((item) => !item.ok && !INFO_KEYS.has(item.key));
   }
 
   static isInfo(key: string): boolean {

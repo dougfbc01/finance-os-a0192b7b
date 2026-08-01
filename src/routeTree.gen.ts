@@ -27,6 +27,7 @@ import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
+import { Route as ApiPublicHooksHealthCheckRouteImport } from './routes/api/public/hooks/health-check'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -123,6 +124,12 @@ const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
   path: '/cartoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksHealthCheckRoute =
+  ApiPublicHooksHealthCheckRouteImport.update({
+    id: '/api/public/hooks/health-check',
+    path: '/api/public/hooks/health-check',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -161,6 +169,7 @@ export interface FileRoutesByTo {
   '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -182,6 +191,7 @@ export interface FileRoutesById {
   '/_authenticated/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/api/public/hooks/health-check'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/api/public/hooks/health-check'
   id:
     | '__root__'
     | '/'
@@ -242,12 +254,14 @@ export interface FileRouteTypes {
     | '/_authenticated/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/api/public/hooks/health-check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiPublicHooksHealthCheckRoute: typeof ApiPublicHooksHealthCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -378,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCartoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/health-check': {
+      id: '/api/public/hooks/health-check'
+      path: '/api/public/hooks/health-check'
+      fullPath: '/api/public/hooks/health-check'
+      preLoaderRoute: typeof ApiPublicHooksHealthCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -433,7 +454,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiPublicHooksHealthCheckRoute: ApiPublicHooksHealthCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

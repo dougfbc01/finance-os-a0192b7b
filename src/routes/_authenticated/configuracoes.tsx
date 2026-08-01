@@ -19,6 +19,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useDryRunReprocess, useReprocessRules } from "@/hooks/useClassificationRules";
 import { useRebuildInvoices, useRunHealthCheck } from "@/hooks/useHealthCheck";
 import { HealthCheckServiceImpl, type HealthCheckReport } from "@/services/HealthCheckService";
+import { HealthCheckSchedulePanel } from "@/components/configuracoes/HealthCheckSchedulePanel";
 import type { ReprocessReport } from "@/services/ClassificationRuleService";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -170,6 +171,9 @@ function ConfiguracoesPage() {
           )}
         </CardContent>
       </Card>
+
+      <HealthCheckSchedulePanel workspaceId={ws?.id} />
+
 
       <Card>
         <CardHeader>
