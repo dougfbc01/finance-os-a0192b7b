@@ -18,6 +18,27 @@ export interface HealthCheckReport {
   checkedAt: string;
 }
 
+export type HealthCheckFrequency = "DAILY" | "WEEKLY";
+
+export interface HealthCheckSchedule {
+  id: UUID;
+  workspace_id: UUID;
+  enabled: boolean;
+  frequency: HealthCheckFrequency;
+  hour_utc: number;
+  last_run_at: string | null;
+}
+
+export interface HealthCheckAlert {
+  id: UUID;
+  workspace_id: UUID;
+  issues: number;
+  report: Record<string, unknown>;
+  source: string;
+  acknowledged_at: string | null;
+  created_at: string;
+}
+
 const LABELS: Record<string, string> = {
   invoices_orfas: "Faturas órfãs (cartão inexistente)",
   invoices_zeradas: "Faturas zeradas com lançamentos",
