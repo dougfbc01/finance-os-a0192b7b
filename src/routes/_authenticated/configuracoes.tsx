@@ -173,7 +173,10 @@ function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
+      <HealthCheckHistoryPanel workspaceId={ws?.id} />
+
       <HealthCheckSchedulePanel workspaceId={ws?.id} />
+
 
 
       <Card>
