@@ -29,12 +29,17 @@ export interface HealthCheckSchedule {
   last_run_at: string | null;
 }
 
+export type HealthCheckRunStatus = "SUCCESS" | "FAILED";
+
 export interface HealthCheckAlert {
   id: UUID;
   workspace_id: UUID;
   issues: number;
   report: Record<string, unknown>;
   source: string;
+  status: HealthCheckRunStatus;
+  duration_ms: number;
+  error_message: string | null;
   acknowledged_at: string | null;
   created_at: string;
 }
@@ -58,12 +63,20 @@ const INFO_KEYS = new Set(["movimentacoes_sem_categoria", "imports_inconsistente
 
 class HealthCheckServiceImpl extends BaseService {
   async run(workspaceId: UUID): Promise<HealthCheckReport> {
+    const startedAt = Date.now();
     const { data, error } = await this.client.rpc(
       "financial_health_check" as never,
       { _workspace_id: workspaceId } as never,
     );
     if (error) {
       logFinanceError("health", "run", error);
+      await this.recordRun(workspaceId, {
+        status: "FAILED",
+        issues: 0,
+        report: {},
+        durationMs: Date.now() - startedAt,
+        errorMessage: error.message,
+      });
       this.handleError(error, "run");
     }
     const raw = (data ?? {}) as Record<string, unknown>;
@@ -72,12 +85,42 @@ class HealthCheckServiceImpl extends BaseService {
       return { key, label: LABELS[key], count, ok: count === 0 };
     });
     const issues = items.filter((i) => !i.ok && !INFO_KEYS.has(i.key)).length;
+    await this.recordRun(workspaceId, {
+      status: "SUCCESS",
+      issues,
+      report: raw,
+      durationMs: Date.now() - startedAt,
+    });
     return {
       items,
       issues,
       checkedAt: String(raw.checked_at ?? new Date().toISOString()),
     };
   }
+
+  /** Registra a execução no histórico. Falha aqui nunca quebra o diagnóstico. */
+  private async recordRun(
+    workspaceId: UUID,
+    input: {
+      status: HealthCheckRunStatus;
+      issues: number;
+      report: Record<string, unknown>;
+      durationMs: number;
+      errorMessage?: string;
+    },
+  ): Promise<void> {
+    const { error } = await this.client.from("health_check_runs").insert({
+      workspace_id: workspaceId,
+      issues: input.issues,
+      report: input.report as never,
+      source: "MANUAL",
+      status: input.status,
+      duration_ms: input.durationMs,
+      error_message: input.errorMessage ?? null,
+    });
+    if (error) logFinanceError("health", "recordRun", error);
+  }
+
 
   /** Reconstrói o valor de todas as faturas do workspace. */
   async rebuildInvoices(workspaceId: UUID): Promise<number> {
@@ -130,12 +173,13 @@ class HealthCheckServiceImpl extends BaseService {
     return data as HealthCheckSchedule;
   }
 
-  /** Alertas gerados pelas execuções automáticas (mais recentes primeiro). */
+  /** Alertas: execuções (automáticas ou manuais) que encontraram problemas. */
   async listAlerts(workspaceId: UUID, limit = 10): Promise<HealthCheckAlert[]> {
     const { data, error } = await this.client
       .from("health_check_runs")
       .select("*")
       .eq("workspace_id", workspaceId)
+      .gt("issues", 0)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) {
@@ -144,6 +188,22 @@ class HealthCheckServiceImpl extends BaseService {
     }
     return (data ?? []) as HealthCheckAlert[];
   }
+
+  /** Histórico completo de execuções (sucesso e falha), mais recentes primeiro. */
+  async listRuns(workspaceId: UUID, limit = 10): Promise<HealthCheckAlert[]> {
+    const { data, error } = await this.client
+      .from("health_check_runs")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      logFinanceError("health", "listRuns", error);
+      this.handleError(error, "listRuns");
+    }
+    return (data ?? []) as HealthCheckAlert[];
+  }
+
 
   async acknowledgeAlert(alertId: UUID): Promise<void> {
     const { error } = await this.client

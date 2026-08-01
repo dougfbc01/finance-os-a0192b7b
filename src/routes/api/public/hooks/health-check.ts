@@ -47,6 +47,7 @@ export const Route = createFileRoute("/api/public/hooks/health-check")({
         let alerts = 0;
 
         for (const schedule of due) {
+          const startedAt = Date.now();
           const { data: report, error: rpcError } = await supabaseAdmin.rpc(
             "financial_health_check" as never,
             { _workspace_id: schedule.workspace_id } as never,
@@ -54,6 +55,19 @@ export const Route = createFileRoute("/api/public/hooks/health-check")({
 
           if (rpcError) {
             console.error("[health-check:cron]", schedule.workspace_id, rpcError.message);
+            await supabaseAdmin.from("health_check_runs").insert({
+              workspace_id: schedule.workspace_id,
+              issues: 0,
+              report: {} as never,
+              source: "SCHEDULED",
+              status: "FAILED",
+              duration_ms: Date.now() - startedAt,
+              error_message: rpcError.message,
+            });
+            await supabaseAdmin
+              .from("health_check_schedules")
+              .update({ last_run_at: now.toISOString() })
+              .eq("id", schedule.id);
             continue;
           }
 
@@ -63,21 +77,23 @@ export const Route = createFileRoute("/api/public/hooks/health-check")({
               key !== "checked_at" && !INFO_KEYS.has(key) && Number(value ?? 0) > 0,
           ).length;
 
-          if (issues > 0) {
-            alerts += 1;
-            await supabaseAdmin.from("health_check_runs").insert({
-              workspace_id: schedule.workspace_id,
-              issues,
-              report: raw as never,
-              source: "SCHEDULED",
-            });
-          }
+          if (issues > 0) alerts += 1;
+
+          await supabaseAdmin.from("health_check_runs").insert({
+            workspace_id: schedule.workspace_id,
+            issues,
+            report: raw as never,
+            source: "SCHEDULED",
+            status: "SUCCESS",
+            duration_ms: Date.now() - startedAt,
+          });
 
           await supabaseAdmin
             .from("health_check_schedules")
             .update({ last_run_at: now.toISOString() })
             .eq("id", schedule.id);
         }
+
 
         return Response.json({
           success: true,

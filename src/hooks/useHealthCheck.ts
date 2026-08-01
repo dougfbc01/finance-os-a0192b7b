@@ -7,8 +7,13 @@ import { invalidateFinancialQueries } from "./invalidate";
 import type { UUID } from "@/models";
 
 export function useRunHealthCheck() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (workspaceId: UUID) => HealthCheckService.run(workspaceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["health-check-runs"] });
+      qc.invalidateQueries({ queryKey: ["health-check-alerts"] });
+    },
   });
 }
 
@@ -60,5 +65,14 @@ export function useAcknowledgeHealthAlert() {
   return useMutation({
     mutationFn: (alertId: UUID) => HealthCheckService.acknowledgeAlert(alertId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["health-check-alerts"] }),
+  });
+}
+
+export function useHealthCheckRuns(workspaceId?: UUID) {
+  return useQuery({
+    queryKey: ["health-check-runs", workspaceId],
+    queryFn: () => HealthCheckService.listRuns(workspaceId!),
+    enabled: !!workspaceId,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

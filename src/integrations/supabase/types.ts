@@ -420,30 +420,39 @@ export type Database = {
         Row: {
           acknowledged_at: string | null
           created_at: string
+          duration_ms: number
+          error_message: string | null
           id: string
           issues: number
           report: Json
           source: string
+          status: string
           updated_at: string
           workspace_id: string
         }
         Insert: {
           acknowledged_at?: string | null
           created_at?: string
+          duration_ms?: number
+          error_message?: string | null
           id?: string
           issues?: number
           report?: Json
           source?: string
+          status?: string
           updated_at?: string
           workspace_id: string
         }
         Update: {
           acknowledged_at?: string | null
           created_at?: string
+          duration_ms?: number
+          error_message?: string | null
           id?: string
           issues?: number
           report?: Json
           source?: string
+          status?: string
           updated_at?: string
           workspace_id?: string
         }
