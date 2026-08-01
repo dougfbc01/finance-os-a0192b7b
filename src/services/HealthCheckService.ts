@@ -29,12 +29,17 @@ export interface HealthCheckSchedule {
   last_run_at: string | null;
 }
 
+export type HealthCheckRunStatus = "SUCCESS" | "FAILED";
+
 export interface HealthCheckAlert {
   id: UUID;
   workspace_id: UUID;
   issues: number;
   report: Record<string, unknown>;
   source: string;
+  status: HealthCheckRunStatus;
+  duration_ms: number;
+  error_message: string | null;
   acknowledged_at: string | null;
   created_at: string;
 }
