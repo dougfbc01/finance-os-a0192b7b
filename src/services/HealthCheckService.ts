@@ -58,12 +58,20 @@ const INFO_KEYS = new Set(["movimentacoes_sem_categoria", "imports_inconsistente
 
 class HealthCheckServiceImpl extends BaseService {
   async run(workspaceId: UUID): Promise<HealthCheckReport> {
+    const startedAt = Date.now();
     const { data, error } = await this.client.rpc(
       "financial_health_check" as never,
       { _workspace_id: workspaceId } as never,
     );
     if (error) {
       logFinanceError("health", "run", error);
+      await this.recordRun(workspaceId, {
+        status: "FAILED",
+        issues: 0,
+        report: {},
+        durationMs: Date.now() - startedAt,
+        errorMessage: error.message,
+      });
       this.handleError(error, "run");
     }
     const raw = (data ?? {}) as Record<string, unknown>;
@@ -72,12 +80,42 @@ class HealthCheckServiceImpl extends BaseService {
       return { key, label: LABELS[key], count, ok: count === 0 };
     });
     const issues = items.filter((i) => !i.ok && !INFO_KEYS.has(i.key)).length;
+    await this.recordRun(workspaceId, {
+      status: "SUCCESS",
+      issues,
+      report: raw,
+      durationMs: Date.now() - startedAt,
+    });
     return {
       items,
       issues,
       checkedAt: String(raw.checked_at ?? new Date().toISOString()),
     };
   }
+
+  /** Registra a execução no histórico. Falha aqui nunca quebra o diagnóstico. */
+  private async recordRun(
+    workspaceId: UUID,
+    input: {
+      status: HealthCheckRunStatus;
+      issues: number;
+      report: Record<string, unknown>;
+      durationMs: number;
+      errorMessage?: string;
+    },
+  ): Promise<void> {
+    const { error } = await this.client.from("health_check_runs").insert({
+      workspace_id: workspaceId,
+      issues: input.issues,
+      report: input.report as never,
+      source: "MANUAL",
+      status: input.status,
+      duration_ms: input.durationMs,
+      error_message: input.errorMessage ?? null,
+    });
+    if (error) logFinanceError("health", "recordRun", error);
+  }
+
 
   /** Reconstrói o valor de todas as faturas do workspace. */
   async rebuildInvoices(workspaceId: UUID): Promise<number> {
