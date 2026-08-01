@@ -68,7 +68,7 @@ export const Route = createFileRoute("/api/public/hooks/health-check")({
             await supabaseAdmin.from("health_check_runs").insert({
               workspace_id: schedule.workspace_id,
               issues,
-              report: raw,
+              report: raw as never,
               source: "SCHEDULED",
             });
           }
