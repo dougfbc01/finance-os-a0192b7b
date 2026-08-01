@@ -173,12 +173,13 @@ class HealthCheckServiceImpl extends BaseService {
     return data as HealthCheckSchedule;
   }
 
-  /** Alertas gerados pelas execuções automáticas (mais recentes primeiro). */
+  /** Alertas: execuções (automáticas ou manuais) que encontraram problemas. */
   async listAlerts(workspaceId: UUID, limit = 10): Promise<HealthCheckAlert[]> {
     const { data, error } = await this.client
       .from("health_check_runs")
       .select("*")
       .eq("workspace_id", workspaceId)
+      .gt("issues", 0)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) {
@@ -187,6 +188,22 @@ class HealthCheckServiceImpl extends BaseService {
     }
     return (data ?? []) as HealthCheckAlert[];
   }
+
+  /** Histórico completo de execuções (sucesso e falha), mais recentes primeiro. */
+  async listRuns(workspaceId: UUID, limit = 10): Promise<HealthCheckAlert[]> {
+    const { data, error } = await this.client
+      .from("health_check_runs")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      logFinanceError("health", "listRuns", error);
+      this.handleError(error, "listRuns");
+    }
+    return (data ?? []) as HealthCheckAlert[];
+  }
+
 
   async acknowledgeAlert(alertId: UUID): Promise<void> {
     const { error } = await this.client
