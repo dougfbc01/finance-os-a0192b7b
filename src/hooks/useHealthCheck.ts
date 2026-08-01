@@ -7,8 +7,13 @@ import { invalidateFinancialQueries } from "./invalidate";
 import type { UUID } from "@/models";
 
 export function useRunHealthCheck() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (workspaceId: UUID) => HealthCheckService.run(workspaceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["health-check-runs"] });
+      qc.invalidateQueries({ queryKey: ["health-check-alerts"] });
+    },
   });
 }
 
