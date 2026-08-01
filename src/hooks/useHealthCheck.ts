@@ -62,3 +62,12 @@ export function useAcknowledgeHealthAlert() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["health-check-alerts"] }),
   });
 }
+
+export function useHealthCheckRuns(workspaceId?: UUID) {
+  return useQuery({
+    queryKey: ["health-check-runs", workspaceId],
+    queryFn: () => HealthCheckService.listRuns(workspaceId!),
+    enabled: !!workspaceId,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
