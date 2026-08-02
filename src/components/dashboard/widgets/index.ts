@@ -6,3 +6,8 @@ export { NetWorthWidget } from "./NetWorthWidget";
 export { AssetsByClassWidget } from "./AssetsByClassWidget";
 export { AssetsByInstitutionWidget } from "./AssetsByInstitutionWidget";
 export { LiabilitiesWidget } from "./LiabilitiesWidget";
+export { IncomeBreakdownWidget } from "./IncomeBreakdownWidget";
+export { IncomeEvolutionWidget } from "./IncomeEvolutionWidget";
+export { NetWorthEvolutionWidget } from "./NetWorthEvolutionWidget";
+export { AccountsEvolutionWidget } from "./AccountsEvolutionWidget";
+export { PeriodComparisonWidget } from "./PeriodComparisonWidget";
