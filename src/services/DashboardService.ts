@@ -59,11 +59,19 @@ class DashboardServiceImpl extends BaseService {
     return Object.values(balances).reduce((s, v) => s + v, 0);
   }
 
+  /**
+   * Sprint 4.0.1 — receitas/despesas usam SEMPRE a competência (fato gerador).
+   * O caixa (saldo) continua seguindo a data da movimentação.
+   */
+  private competenceDate(m: Movement): Date {
+    return new Date(`${m.competence_date ?? m.transaction_date}T00:00:00`);
+  }
+
   monthSummary(movements: Movement[], year: number, month: number): MonthSummary {
     let income = 0;
     let expense = 0;
     for (const m of movements) {
-      const d = new Date(`${m.transaction_date}T00:00:00`);
+      const d = this.competenceDate(m);
       if (d.getFullYear() !== year || d.getMonth() !== month) continue;
       if (INCOME_TYPES.includes(m.type)) income += m.amount;
       else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
@@ -97,11 +105,13 @@ class DashboardServiceImpl extends BaseService {
       let expense = 0;
       let delta = 0;
       for (const m of movements) {
-        const d = new Date(`${m.transaction_date}T00:00:00`);
-        if (d.getFullYear() !== y || d.getMonth() !== mo) continue;
-        if (INCOME_TYPES.includes(m.type)) income += m.amount;
-        else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
-        delta += this.balanceDelta(m);
+        const comp = this.competenceDate(m);
+        if (comp.getFullYear() === y && comp.getMonth() === mo) {
+          if (INCOME_TYPES.includes(m.type)) income += m.amount;
+          else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
+        }
+        const cash = new Date(`${m.transaction_date}T00:00:00`);
+        if (cash.getFullYear() === y && cash.getMonth() === mo) delta += this.balanceDelta(m);
       }
       runningBalance += delta;
       points.push({
@@ -134,7 +144,7 @@ class DashboardServiceImpl extends BaseService {
     const map = new Map<UUID | "none", number>();
     for (const m of movements) {
       if (!EXPENSE_TYPES.includes(m.type)) continue;
-      const d = new Date(`${m.transaction_date}T00:00:00`);
+      const d = this.competenceDate(m);
       if (d.getFullYear() !== year || d.getMonth() !== month) continue;
       const key = m.category_id ?? "none";
       map.set(key, (map.get(key) ?? 0) + m.amount);
