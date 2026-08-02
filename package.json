@@ -68,6 +68,12 @@
     "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.24.2"
   },
+  "overrides": {
+    "js-yaml": "^4.3.1"
+  },
+  "resolutions": {
+    "js-yaml": "^4.3.1"
+  },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.8.5",
