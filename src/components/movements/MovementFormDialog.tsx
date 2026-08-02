@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -51,6 +51,7 @@ import {
   useBulkClassify,
 } from "@/hooks/useClassificationRules";
 import { toISODate } from "@/lib/format";
+import { CardServiceImpl } from "@/services/CardService";
 import { AssetFormDialog } from "@/components/assets/AssetFormDialog";
 
 const INVESTMENT_OPERATIONS = [
@@ -123,6 +124,11 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   const { data: assets = [] } = useAssets(workspaceId);
 
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
+
+  // Rastreia edição manual de competência/vencimento — uma vez editados
+  // manualmente, nunca mais são recalculados automaticamente.
+  const manualCompetence = useRef(false);
+  const manualDue = useRef(false);
 
   const [rememberPrompt, setRememberPrompt] = useState<{
     description: string;
@@ -447,14 +453,28 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
 
               <div className="space-y-1.5">
                 <Label>Competência</Label>
-                <Input type="date" {...form.register("competence_date")} />
-                <p className="text-[10px] text-muted-foreground">Preenchida automaticamente se em branco.</p>
+                <Input
+                  type="date"
+                  {...form.register("competence_date")}
+                  onChange={(e) => {
+                    manualCompetence.current = true;
+                    form.setValue("competence_date", e.target.value, { shouldDirty: true });
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground">Preenchida automaticamente pela data da movimentação.</p>
               </div>
 
               <div className="space-y-1.5">
                 <Label>Vencimento</Label>
-                <Input type="date" {...form.register("due_date")} />
-                <p className="text-[10px] text-muted-foreground">Preenchido automaticamente se em branco.</p>
+                <Input
+                  type="date"
+                  {...form.register("due_date")}
+                  onChange={(e) => {
+                    manualDue.current = true;
+                    form.setValue("due_date", e.target.value, { shouldDirty: true });
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground">Preenchido automaticamente (conta = data; cartão = vencimento da fatura).</p>
               </div>
 
               {canUseCard && (
