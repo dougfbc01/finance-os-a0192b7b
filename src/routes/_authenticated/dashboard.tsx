@@ -1,17 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Wallet, TrendingUp, TrendingDown, Scale, PiggyBank, ShieldAlert } from "lucide-react";
 import { APP_NAME } from "@/constants";
+import { DashboardFilterBar } from "@/components/dashboard";
 import {
   KpiWidget,
-  BalanceEvolutionWidget,
-  IncomeVsExpenseWidget,
   ExpensesByCategoryWidget,
   NetWorthWidget,
   LiabilitiesWidget,
+  IncomeBreakdownWidget,
+  IncomeEvolutionWidget,
+  NetWorthEvolutionWidget,
+  AccountsEvolutionWidget,
+  PeriodComparisonWidget,
 } from "@/components/dashboard/widgets";
-import { useDashboardData } from "@/hooks/useDashboard";
+import { useDashboardFilter } from "@/hooks/useDashboardFilter";
+import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
 import { usePatrimony } from "@/hooks/usePatrimony";
-import { useCategories } from "@/hooks/useCategories";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -24,16 +28,24 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function DashboardPage() {
+  const filter = useDashboardFilter();
   const {
-    workspace,
-    totalBalance,
-    monthSummary,
-    cashflow,
+    accounts,
+    categories,
+    subcategories,
+    summary,
+    incomeByCategory,
+    incomeBySubcategory,
     expensesByCategory,
+    monthlySeries,
+    accountSeries,
+    netWorthSeries,
+    comparison,
     isLoading,
-  } = useDashboardData();
+  } = useDashboardAnalytics(filter.resolved);
   const { snapshot, invoices } = usePatrimony();
-  const { data: categories = [] } = useCategories(workspace?.id);
+
+  const lastNetWorth = netWorthSeries[netWorthSeries.length - 1];
 
   return (
     <div className="space-y-6">
@@ -44,12 +56,14 @@ function DashboardPage() {
         </p>
       </div>
 
+      <DashboardFilterBar filter={filter} />
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Carregando…</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KpiWidget title="Saldo disponível" value={totalBalance} icon={Wallet} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <KpiWidget title="Saldo disponível" value={lastNetWorth?.cash ?? snapshot.cash} icon={Wallet} />
             <KpiWidget
               title="Patrimônio líquido"
               value={snapshot.netWorth}
@@ -64,37 +78,51 @@ function DashboardPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <KpiWidget title="Receitas do mês" value={monthSummary.income} icon={TrendingUp} tone="positive" />
-            <KpiWidget title="Despesas do mês" value={monthSummary.expense} icon={TrendingDown} tone="negative" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <KpiWidget title="Receitas do período" value={summary.income} icon={TrendingUp} tone="positive" />
+            <KpiWidget title="Despesas do período" value={summary.expense} icon={TrendingDown} tone="negative" />
             <KpiWidget
-              title="Resultado do mês"
-              value={monthSummary.result}
+              title="Resultado do período"
+              value={summary.result}
               icon={Scale}
-              tone={monthSummary.result >= 0 ? "positive" : "negative"}
+              tone={summary.result >= 0 ? "positive" : "negative"}
             />
-            <KpiWidget
-              title="Investimentos declarados"
-              value={snapshot.assets}
-              icon={PiggyBank}
+            <KpiWidget title="Investimentos declarados" value={snapshot.assets} icon={PiggyBank} />
+          </div>
+
+          <PeriodComparisonWidget rows={comparison} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <IncomeBreakdownWidget
+              title="Receitas por categoria"
+              data={incomeByCategory}
+              lookup={categories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
+            />
+            <IncomeBreakdownWidget
+              title="Receitas por subcategoria"
+              data={incomeBySubcategory}
+              lookup={subcategories.map((s) => ({ id: s.id, name: s.name }))}
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <IncomeEvolutionWidget data={monthlySeries} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <NetWorthEvolutionWidget data={netWorthSeries} />
+            <AccountsEvolutionWidget data={accountSeries} accounts={accounts} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <NetWorthWidget snapshot={snapshot} />
             </div>
             <LiabilitiesWidget invoices={invoices} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <BalanceEvolutionWidget data={cashflow} />
-            <IncomeVsExpenseWidget data={cashflow} />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ExpensesByCategoryWidget data={expensesByCategory} categories={categories} />
-          </div>
+          <ExpensesByCategoryWidget
+            data={expensesByCategory.map((d) => ({ categoryId: d.id, amount: d.amount }))}
+            categories={categories}
+          />
         </>
       )}
     </div>
