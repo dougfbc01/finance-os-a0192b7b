@@ -156,7 +156,241 @@ class DashboardServiceImpl extends BaseService {
       }))
       .sort((a, b) => b.amount - a.amount);
   }
+
+  // ────────────────────────────────────────────────────────────────
+  // Sprint 4.1 — Análises com filtro global de período.
+  // O intervalo SEMPRE chega resolvido pelo DashboardFilterService.
+  // Nenhuma regra financeira nova: reutiliza competência, impacto de
+  // conta e delta de caixa já definidos acima.
+  // ────────────────────────────────────────────────────────────────
+
+  private monthKeyOf(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  private inRange(range: DateRange, iso: string | null | undefined): boolean {
+    return DashboardFilterService.contains(range, iso);
+  }
+
+  /** Competência (yyyy-mm-dd) usada como fato gerador. */
+  private competenceIso(m: Movement): string {
+    return (m.competence_date ?? m.transaction_date).slice(0, 10);
+  }
+
+  /** Receitas/Despesas/Resultado dentro de um intervalo (por competência). */
+  summaryInRange(movements: Movement[], range: DateRange): MonthSummary {
+    let income = 0;
+    let expense = 0;
+    for (const m of movements) {
+      if (!this.inRange(range, this.competenceIso(m))) continue;
+      if (INCOME_TYPES.includes(m.type)) income += m.amount;
+      else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
+    }
+    return { income, expense, result: income - expense };
+  }
+
+  /** Receitas do período agrupadas por categoria (com percentual). */
+  incomeByCategory(movements: Movement[], range: DateRange): BreakdownItem[] {
+    return this.groupBreakdown(movements, range, INCOME_TYPES, (m) => m.category_id);
+  }
+
+  /** Despesas do período agrupadas por categoria (com percentual). */
+  expensesByCategoryInRange(movements: Movement[], range: DateRange): BreakdownItem[] {
+    return this.groupBreakdown(movements, range, EXPENSE_TYPES, (m) => m.category_id);
+  }
+
+  /** Receitas do período agrupadas por subcategoria (com percentual). */
+  incomeBySubcategory(movements: Movement[], range: DateRange): BreakdownItem[] {
+    return this.groupBreakdown(movements, range, INCOME_TYPES, (m) => m.subcategory_id);
+  }
+
+  private groupBreakdown(
+    movements: Movement[],
+    range: DateRange,
+    types: MovementType[],
+    keyOf: (m: Movement) => UUID | null,
+  ): BreakdownItem[] {
+    const map = new Map<UUID | "none", number>();
+    let total = 0;
+    for (const m of movements) {
+      if (!types.includes(m.type)) continue;
+      if (!this.inRange(range, this.competenceIso(m))) continue;
+      const key = keyOf(m) ?? "none";
+      map.set(key, (map.get(key) ?? 0) + m.amount);
+      total += m.amount;
+    }
+    return Array.from(map.entries())
+      .map(([id, amount]) => ({
+        id: id === "none" ? null : (id as UUID),
+        amount,
+        percent: total > 0 ? (amount / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  /** Série mensal de receitas/despesas/resultado dentro do período. */
+  monthlySeries(movements: Movement[], months: string[]): MonthlySeriesPoint[] {
+    const base = new Map<string, MonthlySeriesPoint>();
+    for (const key of months) {
+      base.set(key, {
+        key,
+        label: DashboardFilterService.monthLabel(key),
+        income: 0,
+        expense: 0,
+        result: 0,
+      });
+    }
+    for (const m of movements) {
+      const key = this.competenceIso(m).slice(0, 7);
+      const point = base.get(key);
+      if (!point) continue;
+      if (INCOME_TYPES.includes(m.type)) point.income += m.amount;
+      else if (EXPENSE_TYPES.includes(m.type)) point.expense += m.amount;
+      point.result = point.income - point.expense;
+    }
+    return Array.from(base.values());
+  }
+
+  /**
+   * Evolução mensal do saldo por conta (e consolidado) dentro do período.
+   * Saldo acumulado: parte do saldo inicial + movimentações anteriores à janela.
+   */
+  accountBalanceSeries(
+    accounts: Account[],
+    movements: Movement[],
+    months: string[],
+  ): AccountBalancePoint[] {
+    if (months.length === 0) return [];
+    const running: Record<UUID, number> = {};
+    for (const a of accounts) running[a.id] = Number(a.initial_balance) || 0;
+
+    const firstMonth = months[0];
+    const byMonth = new Map<string, Movement[]>();
+    for (const m of movements) {
+      const key = m.transaction_date.slice(0, 7);
+      if (key < firstMonth) {
+        this.applyAccountDelta(running, m);
+        continue;
+      }
+      const list = byMonth.get(key);
+      if (list) list.push(m);
+      else byMonth.set(key, [m]);
+    }
+
+    const points: AccountBalancePoint[] = [];
+    for (const key of months) {
+      for (const m of byMonth.get(key) ?? []) this.applyAccountDelta(running, m);
+      const byAccount = { ...running };
+      points.push({
+        key,
+        label: DashboardFilterService.monthLabel(key),
+        byAccount,
+        total: Object.values(byAccount).reduce((s, v) => s + v, 0),
+      });
+    }
+    return points;
+  }
+
+  private applyAccountDelta(running: Record<UUID, number>, m: Movement) {
+    if (m.account_id && running[m.account_id] !== undefined) {
+      running[m.account_id] += MovementServiceImpl.impactOnAccount(m, m.account_id);
+    }
+    if (
+      m.type === MovementType.TRANSFER &&
+      m.transfer_account_id &&
+      running[m.transfer_account_id] !== undefined
+    ) {
+      running[m.transfer_account_id] += MovementServiceImpl.impactOnAccount(
+        m,
+        m.transfer_account_id,
+      );
+    }
+  }
+
+  /**
+   * Evolução mensal do patrimônio total dentro do período.
+   * Caixa: saldo acumulado real por mês.
+   * Ativos: valor atual declarado (não há histórico de marcação a mercado).
+   * Passivo: faturas não pagas com vencimento até o fim do mês.
+   */
+  netWorthSeries(params: {
+    accounts: Account[];
+    movements: Movement[];
+    assets: Asset[];
+    invoices: CardInvoice[];
+    months: string[];
+  }): NetWorthPoint[] {
+    const balances = this.accountBalanceSeries(params.accounts, params.movements, params.months);
+    const assetsValue = params.assets
+      .filter((a) => a.is_active && !a.deleted_at)
+      .reduce((s, a) => s + Number(a.current_value), 0);
+
+    return balances.map((point) => {
+      const liabilities = params.invoices
+        .filter(
+          (i) =>
+            !i.deleted_at &&
+            i.status !== "PAID" &&
+            i.due_date.slice(0, 7) <= point.key,
+        )
+        .reduce((s, i) => s + Number(i.amount), 0);
+      return {
+        key: point.key,
+        label: point.label,
+        cash: point.total,
+        assets: assetsValue,
+        liabilities,
+        netWorth: point.total + assetsValue - liabilities,
+      };
+    });
+  }
+
+  /** Comparativo do período atual x período anterior. */
+  comparison(params: {
+    accounts: Account[];
+    movements: Movement[];
+    assets: Asset[];
+    invoices: CardInvoice[];
+    current: DateRange;
+    previous: DateRange;
+  }): ComparisonRow[] {
+    const cur = this.summaryInRange(params.movements, params.current);
+    const prev = this.summaryInRange(params.movements, params.previous);
+
+    const netWorthAt = (range: DateRange) => {
+      const months = [range.end.slice(0, 7)];
+      const series = this.netWorthSeries({
+        accounts: params.accounts,
+        movements: params.movements,
+        assets: params.assets,
+        invoices: params.invoices,
+        months,
+      });
+      return series[0];
+    };
+
+    const curNet = netWorthAt(params.current);
+    const prevNet = netWorthAt(params.previous);
+
+    const row = (label: string, current: number, previous: number): ComparisonRow => ({
+      label,
+      current,
+      previous,
+      delta: current - previous,
+      percent: previous !== 0 ? ((current - previous) / Math.abs(previous)) * 100 : null,
+    });
+
+    return [
+      row("Receitas", cur.income, prev.income),
+      row("Despesas", cur.expense, prev.expense),
+      row("Saldo", cur.result, prev.result),
+      row("Patrimônio", curNet?.netWorth ?? 0, prevNet?.netWorth ?? 0),
+      row("Passivo", curNet?.liabilities ?? 0, prevNet?.liabilities ?? 0),
+    ];
+  }
 }
 
 
 export const DashboardService = new DashboardServiceImpl();
+export { DashboardServiceImpl };
+
