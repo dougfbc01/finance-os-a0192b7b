@@ -3,8 +3,51 @@
 
 import { BaseService } from "./BaseService";
 import { MovementServiceImpl } from "./MovementService";
+import { DashboardFilterService, type DateRange } from "./DashboardFilterService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType } from "@/constants/enums";
-import type { Account, Movement, UUID } from "@/models";
+import type { Account, Asset, Movement, UUID } from "@/models";
+import type { CardInvoice } from "@/models/CardInvoice";
+
+/** Item genérico de agrupamento (categoria/subcategoria) com percentual. */
+export interface BreakdownItem {
+  id: UUID | null;
+  amount: number;
+  percent: number;
+}
+
+export interface MonthlySeriesPoint {
+  key: string; // yyyy-mm
+  label: string;
+  income: number;
+  expense: number;
+  result: number;
+}
+
+export interface AccountBalancePoint {
+  key: string;
+  label: string;
+  total: number;
+  byAccount: Record<UUID, number>;
+}
+
+export interface NetWorthPoint {
+  key: string;
+  label: string;
+  cash: number;
+  assets: number;
+  liabilities: number;
+  netWorth: number;
+}
+
+export interface ComparisonRow {
+  label: string;
+  current: number;
+  previous: number;
+  delta: number;
+  /** null quando o período anterior é zero (variação indefinida). */
+  percent: number | null;
+}
+
 
 export interface MonthSummary {
   income: number;
