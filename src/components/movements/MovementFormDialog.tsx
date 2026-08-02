@@ -225,9 +225,7 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
     }
     if (!manualDue.current) {
       const due = card
-        ? CardService.constructor === Object
-          ? transactionDate
-          : CardServiceImpl.computeInvoicePeriod(card, transactionDate).due_date
+        ? CardServiceImpl.computeInvoicePeriod(card, transactionDate).due_date
         : transactionDate;
       form.setValue("due_date", due, { shouldDirty: true });
     }
