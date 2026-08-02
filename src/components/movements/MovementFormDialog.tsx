@@ -198,11 +198,40 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             investment_operation: "APORTE",
           },
     );
+    // Ao reabrir, o rastreio de edição manual recomeça:
+    // datas já gravadas na movimentação contam como definidas pelo usuário.
+    manualCompetence.current = !!movement?.competence_date;
+    manualDue.current = !!movement?.due_date;
   }, [open, movement, accounts, form]);
 
   const type = form.watch("type");
   const categoryId = form.watch("category_id");
   const cardId = form.watch("card_id");
+  const transactionDate = form.watch("transaction_date");
+
+  /**
+   * Sprint 4.0.1 — Competência e Vencimento automáticos.
+   * Conta: competência = vencimento = data.
+   * Cartão: competência = data da compra; vencimento = due_date da fatura
+   * (CardService.computeInvoicePeriod). Edições manuais nunca são sobrescritas.
+   */
+  useEffect(() => {
+    if (!open || !transactionDate) return;
+    const usingCard = !!cardId && type !== MovementType.TRANSFER;
+    const card = usingCard ? cards.find((c) => c.id === cardId) : undefined;
+
+    if (!manualCompetence.current) {
+      form.setValue("competence_date", transactionDate, { shouldDirty: true });
+    }
+    if (!manualDue.current) {
+      const due = card
+        ? CardService.constructor === Object
+          ? transactionDate
+          : CardServiceImpl.computeInvoicePeriod(card, transactionDate).due_date
+        : transactionDate;
+      form.setValue("due_date", due, { shouldDirty: true });
+    }
+  }, [open, transactionDate, cardId, type, cards, form]);
 
   const canUseCard =
     type === MovementType.EXPENSE ||
