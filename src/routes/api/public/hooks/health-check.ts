@@ -26,9 +26,13 @@ export const Route = createFileRoute("/api/public/hooks/health-check")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = request.headers.get("apikey") ?? "";
-        if (!token) {
-          return Response.json({ error: "Missing apikey" }, { status: 401 });
+        const token =
+          request.headers.get("apikey") ??
+          request.headers.get("x-cron-secret") ??
+          "";
+        const expected = process.env["HEALTH_CHECK_CRON_SECRET"] ?? "";
+        if (!expected || token.length !== expected.length || token !== expected) {
+          return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
