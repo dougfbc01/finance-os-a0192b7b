@@ -227,6 +227,25 @@ class MovementServiceImpl extends BaseService {
       payload.invoice_id = await this.resolveInvoiceId(nextCardId, nextDate, nextType);
     }
 
+    // Sprint 4.0.1 — recalcula competência/vencimento apenas quando não vieram
+    // explicitamente do formulário (edição manual sempre prevalece).
+    const needsDates =
+      input.competence_date === undefined ||
+      input.due_date === undefined ||
+      input.competence_date === null ||
+      input.due_date === null;
+    if (needsDates) {
+      const invoiceIdForDates =
+        (payload.invoice_id as UUID | null | undefined) ?? existing!.invoice_id;
+      const { competence, dueDate } = await this.resolveDates(
+        { ...merged, transaction_date: nextDate },
+        (invoiceIdForDates as UUID | null) ?? null,
+      );
+      if (input.competence_date === undefined || input.competence_date === null)
+        payload.competence_date = competence;
+      if (input.due_date === undefined || input.due_date === null) payload.due_date = dueDate;
+    }
+
     const { data, error } = await this.client
       .from(this.table)
       .update(payload as never)
