@@ -107,10 +107,11 @@ class CardInvoiceServiceImpl extends BaseService {
    * Recalcula `amount` e status da fatura. O trigger `movements_recompute_invoice`
    * já mantém o valor sincronizado — este método serve como fallback defensivo
    * e para atualizar o status quando o tempo passa (fatura vira OVERDUE/CLOSED).
+   * Usa a RPC com validação de posse do workspace.
    */
   async recompute(invoiceId: UUID): Promise<void> {
     const { error } = await this.client.rpc(
-      "recompute_card_invoice" as never,
+      "recompute_my_card_invoice" as never,
       {
         _invoice_id: invoiceId,
       } as never,

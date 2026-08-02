@@ -831,6 +831,10 @@ export type Database = {
         Args: { _invoice_id: string }
         Returns: undefined
       }
+      recompute_my_card_invoice: {
+        Args: { _invoice_id: string }
+        Returns: undefined
+      }
       recompute_workspace_invoices: {
         Args: { _workspace_id: string }
         Returns: number
