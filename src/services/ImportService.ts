@@ -5,7 +5,7 @@ import { ImporterFactory } from "./importers/ImporterFactory";
 import { ImportHistoryService } from "./ImportHistoryService";
 import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./ClassificationRuleService";
 import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
-import { CardService } from "./CardService";
+import { CardService, CardServiceImpl } from "./CardService";
 import { CardInvoiceService } from "./CardInvoiceService";
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
@@ -161,6 +161,10 @@ class ImportServiceImpl extends BaseService {
       }
     }
 
+    // Compra em cartão = linha vinculada a um cartão que não é pagamento nem transferência.
+    const isCardPurchase = (r: PreviewRow) =>
+      !!card && r.type !== "CARD_PAYMENT" && r.type !== "TRANSFER";
+
     if (toInsert.length) {
       const payload = toInsert.map((r: PreviewRow) => ({
         workspace_id: workspaceId,
@@ -171,10 +175,15 @@ class ImportServiceImpl extends BaseService {
         category_id: r.category_id,
         subcategory_id: r.subcategory_id,
         type: r.type,
-        status: r.status ?? MovementStatus.CLEARED,
+        status: r.status ?? (isCardPurchase(r) ? MovementStatus.PENDING : MovementStatus.CLEARED),
         description: r.description,
         amount: r.amount,
         transaction_date: r.transaction_date,
+        // Sprint 4.0.1 — competência/vencimento nunca ficam vazios na importação.
+        competence_date: r.transaction_date,
+        due_date: isCardPurchase(r)
+          ? CardServiceImpl.computeInvoicePeriod(card!, r.transaction_date).due_date
+          : r.transaction_date,
         tags: [],
         attachments: [],
         duplicate_hash: r.duplicate_hash,
