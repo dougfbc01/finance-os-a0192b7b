@@ -22,6 +22,7 @@ import { Route as AuthenticatedPatrimonioRouteImport } from './routes/_authentic
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
 import { Route as AuthenticatedInvestimentosRouteImport } from './routes/_authenticated/investimentos'
 import { Route as AuthenticatedImportacoesRouteImport } from './routes/_authenticated/importacoes'
+import { Route as AuthenticatedDuplicidadesRouteImport } from './routes/_authenticated/duplicidades'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
@@ -98,6 +99,12 @@ const AuthenticatedImportacoesRoute =
     path: '/importacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDuplicidadesRoute =
+  AuthenticatedDuplicidadesRouteImport.update({
+    id: '/duplicidades',
+    path: '/duplicidades',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -139,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas': typeof AuthenticatedContasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -159,6 +167,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas': typeof AuthenticatedContasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -181,6 +190,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
   '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/dashboard'
+    | '/duplicidades'
     | '/importacoes'
     | '/investimentos'
     | '/movimentacoes'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/dashboard'
+    | '/duplicidades'
     | '/importacoes'
     | '/investimentos'
     | '/movimentacoes'
@@ -244,6 +256,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas'
     | '/_authenticated/dashboard'
+    | '/_authenticated/duplicidades'
     | '/_authenticated/importacoes'
     | '/_authenticated/investimentos'
     | '/_authenticated/movimentacoes'
@@ -357,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/duplicidades': {
+      id: '/_authenticated/duplicidades'
+      path: '/duplicidades'
+      fullPath: '/duplicidades'
+      preLoaderRoute: typeof AuthenticatedDuplicidadesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -408,6 +428,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDuplicidadesRoute: typeof AuthenticatedDuplicidadesRoute
   AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRoute
   AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
@@ -424,6 +445,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDuplicidadesRoute: AuthenticatedDuplicidadesRoute,
   AuthenticatedImportacoesRoute: AuthenticatedImportacoesRoute,
   AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,

@@ -11,3 +11,4 @@ export { IncomeEvolutionWidget } from "./IncomeEvolutionWidget";
 export { NetWorthEvolutionWidget } from "./NetWorthEvolutionWidget";
 export { AccountsEvolutionWidget } from "./AccountsEvolutionWidget";
 export { PeriodComparisonWidget } from "./PeriodComparisonWidget";
+export { FinancialInsightsWidget } from "./FinancialInsightsWidget";

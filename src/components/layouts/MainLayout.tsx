@@ -30,6 +30,7 @@ import {
   Upload,
   Shuffle,
   Sparkles,
+  CopyCheck,
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import type { NavItem } from "@/types";
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { title: "Transf. Pendentes", url: ROUTES.TRANSFERENCIAS_PENDENTES, icon: Shuffle },
   { title: "Importações", url: ROUTES.IMPORTACOES, icon: Upload },
   { title: "Regras", url: ROUTES.REGRAS, icon: Sparkles },
+  { title: "Duplicidades", url: ROUTES.DUPLICIDADES, icon: CopyCheck },
   { title: "Cartões", url: ROUTES.CARTOES, icon: CreditCard },
   { title: "Investimentos", url: ROUTES.INVESTIMENTOS, icon: TrendingUp },
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
