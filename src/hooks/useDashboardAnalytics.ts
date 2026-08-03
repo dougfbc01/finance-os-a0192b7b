@@ -89,7 +89,9 @@ export function useDashboardAnalytics(resolved: ResolvedPeriod) {
   return {
     workspace: ws,
     accounts,
+    movements,
     categories: categoriesQ.data ?? [],
+
     subcategories: subcategoriesQ.data ?? [],
     summary,
     incomeByCategory,
