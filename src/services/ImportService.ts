@@ -7,6 +7,12 @@ import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./Clas
 import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
 import { CardService, CardServiceImpl } from "./CardService";
 import { CardInvoiceService } from "./CardInvoiceService";
+import {
+  SimilarityServiceImpl,
+  AUTO_RESOLVE_THRESHOLD,
+  REVIEW_THRESHOLD,
+} from "./SimilarityService";
+
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
 import type { Account, Movement, UUID } from "@/models";
