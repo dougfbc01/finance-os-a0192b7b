@@ -30,3 +30,4 @@ export * from "./ClassificationRule";
 export * from "./Card";
 export * from "./CardInvoice";
 export * from "./Asset";
+export * from "./Insight";

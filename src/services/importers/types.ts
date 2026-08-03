@@ -35,10 +35,19 @@ export interface PreviewRow {
   subcategory_id: UUID | null;
   duplicate_hash: string;
   isDuplicate: boolean;
+  /** Sprint 4.1.1 — score de similaridade contra a base (0..100). */
+  confidence_match?: number;
+  /** Motivo legível da similaridade detectada. */
+  duplicateReason?: string;
+  /** Id da movimentação existente equivalente. */
+  matchedMovementId?: UUID | null;
+  /** Score na faixa de revisão (80..95): precisa de decisão do usuário. */
+  needsReview?: boolean;
   isTransfer: boolean;
   isCardPayment: boolean;
   isInvalid: boolean;
   errors: string[];
+
 }
 
 export interface PreviewResult {

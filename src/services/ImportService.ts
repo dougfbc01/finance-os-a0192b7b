@@ -7,6 +7,12 @@ import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./Clas
 import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
 import { CardService, CardServiceImpl } from "./CardService";
 import { CardInvoiceService } from "./CardInvoiceService";
+import {
+  SimilarityServiceImpl,
+  AUTO_RESOLVE_THRESHOLD,
+  REVIEW_THRESHOLD,
+} from "./SimilarityService";
+
 import { fileHash as computeFileHash } from "./importers/utils";
 import type { ImportContext, PreviewResult, PreviewRow } from "./importers/types";
 import type { Account, Movement, UUID } from "@/models";
@@ -67,13 +73,30 @@ class ImportServiceImpl extends BaseService {
     return set;
   }
 
+  /** Base recente do workspace usada pela detecção inteligente de duplicidade. */
+  async loadRecentMovements(workspaceId: UUID): Promise<Movement[]> {
+    const { data, error } = await this.client
+      .from("movements")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .order("transaction_date", { ascending: false })
+      .limit(4000);
+    if (error) this.handleError(error, "loadRecentMovements");
+    return ((data ?? []) as unknown as Movement[]).map((m) => ({
+      ...m,
+      amount: Number(m.amount),
+    }));
+  }
+
   async buildPreview(params: BuildPreviewParams): Promise<PreviewResult & { existingImport: ImportRecord | null }> {
     const importer = ImporterFactory.create(params.source);
     const fileHash = computeFileHash(params.fileText);
-    const [existingHashes, existingImport, rules] = await Promise.all([
+    const [existingHashes, existingImport, rules, existingMovements] = await Promise.all([
       this.loadExistingHashes(params.workspaceId),
       ImportHistoryService.findByHash(params.workspaceId, fileHash),
       ClassificationRuleService.list(params.workspaceId),
+      this.loadRecentMovements(params.workspaceId),
     ]);
 
     const preview = await importer.preview(
@@ -101,8 +124,44 @@ class ImportServiceImpl extends BaseService {
       }
     }
 
+    // Sprint 4.1.1 — Smart Duplicate Detection.
+    // A data isolada nunca decide: fingerprint + valor + cartão/conta + janela.
+    let smartDuplicates = 0;
+    for (const row of preview.rows) {
+      if (row.isInvalid) continue;
+      const best = SimilarityServiceImpl.bestMatch(
+        {
+          account_id: row.account_id ?? params.accountId ?? null,
+          card_id: row.card_id ?? params.cardId ?? null,
+          description: row.description,
+          amount: row.amount,
+          transaction_date: row.transaction_date,
+          duplicate_hash: row.duplicate_hash,
+          type: row.type,
+        },
+        existingMovements,
+      );
+      if (!best) continue;
+      row.confidence_match = best.score.confidence_match;
+      row.duplicateReason = best.score.label;
+      row.matchedMovementId = best.movement.id;
+      if (best.score.confidence_match >= AUTO_RESOLVE_THRESHOLD) {
+        if (!row.isDuplicate) smartDuplicates++;
+        row.isDuplicate = true;
+        row.needsReview = false;
+      } else if (best.score.confidence_match >= REVIEW_THRESHOLD) {
+        // Nunca consolida automaticamente nessa faixa.
+        row.needsReview = true;
+      }
+    }
+    if (smartDuplicates > 0) {
+      preview.totals.duplicated += smartDuplicates;
+      preview.totals.valid = Math.max(0, preview.totals.valid - smartDuplicates);
+    }
+
     return { ...preview, existingImport };
   }
+
 
   /**
    * Efetiva a importação: cria o registro em `imports`, insere as movimentações

@@ -416,6 +416,76 @@ export type Database = {
           },
         ]
       }
+      dedup_audits: {
+        Row: {
+          changed_fields: Json
+          confidence_match: number
+          created_at: string
+          id: string
+          incoming_movement_id: string | null
+          incoming_snapshot: Json
+          original_movement_id: string | null
+          original_snapshot: Json
+          performed_by: string | null
+          reason: string
+          source: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          changed_fields?: Json
+          confidence_match?: number
+          created_at?: string
+          id?: string
+          incoming_movement_id?: string | null
+          incoming_snapshot?: Json
+          original_movement_id?: string | null
+          original_snapshot?: Json
+          performed_by?: string | null
+          reason?: string
+          source?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          changed_fields?: Json
+          confidence_match?: number
+          created_at?: string
+          id?: string
+          incoming_movement_id?: string | null
+          incoming_snapshot?: Json
+          original_movement_id?: string | null
+          original_snapshot?: Json
+          performed_by?: string | null
+          reason?: string
+          source?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dedup_audits_incoming_movement_id_fkey"
+            columns: ["incoming_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dedup_audits_original_movement_id_fkey"
+            columns: ["original_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dedup_audits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_check_runs: {
         Row: {
           acknowledged_at: string | null

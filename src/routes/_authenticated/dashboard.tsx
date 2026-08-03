@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Wallet, TrendingUp, TrendingDown, Scale, PiggyBank, ShieldAlert } from "lucide-react";
 import { APP_NAME } from "@/constants";
 import { DashboardFilterBar } from "@/components/dashboard";
+import { useFinancialInsights } from "@/hooks/useFinancialInsights";
 import {
   KpiWidget,
   ExpensesByCategoryWidget,
@@ -12,6 +13,7 @@ import {
   NetWorthEvolutionWidget,
   AccountsEvolutionWidget,
   PeriodComparisonWidget,
+  FinancialInsightsWidget,
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
@@ -43,6 +45,7 @@ function DashboardPage() {
     comparison,
     isLoading,
   } = useDashboardAnalytics(filter.resolved);
+  const { insights } = useFinancialInsights(filter.resolved);
   const { snapshot, invoices } = usePatrimony();
 
   const lastNetWorth = netWorthSeries[netWorthSeries.length - 1];
@@ -89,6 +92,8 @@ function DashboardPage() {
             />
             <KpiWidget title="Investimentos declarados" value={snapshot.assets} icon={PiggyBank} />
           </div>
+
+          <FinancialInsightsWidget insights={insights} />
 
           <PeriodComparisonWidget rows={comparison} />
 

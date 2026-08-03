@@ -1,7 +1,10 @@
-// ClassificationRuleService — CRUD e aplicação de regras de classificação.
-// Regras casam por substring (case-insensitive) contra a descrição da movimentação.
+// ClassificationRuleService — CRUD e motor de classificação automática.
+// Sprint 4.1.1: o casamento passa a ser hierárquico (fingerprint > descrição
+// completa > descrição parcial > palavra-chave). Nenhuma outra camada pode
+// reimplementar essa lógica.
 import { BaseService } from "./BaseService";
 import { logFinanceError } from "@/lib/logger";
+import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
 import type {
   ClassificationRule,
   CreateClassificationRuleInput,
@@ -10,6 +13,49 @@ import type {
 } from "@/models";
 
 type Row = Record<string, unknown>;
+
+/** Tipos de casamento, do mais específico para o mais genérico. */
+export type RuleMatchKind = "FINGERPRINT" | "FULL" | "PARTIAL" | "KEYWORD";
+
+export const RULE_KIND_ORDER: Record<RuleMatchKind, number> = {
+  FINGERPRINT: 4,
+  FULL: 3,
+  PARTIAL: 2,
+  KEYWORD: 1,
+};
+
+export const RULE_KIND_CONFIDENCE: Record<RuleMatchKind, number> = {
+  FINGERPRINT: 100,
+  FULL: 95,
+  PARTIAL: 85,
+  KEYWORD: 70,
+};
+
+export const RULE_KIND_LABEL: Record<RuleMatchKind, string> = {
+  FINGERPRINT: "Fingerprint exato",
+  FULL: "Descrição completa",
+  PARTIAL: "Descrição parcial",
+  KEYWORD: "Palavra-chave",
+};
+
+export interface RuleEvaluation {
+  rule: ClassificationRule;
+  kind: RuleMatchKind;
+  fingerprint: string;
+  confidence: number;
+  specificity: number;
+}
+
+export interface RuleSimulation {
+  description: string;
+  fingerprint: string;
+  rule: ClassificationRule | null;
+  kind: RuleMatchKind | null;
+  categoryId: UUID | null;
+  subcategoryId: UUID | null;
+  confidence: number;
+}
+
 
 /** Relatório de reprocessamento de regras (dry run ou aplicado). */
 export interface ReprocessReport {
@@ -118,23 +164,100 @@ class ClassificationRuleServiceImpl extends BaseService {
     });
   }
 
-  /** Aplica lista de regras a uma descrição, retornando a de maior prioridade que casar. */
+  /**
+   * Motor de regras (Sprint 4.1.1).
+   * Ordem de especificidade — sempre vence a regra MAIS específica:
+   *   1. Fingerprint exato
+   *   2. Descrição completa
+   *   3. Descrição parcial
+   *   4. Palavra-chave
+   * Empate é decidido por `priority` e, por fim, pelo tamanho do padrão.
+   */
+  static evaluate(
+    description: string,
+    rules: ClassificationRule[],
+  ): RuleEvaluation | null {
+    const raw = (description ?? "").trim();
+    if (!raw) return null;
+    const normalized = FP.normalize(raw);
+    const fingerprint = FP.build(raw);
+
+    const candidates: RuleEvaluation[] = [];
+    for (const rule of rules) {
+      if (!rule.enabled || rule.deleted_at) continue;
+      const pattern = rule.text_pattern.trim();
+      if (!pattern) continue;
+      const patternNormalized = FP.normalize(pattern);
+      const patternFingerprint = FP.build(pattern);
+      const kind = ClassificationRuleServiceImpl.classifyMatch({
+        normalized,
+        fingerprint,
+        patternNormalized,
+        patternFingerprint,
+      });
+      if (!kind) continue;
+      candidates.push({
+        rule,
+        kind,
+        fingerprint,
+        confidence: RULE_KIND_CONFIDENCE[kind],
+        specificity: RULE_KIND_ORDER[kind],
+      });
+    }
+    if (!candidates.length) return null;
+
+    candidates.sort(
+      (a, b) =>
+        b.specificity - a.specificity ||
+        b.rule.priority - a.rule.priority ||
+        b.rule.text_pattern.length - a.rule.text_pattern.length,
+    );
+    return candidates[0];
+  }
+
+  /** Determina o tipo de casamento entre padrão e descrição (ou null). */
+  static classifyMatch(params: {
+    normalized: string;
+    fingerprint: string;
+    patternNormalized: string;
+    patternFingerprint: string;
+  }): RuleMatchKind | null {
+    const { normalized, fingerprint, patternNormalized, patternFingerprint } = params;
+    if (!patternNormalized) return null;
+    if (patternFingerprint && fingerprint && patternFingerprint === fingerprint) {
+      return "FINGERPRINT";
+    }
+    if (patternNormalized === normalized) return "FULL";
+    if (!normalized.includes(patternNormalized)) return null;
+    return patternNormalized.includes(" ") ? "PARTIAL" : "KEYWORD";
+  }
+
+  /** Simulador: descreve o que aconteceria com uma descrição livre. */
+  static simulate(
+    description: string,
+    rules: ClassificationRule[],
+  ): RuleSimulation {
+    const fingerprint = FP.build(description);
+    const evaluation = ClassificationRuleServiceImpl.evaluate(description, rules);
+    return {
+      description,
+      fingerprint,
+      rule: evaluation?.rule ?? null,
+      kind: evaluation?.kind ?? null,
+      categoryId: evaluation?.rule.category_id ?? null,
+      subcategoryId: evaluation?.rule.subcategory_id ?? null,
+      confidence: evaluation?.confidence ?? 0,
+    };
+  }
+
+  /** Compatibilidade: retorna apenas a regra vencedora. */
   static match(
     description: string,
     rules: ClassificationRule[],
   ): ClassificationRule | null {
-    const text = (description ?? "").toLowerCase();
-    if (!text) return null;
-    const sorted = [...rules]
-      .filter((r) => r.enabled && !r.deleted_at)
-      .sort((a, b) => b.priority - a.priority);
-    for (const rule of sorted) {
-      const needle = rule.text_pattern.trim().toLowerCase();
-      if (!needle) continue;
-      if (text.includes(needle)) return rule;
-    }
-    return null;
+    return ClassificationRuleServiceImpl.evaluate(description, rules)?.rule ?? null;
   }
+
 
   /**
    * Sugere um padrão razoável a partir de uma descrição livre:

@@ -16,6 +16,7 @@ export const ROUTES = {
   IMPORTACOES: "/importacoes",
   TRANSFERENCIAS_PENDENTES: "/transferencias-pendentes",
   REGRAS: "/regras",
+  DUPLICIDADES: "/duplicidades",
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
