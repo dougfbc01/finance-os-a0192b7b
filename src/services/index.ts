@@ -13,3 +13,7 @@ export { AssetService } from "./AssetService";
 export { PatrimonyService } from "./PatrimonyService";
 export { InvestmentService } from "./InvestmentService";
 export { HealthCheckService } from "./HealthCheckService";
+export { TransactionFingerprintService } from "./TransactionFingerprintService";
+export { SimilarityService } from "./SimilarityService";
+export { RuleIntegrityService } from "./RuleIntegrityService";
+export { FinancialInsightsService } from "./FinancialInsightsService";
