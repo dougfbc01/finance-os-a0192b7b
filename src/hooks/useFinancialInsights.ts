@@ -47,7 +47,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
   const duplicatePairs = useMemo(
     () =>
       pairs.map((p) => ({
-        confidence: p.score.confidence,
+        confidence: p.score.confidence_match,
         amount: Math.abs(Number(p.duplicate.amount)),
         description: p.duplicate.description,
       })),
