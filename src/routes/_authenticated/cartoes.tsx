@@ -80,7 +80,6 @@ function CartoesPage() {
     const q = search.trim().toLowerCase();
     return q
       ? scoped.filter(
-      ? scoped.filter(
           (c) =>
             c.name.toLowerCase().includes(q) ||
             (c.brand ?? "").toLowerCase().includes(q) ||
