@@ -36,7 +36,14 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { CARD_INVOICE_STATUS_LABELS } from "@/constants/enums";
 import type { Card, CardInvoice } from "@/models";
 
+interface Search {
+  card?: string;
+}
+
 export const Route = createFileRoute("/_authenticated/cartoes")({
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    card: typeof s.card === "string" ? s.card : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Cartões — Finance OS" },
@@ -57,23 +64,29 @@ function CartoesPage() {
   const { data: accounts = [] } = useAccounts(wsId);
   const { data: allInvoices = [] } = useCardInvoices(wsId);
 
+  const { card: focusedCardId } = Route.useSearch();
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Card | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState<Card | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<CardInvoice | null>(null);
 
+  const scoped = useMemo(
+    () => (focusedCardId ? cards.filter((c) => c.id === focusedCardId) : cards),
+    [cards, focusedCardId],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return q
-      ? cards.filter(
+      ? scoped.filter(
           (c) =>
             c.name.toLowerCase().includes(q) ||
             (c.brand ?? "").toLowerCase().includes(q) ||
             (c.holder_name ?? "").toLowerCase().includes(q),
         )
-      : cards;
-  }, [cards, search]);
+      : scoped;
+  }, [scoped, search]);
 
   const invoicesByCard = useMemo(() => {
     const map = new Map<string, CardInvoice[]>();

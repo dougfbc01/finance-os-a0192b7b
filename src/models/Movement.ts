@@ -88,7 +88,8 @@ export interface MovementFilters {
   to?: string;
   accountId?: UUID | "all";
   cardId?: UUID | "all";
-  categoryId?: UUID | "all";
+  /** "none" filtra lançamentos sem categoria. */
+  categoryId?: UUID | "all" | "none";
   type?: MovementType | "all";
   status?: MovementStatus | "all";
   group?: MovementGroup;

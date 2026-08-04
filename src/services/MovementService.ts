@@ -54,7 +54,9 @@ class MovementServiceImpl extends BaseService {
     if (filters.cardId && filters.cardId !== "all") {
       q = q.eq("card_id", filters.cardId);
     }
-    if (filters.categoryId && filters.categoryId !== "all") {
+    if (filters.categoryId === "none") {
+      q = q.is("category_id", null);
+    } else if (filters.categoryId && filters.categoryId !== "all") {
       q = q.eq("category_id", filters.categoryId);
     }
     if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);

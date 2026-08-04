@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,31 @@ import {
   useDeleteClassificationRule,
   useUpdateClassificationRule,
 } from "@/hooks/useClassificationRules";
+import { useRuleIntegrity } from "@/hooks/useRuleIntegrity";
 import type { ClassificationRule } from "@/models";
 
+type RuleStatusFilter = "all" | "conflict" | "duplicate" | "overlap" | "unused";
+
+interface Search {
+  status?: RuleStatusFilter;
+}
+
+const STATUS_OPTIONS: Array<{ value: RuleStatusFilter; label: string }> = [
+  { value: "all", label: "Todas" },
+  { value: "conflict", label: "Conflitantes" },
+  { value: "duplicate", label: "Duplicadas" },
+  { value: "overlap", label: "Sobrepostas" },
+  { value: "unused", label: "Nunca usadas" },
+];
+
 export const Route = createFileRoute("/_authenticated/regras")({
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    status:
+      typeof s.status === "string" &&
+      ["all", "conflict", "duplicate", "overlap", "unused"].includes(s.status)
+        ? (s.status as RuleStatusFilter)
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Regras de Classificação — Finance OS" },
@@ -36,6 +58,30 @@ function RegrasPage() {
   const { data: subcategories = [] } = useSubcategories(wsId);
   const updateMut = useUpdateClassificationRule();
   const deleteMut = useDeleteClassificationRule();
+
+  const search = Route.useSearch();
+  const report = useRuleIntegrity(rules);
+  const status: RuleStatusFilter = search.status ?? "all";
+  const navigate = Route.useNavigate();
+
+  const issueRuleIds = useMemo(() => {
+    const issues =
+      status === "conflict"
+        ? report.conflicts
+        : status === "duplicate"
+          ? report.duplicates
+          : status === "overlap"
+            ? report.overlaps
+            : status === "unused"
+              ? report.unused
+              : [];
+    return new Set(issues.flatMap((i) => i.ruleIds));
+  }, [status, report]);
+
+  const visibleRules = useMemo(
+    () => (status === "all" ? rules : rules.filter((r) => issueRuleIds.has(r.id))),
+    [status, rules, issueRuleIds],
+  );
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ClassificationRule | null>(null);
@@ -80,6 +126,31 @@ function RegrasPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {STATUS_OPTIONS.map((opt) => {
+          const count =
+            opt.value === "conflict"
+              ? report.conflicts.length
+              : opt.value === "duplicate"
+                ? report.duplicates.length
+                : opt.value === "overlap"
+                  ? report.overlaps.length
+                  : opt.value === "unused"
+                    ? report.unused.length
+                    : rules.length;
+          return (
+            <Button
+              key={opt.value}
+              size="sm"
+              variant={status === opt.value ? "default" : "outline"}
+              onClick={() => navigate({ search: { status: opt.value } })}
+            >
+              {opt.label} ({count})
+            </Button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : rules.length === 0 ? (
@@ -104,7 +175,7 @@ function RegrasPage() {
               </tr>
             </thead>
             <tbody>
-              {rules.map((r) => {
+              {visibleRules.map((r) => {
                 const c = r.category_id ? catMap[r.category_id] : null;
                 const s = r.subcategory_id ? subMap[r.subcategory_id] : null;
                 return (
