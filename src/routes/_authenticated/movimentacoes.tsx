@@ -65,11 +65,13 @@ type SortDir = "asc" | "desc";
 
 interface Search {
   account?: string;
+  category?: string;
 }
 
 export const Route = createFileRoute("/_authenticated/movimentacoes")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     account: typeof s.account === "string" ? s.account : undefined,
+    category: typeof s.category === "string" ? s.category : undefined,
   }),
   head: () => ({
     meta: [
@@ -81,6 +83,7 @@ export const Route = createFileRoute("/_authenticated/movimentacoes")({
 });
 
 const ALL = "all";
+const NO_CATEGORY = "none";
 
 function MovimentacoesPage() {
   const { data: workspace } = useWorkspace();
@@ -96,7 +99,9 @@ function MovimentacoesPage() {
   const [to, setTo] = useState(toISODate(lastDayOfMonth()));
   const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
   const [cardId, setCardId] = useState<string>(ALL);
-  const [categoryId, setCategoryId] = useState<string>(ALL);
+  const [categoryId, setCategoryId] = useState<string>(
+    searchParams.category === "null" ? NO_CATEGORY : (searchParams.category ?? ALL),
+  );
   const [type, setType] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
   const [group, setGroup] = useState<MovementGroup>("all");
@@ -109,6 +114,12 @@ function MovimentacoesPage() {
   useEffect(() => {
     if (searchParams.account) setAccountId(searchParams.account);
   }, [searchParams.account]);
+
+  // Deep link vindo dos Financial Insights (ex.: category=null -> sem categoria).
+  useEffect(() => {
+    if (searchParams.category)
+      setCategoryId(searchParams.category === "null" ? NO_CATEGORY : searchParams.category);
+  }, [searchParams.category]);
 
   const filters: MovementFilters = useMemo(
     () => ({
