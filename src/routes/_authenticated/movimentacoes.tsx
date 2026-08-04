@@ -386,6 +386,7 @@ function MovimentacoesPage() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todas</SelectItem>
+              <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
