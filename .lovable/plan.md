@@ -1,67 +1,61 @@
-## Sprint 3.1 — Consolidação da Regra de Negócio
+# Sprint 4.1.2 — Actionable Financial Insights
 
-Escopo integralmente concentrado nas camadas existentes (Services, Hooks, Componentes). Nenhuma alteração de arquitetura.
+Transformar o widget de Financial Insights de painel informativo em uma Central Inteligente de Ações: todo insight passa a responder o que aconteceu, onde aconteceu e o que fazer agora, com botão que abre a tela correta já filtrada.
 
-### Parte 1 — Cartão (status e projeção)
-- **Migração SQL**:
-  - Ao criar uma movimentação com `card_id` (compra), forçar `status = PENDING` (default via trigger `BEFORE INSERT`).
-  - Estender `recompute_card_invoice`: ao marcar fatura como `PAID`, atualizar todas as movimentações da fatura para `status = CLEARED`. Ao reabrir (não pago), reverter para `PENDING`.
-  - Confirmar que trigger `movements_recompute_invoice` cobre INSERT/UPDATE/DELETE (incluindo soft-delete via `deleted_at`).
-- **MovementService.create/update**: default de status para compras em cartão = `PENDING`.
-- **CardInvoiceService.markPaid**: após inserir o `CARD_PAYMENT`, chama um novo passo que promove as movimentações da fatura para `CLEARED` (garantia client-side, mesmo com trigger).
-- **DashboardService / PatrimonyService**: garantir que passivo do cartão soma faturas OPEN/CLOSED/OVERDUE (já ok) e KPIs "Passivo Cartões" consideram compras PENDING.
+## 1. Modelo unificado de Insight
 
-### Parte 2 — Competência e Vencimento (auto-preenchimento)
-- Centralizar no `MovementService.create/update`:
-  - Conta: `competence_date` e `due_date` default = `transaction_date` quando nulos.
-  - Cartão (compra): `competence_date = transaction_date`; `due_date = period.due_date` (via `CardServiceImpl.computeInvoicePeriod`).
-  - `CARD_PAYMENT`: `competence_date = due_date = transaction_date`.
-- Manter campos editáveis no formulário — apenas preenchimento default no service quando vierem `null`.
+Ampliar `src/models/Insight.ts` com o contrato completo:
 
-### Parte 3 — Investimentos (fluxo em 2 passos)
-- **Modelo**: adicionar sub-tipo em `MovementService` reutilizando `MovementType.INVESTMENT/DIVIDEND/INTEREST` + novo campo lógico `investment_operation` (armazenado em `tags` ou coluna dedicada — usaremos `notes`-agnóstico via `tags: ["op:APORTE|RESGATE|RENDIMENTO|AJUSTE"]` para não migrar schema agora).
-- **MovementFormDialog**: quando categoria selecionada for do tipo `INVESTMENT`, exibir segunda etapa:
-  1. Seletor de destino: dropdown com todos os `assets` do workspace (caixinhas/investimentos/carteiras filtrados por `asset_type`); botão "Novo ativo" abre `AssetFormDialog` inline.
-  2. Seletor de operação: Aporte / Resgate / Rendimento / Ajuste.
-- Salvar `asset_id` na movimentação (campo já existe). Nunca criar movimentações extras.
-- `PatrimonyService` continua agregando via `assets.current_value` (nenhuma mudança).
+`id, type, severity, title, description, source, related_entity, related_entity_id, quantity, value, recommended_action, action_label, action_route, action_filters, dismissible, created_at, resolved`
 
-### Parte 4 — Classificação inteligente (scan automático)
-- `ClassificationRuleService`: novo método `applyToUnclassified(workspaceId, ruleId)` que:
-  - Busca movimentações do workspace com `category_id IS NULL` (e não TRANSFER/CARD_PAYMENT) cuja descrição case com `text_pattern`.
-  - Retorna lista de ids compatíveis (sem aplicar).
-  - Método `bulkClassify(ids, {category_id, subcategory_id})` para aplicar.
-- Hook `useRememberClassification` → após sucesso, dispara scan; UI mostra `AlertDialog` "Foram encontradas N movimentações compatíveis. Deseja classificá-las?". Confirmar chama `bulkClassify` e invalida caches.
+`severity` substitui `level` (mesmos valores INFO/WARNING/CRITICAL); `source` substitui `origin`. Mantém `priority` interno para ordenação. `action_filters` é um objeto tipado de search params.
 
-### Parte 5 — Transferências (garantia)
-- Auditar `DashboardService` (income/expense/cashflow/DRE/KPIs/gráficos) para garantir filtro `type !== TRANSFER` e `type !== CARD_PAYMENT` em todos os agregados de receita/despesa. Ajustar pontos faltantes.
+## 2. FinancialInsightsService (toda a inteligência)
 
-### Parte 6 — Reprocessamento
-- Página `configuracoes.tsx`: nova seção "Classificação Inteligente" com botão **"Reprocessar Regras"** que:
-  - Carrega todas as regras + movimentações sem categoria.
-  - Aplica `ClassificationRuleService.match` em cada uma; agrupa por regra e chama `bulkClassify`.
-  - Mostra toast com total classificado; invalida caches.
+Refatorar `src/services/FinancialInsightsService.ts` para produzir, em cada insight, o objeto relacionado + ação + rota + filtros. Nenhum componente monta link manualmente.
 
-### Parte 7 — Refresh automático
-- Padronizar em cada hook mutation uma função `invalidateAll(qc)` que invalida:
-  `movements`, `accounts`, `dashboard`, `patrimony`, `cards`, `card_invoices`, `assets`, `imports`.
-- Aplicar em: `useMovements`, `useCardInvoices`, `useAssets`, `useImports`, `useReconciliation`, `useClassificationRules`, `useCards`.
+Insights acionáveis (com detalhe enriquecido):
 
-### Parte 8 — Validações (checklist final)
-- ✓ `MovementService.impactOnAccount` já garante que compras com `card_id` retornam 0.
-- ✓ `CardInvoiceService.markPaid` cria exatamente um `CARD_PAYMENT`.
-- ✓ Recompute de fatura via trigger elimina fatura zerada com compras.
-- ✓ `PatrimonyService.snapshot.netWorth = totalAssets - liabilities`.
-- ✓ Autopreenchimento de competência/vencimento no `MovementService`.
-- ✓ `asset_id` obrigatório quando `type ∈ INVESTMENT/DIVIDEND/INTEREST` e categoria de investimento.
-- ✓ Soft-delete dispara trigger → todas as telas se atualizam via `invalidateAll`.
+- **Regras conflitantes** — quantidade, fingerprint, categorias em conflito, última utilização → "Abrir Regras" (`/regras`, filtro `status=conflict`).
+- **Regras duplicadas** — fingerprint, quantidade, maior prioridade → "Abrir Integridade" (`/regras`, `status=duplicate`).
+- **Lançamentos sem categoria** — quantidade, valor total, 3 maiores (descrição/valor/data) → "Classificar" (`/movimentacoes`, `category=null`).
+- **Duplicidades** — quantidade, confidence médio, maior valor → "Revisar" (`/duplicidades`).
+- **Cartões** — percentual, valor, cartão responsável, maior categoria → "Abrir Cartão" (`/cartoes`, `card=<id>`).
+- **Saldo projetado** — valor, diferença e percentual vs. período anterior → "Abrir Dashboard".
 
-### Detalhes técnicos (para revisão)
-- Migrações SQL: 1 migration adicionando (a) trigger `BEFORE INSERT` para default de status em compras de cartão; (b) atualização da função `recompute_card_invoice` para sincronizar status das movimentações quando `PAID/OPEN`.
-- Nenhum novo schema de coluna — operação de investimento gravada em `tags` (`op:APORTE` etc.) para evitar migração desnecessária.
-- Nenhuma mudança em contratos públicos existentes; apenas extensões.
+Insights positivos (severidade INFO), emitidos quando a condição correspondente está limpa: patrimônio em novo recorde, receita acima do período anterior, nenhum lançamento sem categoria, nenhuma duplicidade, regras consistentes, cartões conciliados, Health Check sem inconsistências.
 
-### Fora do escopo
-- Não altera layouts, temas, rotas ou navegação.
-- Não introduz relatórios/DRE novos — apenas garante filtros corretos.
-- Não muda importadores.
+Agrupamento: um único insight por tema (ex.: "6 lançamentos sem categoria"), nunca um card por ocorrência. Deduplicação por `id` estável.
+
+O serviço continua 100% puro — recebe os dados já carregados pelo Dashboard e devolve a lista ordenada por severidade/prioridade. Nenhuma consulta nova.
+
+## 3. Deep links (rotas com filtros)
+
+Adicionar `validateSearch` (Zod) nas rotas alvo e fazer a página inicializar seus filtros a partir dos search params:
+
+- `/regras` — `status: conflict | duplicate | all`; a listagem passa a ter abas/seção de Integridade e rola/posiciona no grupo indicado.
+- `/movimentacoes` — `category: "null" | <uuid>`, `search`, `card`; hidrata os filtros já existentes da página.
+- `/cartoes` — `card: <uuid>` para destacar/abrir o cartão.
+- `/duplicidades` e `/dashboard` — sem filtro (navegação direta).
+
+Navegação sempre via `<Link to params search>` do TanStack Router, com os valores vindos de `action_route`/`action_filters`.
+
+## 4. Widget
+
+`FinancialInsightsWidget.tsx` reescrito como Central de Pendências:
+
+- **Resumo executivo** no topo: contadores 🔴 Problemas Críticos / 🟡 Pendências / 🔵 Informações (derivados no service, exibidos no widget).
+- Cada card mostra título, detalhe contextual (quantidade, valor, top-3 itens quando houver) e o botão de ação com `action_label`.
+- **Ações rápidas** inline quando não exigem navegação: Executar Health Check e Reprocessar regras (usando mutations já existentes).
+- **Dismiss** ("marcar como lido"): persistido em `localStorage` por `id` + assinatura do estado do problema; se o problema persistir/mudar, o insight reaparece automaticamente. Nunca esconde um problema definitivamente.
+
+## 5. Hook
+
+`useFinancialInsights` continua apenas orquestrando: passa a injetar também cartões, faturas e o último resultado de Health Check (já carregados) no service, e expõe `summary` (contadores) e o estado de dismiss. Sem cálculo financeiro no hook.
+
+## Detalhes técnicos
+
+- Arquivos alterados: `src/models/Insight.ts`, `src/services/FinancialInsightsService.ts`, `src/hooks/useFinancialInsights.ts`, `src/components/dashboard/widgets/FinancialInsightsWidget.tsx`, rotas `regras.tsx`, `movimentacoes.tsx`, `cartoes.tsx`.
+- Novo: `src/constants/insights.ts` (rotas/labels de ação) e `src/hooks/useInsightDismiss.ts` (persistência local).
+- Nenhuma migração de banco; nenhuma regra financeira existente alterada.
+- Validação final: typecheck limpo e a suíte de 22 testes passando, mais testes novos para o builder de insights (agrupamento, positivos, deep links).
