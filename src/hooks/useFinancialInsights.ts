@@ -1,32 +1,62 @@
 // useFinancialInsights — orquestra os dados já existentes e delega a geração
 // dos insights ao FinancialInsightsService. Nenhum cálculo acontece aqui.
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import { useWorkspace } from "./useWorkspace";
 import { useDashboardAnalytics } from "./useDashboardAnalytics";
 import { usePatrimony } from "./usePatrimony";
-import { useClassificationRules } from "./useClassificationRules";
+import { useCards } from "./useCards";
+import { useClassificationRules, useReprocessRules } from "./useClassificationRules";
 import { useDuplicatePairs } from "./useDuplicates";
 import { useRuleIntegrity } from "./useRuleIntegrity";
+import { useHealthCheckRuns, useRunHealthCheck } from "./useHealthCheck";
+import { useInsightDismiss } from "./useInsightDismiss";
 import { FinancialInsightsService } from "@/services/FinancialInsightsService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
-import type { FinancialInsight } from "@/models/Insight";
+import type { FinancialInsight, InsightSummary } from "@/models/Insight";
 
-export function useFinancialInsights(resolved: ResolvedPeriod): {
+export interface FinancialInsightsState {
   insights: FinancialInsight[];
+  summary: InsightSummary;
   isLoading: boolean;
-} {
+  dismiss: (insight: FinancialInsight) => void;
+  restoreAll: () => void;
+  runHealthCheck: () => void;
+  reprocessRules: () => void;
+  isRunningAction: boolean;
+}
+
+export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsightsState {
   const { data: ws } = useWorkspace();
   const wsId = ws?.id as string | undefined;
 
   const analytics = useDashboardAnalytics(resolved);
   const { snapshot } = usePatrimony();
   const { data: rules = [] } = useClassificationRules(wsId);
+  const { data: cards = [] } = useCards(wsId);
   const { data: pairs = [], isLoading: pairsLoading } = useDuplicatePairs(wsId);
+  const { data: runs = [] } = useHealthCheckRuns(wsId);
   const ruleReport = useRuleIntegrity(rules);
+  const { dismiss, restoreAll, isDismissed } = useInsightDismiss();
 
-  const insights = useMemo(
+  const runHealthMut = useRunHealthCheck();
+  const reprocessMut = useReprocessRules();
+
+  const lastRun = runs[0];
+
+  const duplicatePairs = useMemo(
     () =>
-      FinancialInsightsService.build({
+      pairs.map((p) => ({
+        confidence: p.score.confidence,
+        amount: Math.abs(Number(p.duplicate.amount)),
+        description: p.duplicate.description,
+      })),
+    [pairs],
+  );
+
+  const result = useMemo(
+    () =>
+      FinancialInsightsService.analyze({
         range: { start: resolved.start, end: resolved.end },
         previousRange: resolved.previous,
         movements: analytics.movements,
@@ -34,8 +64,12 @@ export function useFinancialInsights(resolved: ResolvedPeriod): {
         snapshot,
         netWorthSeries: analytics.netWorthSeries,
         summary: analytics.summary,
-        duplicateCount: pairs.length,
+        duplicatePairs,
         ruleReport,
+        rules,
+        cards,
+        healthIssues: lastRun ? lastRun.issues : null,
+        healthCheckedAt: lastRun?.created_at ?? null,
       }),
     [
       resolved.start,
@@ -46,10 +80,48 @@ export function useFinancialInsights(resolved: ResolvedPeriod): {
       analytics.netWorthSeries,
       analytics.summary,
       snapshot,
-      pairs.length,
+      duplicatePairs,
       ruleReport,
+      rules,
+      cards,
+      lastRun,
     ],
   );
 
-  return { insights, isLoading: analytics.isLoading || pairsLoading };
+  const visible = useMemo(
+    () => result.insights.filter((i) => !isDismissed(i)),
+    [result.insights, isDismissed],
+  );
+
+  const summary = useMemo(
+    () => FinancialInsightsService.summarize(visible),
+    [visible],
+  );
+
+  const runHealthCheck = useCallback(() => {
+    if (!wsId) return;
+    runHealthMut.mutate(wsId, {
+      onSuccess: () => toast.success("Health Check executado"),
+      onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+    });
+  }, [wsId, runHealthMut]);
+
+  const reprocessRules = useCallback(() => {
+    if (!wsId) return;
+    reprocessMut.mutate(wsId, {
+      onSuccess: () => toast.success("Regras reprocessadas"),
+      onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+    });
+  }, [wsId, reprocessMut]);
+
+  return {
+    insights: visible,
+    summary,
+    isLoading: analytics.isLoading || pairsLoading,
+    dismiss,
+    restoreAll,
+    runHealthCheck,
+    reprocessRules,
+    isRunningAction: runHealthMut.isPending || reprocessMut.isPending,
+  };
 }
