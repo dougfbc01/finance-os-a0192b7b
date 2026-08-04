@@ -1,17 +1,29 @@
-// FinancialInsightsService — Sprint 4.1.1
-// Gera insights financeiros automáticos a partir de dados já carregados.
-// 100% puro (sem I/O): recebe o estado financeiro e devolve insights ordenados.
-// Preparado para alimentar Planejamento Mensal, Fechamento Mensal, Relatórios
-// Inteligentes e IA futura.
+// FinancialInsightsService — Sprint 4.1.2 (Actionable Financial Insights)
+// Gera insights financeiros acionáveis a partir de dados já carregados.
+// 100% puro (sem I/O): recebe o estado financeiro e devolve insights ordenados,
+// cada um com objeto relacionado → ação → deep link → filtros.
+// Nenhum componente React monta rota ou filtro manualmente.
 import { DashboardService } from "./DashboardService";
 import { DashboardFilterService } from "./DashboardFilterService";
 import { MovementType } from "@/constants/enums";
-import type { Movement, UUID } from "@/models";
-import type { FinancialInsight, InsightLevel } from "@/models/Insight";
+import type { Movement, UUID, Card, ClassificationRule } from "@/models";
+import type {
+  FinancialInsight,
+  InsightSeverity,
+  InsightSummary,
+  InsightsResult,
+} from "@/models/Insight";
 import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { NetWorthPoint, MonthSummary } from "./DashboardService";
 import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
+
+/** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
+export interface InsightDuplicatePair {
+  confidence: number;
+  amount: number;
+  description: string;
+}
 
 export interface InsightsInput {
   range: DateRange;
@@ -22,11 +34,16 @@ export interface InsightsInput {
   netWorthSeries: NetWorthPoint[];
   summary: MonthSummary;
   previousSummary?: MonthSummary;
-  duplicateCount?: number;
+  duplicatePairs?: InsightDuplicatePair[];
   ruleReport?: RuleIntegrityReport | null;
+  rules?: ClassificationRule[];
+  cards?: Card[];
+  /** Quantidade de inconsistências no último Health Check (null = sem execução). */
+  healthIssues?: number | null;
+  healthCheckedAt?: string | null;
 }
 
-const LEVEL_WEIGHT: Record<InsightLevel, number> = {
+const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
   CRITICAL: 300,
   WARNING: 200,
   INFO: 100,
@@ -41,13 +58,49 @@ function fmtBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+type InsightDraft = Omit<
+  FinancialInsight,
+  "created_at" | "priority" | "resolved" | "details" | "signature" | "quantity" | "value"
+> & {
+  created_at?: string;
+  priority?: number;
+  resolved?: boolean;
+  details?: FinancialInsight["details"];
+  signature?: string;
+  quantity?: number;
+  value?: number;
+  bonus?: number;
+};
+
 class FinancialInsightsServiceImpl {
-  /** Constrói a lista de insights, já ordenada (CRITICAL → WARNING → INFO). */
+  /** Compatibilidade: lista simples de insights, já ordenada. */
   build(input: InsightsInput): FinancialInsight[] {
+    return this.analyze(input).insights;
+  }
+
+  /** Constrói insights acionáveis + resumo executivo. */
+  analyze(input: InsightsInput): InsightsResult {
     const now = new Date().toISOString();
     const out: FinancialInsight[] = [];
-    const push = (i: Omit<FinancialInsight, "date"> & { date?: string }) =>
-      out.push({ ...i, date: i.date ?? now });
+    const seen = new Set<string>();
+
+    const push = (draft: InsightDraft) => {
+      if (seen.has(draft.id)) return;
+      seen.add(draft.id);
+      const quantity = draft.quantity ?? 0;
+      const value = draft.value ?? 0;
+      out.push({
+        ...draft,
+        quantity,
+        value,
+        details: draft.details ?? [],
+        created_at: draft.created_at ?? now,
+        resolved: draft.resolved ?? draft.severity === "INFO",
+        priority: LEVEL_WEIGHT[draft.severity] + (draft.bonus ?? 0),
+        signature:
+          draft.signature ?? `${draft.id}:${quantity}:${Math.round(value * 100)}`,
+      });
+    };
 
     const {
       movements,
@@ -57,16 +110,20 @@ class FinancialInsightsServiceImpl {
       snapshot,
       netWorthSeries,
       categories,
+      cards = [],
+      rules = [],
     } = input;
 
     const previousSummary =
       input.previousSummary ?? DashboardService.summaryInRange(movements, previousRange);
 
-    // 1. Tendência de despesas por categoria (maior variação relevante).
+    const catName = new Map(categories.map((c) => [c.id, c.name]));
+    const cardName = new Map(cards.map((c) => [c.id, c.name]));
+
+    // ── 1. Tendência de despesas por categoria (agrupado por categoria).
     const currentByCat = DashboardService.expensesByCategoryInRange(movements, range);
     const prevByCat = DashboardService.expensesByCategoryInRange(movements, previousRange);
     const prevMap = new Map(prevByCat.map((c) => [c.id, c.amount]));
-    const catName = new Map(categories.map((c) => [c.id, c.name]));
 
     for (const item of currentByCat.slice(0, 5)) {
       const previous = prevMap.get(item.id) ?? 0;
@@ -74,37 +131,63 @@ class FinancialInsightsServiceImpl {
       if (variation === null || Math.abs(variation) < 10) continue;
       const name = item.id ? (catName.get(item.id) ?? "Sem categoria") : "Sem categoria";
       const up = variation > 0;
+      const severity: InsightSeverity = up && variation >= 30 ? "WARNING" : "INFO";
       push({
         id: `spend:${item.id ?? "none"}`,
         type: "SPENDING_TREND",
-        category: item.id,
-        level: up && variation >= 30 ? "WARNING" : "INFO",
-        priority: LEVEL_WEIGHT[up && variation >= 30 ? "WARNING" : "INFO"] + Math.min(Math.abs(variation), 99),
-        value: Number(variation.toFixed(1)),
-        origin: "DASHBOARD",
+        severity,
         title: `${name} ${up ? "aumentou" : "reduziu"} ${Math.abs(variation).toFixed(0)}%.`,
         description: `${fmtBRL(item.amount)} no período contra ${fmtBRL(previous)} no período anterior.`,
+        source: "DASHBOARD",
+        related_entity: "category",
+        related_entity_id: item.id ?? null,
+        quantity: 1,
+        value: Number(variation.toFixed(1)),
+        recommended_action: "CLASSIFY_MOVEMENTS",
+        action_label: "Ver lançamentos",
+        action_route: "/movimentacoes",
+        action_filters: item.id ? { category: item.id } : {},
+        dismissible: true,
+        bonus: Math.min(Math.abs(variation), 99),
+        details: [
+          { label: "Período atual", amount: item.amount },
+          { label: "Período anterior", amount: previous },
+        ],
       });
     }
 
-    // 2. Receita.
+    // ── 2. Receita (positivo quando cresce).
     const incomeVar = pct(summary.income, previousSummary.income);
     if (incomeVar !== null && Math.abs(incomeVar) >= 5) {
       const down = incomeVar < 0;
+      const severity: InsightSeverity = down && incomeVar <= -15 ? "WARNING" : "INFO";
       push({
         id: "income:trend",
         type: "INCOME_TREND",
-        category: null,
-        level: down && incomeVar <= -15 ? "WARNING" : "INFO",
-        priority: LEVEL_WEIGHT[down && incomeVar <= -15 ? "WARNING" : "INFO"] + 50,
-        value: Number(incomeVar.toFixed(1)),
-        origin: "DASHBOARD",
-        title: `Receita ${down ? "caiu" : "subiu"} ${Math.abs(incomeVar).toFixed(0)}%.`,
+        severity,
+        title: down
+          ? `Receita caiu ${Math.abs(incomeVar).toFixed(0)}%.`
+          : `Receita foi maior que o período anterior (+${incomeVar.toFixed(0)}%).`,
         description: `${fmtBRL(summary.income)} contra ${fmtBRL(previousSummary.income)} no período anterior.`,
+        source: "DASHBOARD",
+        related_entity: "workspace",
+        related_entity_id: null,
+        quantity: 1,
+        value: Number(incomeVar.toFixed(1)),
+        recommended_action: "OPEN_DASHBOARD",
+        action_label: "Abrir Dashboard",
+        action_route: "/dashboard",
+        action_filters: {},
+        dismissible: true,
+        bonus: 50,
+        details: [
+          { label: "Receita do período", amount: summary.income },
+          { label: "Período anterior", amount: previousSummary.income },
+        ],
       });
     }
 
-    // 3. Patrimônio no maior valor histórico da série.
+    // ── 3. Patrimônio em novo recorde.
     if (netWorthSeries.length >= 2) {
       const last = netWorthSeries[netWorthSeries.length - 1];
       const max = Math.max(...netWorthSeries.map((p) => p.netWorth));
@@ -112,128 +195,383 @@ class FinancialInsightsServiceImpl {
         push({
           id: "networth:peak",
           type: "NET_WORTH",
-          category: null,
-          level: "INFO",
-          priority: LEVEL_WEIGHT.INFO + 60,
+          severity: "INFO",
+          title: "Patrimônio atingiu novo recorde.",
+          description: `Patrimônio líquido de ${fmtBRL(last.netWorth)} — maior valor da série.`,
+          source: "PATRIMONY",
+          related_entity: "workspace",
+          related_entity_id: null,
+          quantity: 1,
           value: last.netWorth,
-          origin: "PATRIMONY",
-          title: "Patrimônio atingiu o maior valor do período.",
-          description: `Patrimônio líquido de ${fmtBRL(last.netWorth)}.`,
+          recommended_action: "OPEN_DASHBOARD",
+          action_label: "Abrir Dashboard",
+          action_route: "/dashboard",
+          action_filters: {},
+          dismissible: true,
+          bonus: 60,
         });
       }
     }
 
-    // 4. Lançamentos sem categoria.
-    const unclassified = movements.filter(
+    // ── 4. Lançamentos sem categoria (agrupado, com os 3 maiores).
+    const unclassifiedList = movements.filter(
       (m) =>
         !m.deleted_at &&
         !m.category_id &&
         m.type !== MovementType.TRANSFER &&
         m.type !== MovementType.CARD_PAYMENT,
-    ).length;
+    );
+    const unclassified = unclassifiedList.length;
+    const unclassifiedTotal = unclassifiedList.reduce(
+      (s, m) => s + Math.abs(Number(m.amount)),
+      0,
+    );
     if (unclassified > 0) {
+      const top = [...unclassifiedList]
+        .sort((a, b) => Math.abs(Number(b.amount)) - Math.abs(Number(a.amount)))
+        .slice(0, 3);
       push({
         id: "movements:unclassified",
         type: "UNCLASSIFIED",
-        category: null,
-        level: unclassified >= 20 ? "WARNING" : "INFO",
-        priority: LEVEL_WEIGHT[unclassified >= 20 ? "WARNING" : "INFO"] + 70,
-        value: unclassified,
-        origin: "MOVEMENTS",
-        title: `Existem ${unclassified} lançamentos sem categoria.`,
+        severity: unclassified >= 20 ? "WARNING" : "INFO",
+        title: `${unclassified} lançamentos sem categoria (${fmtBRL(unclassifiedTotal)}).`,
         description: "Classifique-os para melhorar a precisão dos indicadores.",
+        source: "MOVEMENTS",
+        related_entity: "movement",
+        related_entity_id: top[0]?.id ?? null,
+        quantity: unclassified,
+        value: unclassifiedTotal,
+        recommended_action: "CLASSIFY_MOVEMENTS",
+        action_label: "Classificar",
+        action_route: "/movimentacoes",
+        action_filters: { category: "null" },
+        dismissible: true,
+        bonus: 70,
+        details: top.map((m) => ({
+          label: m.description,
+          amount: Math.abs(Number(m.amount)),
+          date: m.transaction_date,
+        })),
+      });
+    } else {
+      push({
+        id: "movements:all-classified",
+        type: "UNCLASSIFIED",
+        severity: "INFO",
+        title: "Nenhum lançamento sem categoria.",
+        description: "Todas as movimentações do workspace estão classificadas.",
+        source: "MOVEMENTS",
+        related_entity: "movement",
+        related_entity_id: null,
+        quantity: 0,
+        value: 0,
+        recommended_action: "CLASSIFY_MOVEMENTS",
+        action_label: "Abrir Movimentações",
+        action_route: "/movimentacoes",
+        action_filters: {},
+        dismissible: true,
+        bonus: 10,
       });
     }
 
-    // 5. Duplicidades a revisar.
-    const dup = input.duplicateCount ?? 0;
-    if (dup > 0) {
+    // ── 5. Duplicidades a revisar (agrupado, com confidence médio e maior valor).
+    const pairs = input.duplicatePairs ?? [];
+    if (pairs.length > 0) {
+      const avg = pairs.reduce((s, p) => s + p.confidence, 0) / pairs.length;
+      const biggest = pairs.reduce((a, b) => (b.amount > a.amount ? b : a));
       push({
         id: "dedup:review",
         type: "DUPLICATES",
-        category: null,
-        level: "WARNING",
-        priority: LEVEL_WEIGHT.WARNING + 80,
-        value: dup,
-        origin: "DEDUP",
-        title: `Foram encontrados ${dup} lançamentos muito semelhantes.`,
-        description: "Revise as duplicidades antes de consolidar. Nada é excluído automaticamente.",
+        severity: "WARNING",
+        title: `${pairs.length} lançamentos muito semelhantes aguardam revisão.`,
+        description: `Confiança média de ${avg.toFixed(0)}%. Nada é excluído automaticamente.`,
+        source: "DEDUP",
+        related_entity: "movement",
+        related_entity_id: null,
+        quantity: pairs.length,
+        value: biggest.amount,
+        recommended_action: "REVIEW_DUPLICATES",
+        action_label: "Revisar",
+        action_route: "/duplicidades",
+        action_filters: {},
+        dismissible: true,
+        bonus: 80,
+        details: [
+          { label: "Confiança média", value: `${avg.toFixed(0)}%` },
+          { label: `Maior valor — ${biggest.description}`, amount: biggest.amount },
+        ],
+      });
+    } else {
+      push({
+        id: "dedup:clean",
+        type: "DUPLICATES",
+        severity: "INFO",
+        title: "Nenhuma duplicidade encontrada.",
+        description: "A deduplicação inteligente não encontrou lançamentos semelhantes.",
+        source: "DEDUP",
+        related_entity: "movement",
+        related_entity_id: null,
+        quantity: 0,
+        value: 0,
+        recommended_action: "REVIEW_DUPLICATES",
+        action_label: "Abrir Duplicidades",
+        action_route: "/duplicidades",
+        action_filters: {},
+        dismissible: true,
+        bonus: 9,
       });
     }
 
-    // 6. Integridade das regras.
+    // ── 6. Integridade das regras.
     const report = input.ruleReport;
+    const ruleById = new Map(rules.map((r) => [r.id, r]));
     if (report) {
       if (report.conflicts.length) {
+        const details = report.conflicts.slice(0, 3).map((issue) => {
+          const group = issue.ruleIds.map((id) => ruleById.get(id)).filter(Boolean);
+          const cats = group
+            .map((r) => (r?.category_id ? (catName.get(r.category_id) ?? "—") : "Sem categoria"))
+            .join(" × ");
+          const lastUsed = group
+            .map((r) => r?.last_matched_at ?? null)
+            .filter((d): d is string => !!d)
+            .sort()
+            .pop();
+          return {
+            label: issue.id.replace(/^conf:/, ""),
+            value: cats || "categorias diferentes",
+            date: lastUsed ?? undefined,
+          };
+        });
         push({
           id: "rules:conflicts",
-          type: "RULES",
-          category: null,
-          level: "CRITICAL",
-          priority: LEVEL_WEIGHT.CRITICAL + 90,
+          type: "RULES_CONFLICT",
+          severity: "CRITICAL",
+          title: `${report.conflicts.length} grupos de regras conflitantes.`,
+          description:
+            "Regras com o mesmo fingerprint apontam para categorias diferentes — a classificação fica imprevisível.",
+          source: "RULES",
+          related_entity: "rule",
+          related_entity_id: report.conflicts[0]?.ruleIds[0] ?? null,
+          quantity: report.conflicts.length,
           value: report.conflicts.length,
-          origin: "RULES",
-          title: `Existem ${report.conflicts.length} regras conflitantes.`,
-          description: "Regras com o mesmo fingerprint apontam para categorias diferentes.",
+          recommended_action: "OPEN_RULES",
+          action_label: "Abrir Regras",
+          action_route: "/regras",
+          action_filters: { status: "conflict" },
+          dismissible: false,
+          bonus: 90,
+          details,
         });
       }
       if (report.duplicates.length) {
+        const details = report.duplicates.slice(0, 3).map((issue) => {
+          const group = issue.ruleIds.map((id) => ruleById.get(id)).filter(Boolean);
+          const maxPriority = Math.max(0, ...group.map((r) => r?.priority ?? 0));
+          return {
+            label: issue.id.replace(/^dup:/, ""),
+            value: `${group.length} regras · maior prioridade ${maxPriority}`,
+          };
+        });
         push({
           id: "rules:duplicates",
-          type: "RULES",
-          category: null,
-          level: "WARNING",
-          priority: LEVEL_WEIGHT.WARNING + 40,
-          value: report.duplicates.length,
-          origin: "RULES",
-          title: `Existem ${report.duplicates.length} grupos de regras duplicadas.`,
+          type: "RULES_DUPLICATE",
+          severity: "WARNING",
+          title: `${report.duplicates.length} grupos de regras duplicadas.`,
           description: "Consolide as regras repetidas para simplificar a manutenção.",
+          source: "RULES",
+          related_entity: "rule",
+          related_entity_id: report.duplicates[0]?.ruleIds[0] ?? null,
+          quantity: report.duplicates.length,
+          value: report.duplicates.length,
+          recommended_action: "OPEN_RULE_INTEGRITY",
+          action_label: "Abrir Integridade",
+          action_route: "/regras",
+          action_filters: { status: "duplicate" },
+          dismissible: true,
+          bonus: 40,
+          details,
+        });
+      }
+      if (!report.conflicts.length && !report.duplicates.length && report.total > 0) {
+        push({
+          id: "rules:consistent",
+          type: "RULES_CONFLICT",
+          severity: "INFO",
+          title: "Todas as regras estão consistentes.",
+          description: `${report.total} regras sem conflitos nem duplicidades.`,
+          source: "RULES",
+          related_entity: "rule",
+          related_entity_id: null,
+          quantity: report.total,
+          value: report.total,
+          recommended_action: "OPEN_RULES",
+          action_label: "Abrir Regras",
+          action_route: "/regras",
+          action_filters: { status: "all" },
+          dismissible: true,
+          bonus: 8,
         });
       }
     }
 
-    // 7. Participação do cartão nos gastos.
+    // ── 7. Participação do cartão nos gastos.
     const inRange = movements.filter(
-      (m) => !m.deleted_at && DashboardFilterService.contains(range, m.competence_date ?? m.transaction_date),
+      (m) =>
+        !m.deleted_at &&
+        DashboardFilterService.contains(range, m.competence_date ?? m.transaction_date),
     );
     const expenses = inRange.filter((m) => m.type === MovementType.EXPENSE);
     const totalExpense = expenses.reduce((s, m) => s + Math.abs(Number(m.amount)), 0);
-    const cardExpense = expenses
-      .filter((m) => !!m.card_id)
-      .reduce((s, m) => s + Math.abs(Number(m.amount)), 0);
+    const cardExpenses = expenses.filter((m) => !!m.card_id);
+    const cardExpense = cardExpenses.reduce((s, m) => s + Math.abs(Number(m.amount)), 0);
     if (totalExpense > 0 && cardExpense > 0) {
       const share = (cardExpense / totalExpense) * 100;
+
+      const byCard = new Map<string, number>();
+      for (const m of cardExpenses) {
+        const key = m.card_id as string;
+        byCard.set(key, (byCard.get(key) ?? 0) + Math.abs(Number(m.amount)));
+      }
+      const topCard = [...byCard.entries()].sort((a, b) => b[1] - a[1])[0];
+
+      const byCat = new Map<string, number>();
+      for (const m of cardExpenses.filter((m) => m.card_id === topCard[0])) {
+        const key = m.category_id ?? "none";
+        byCat.set(key, (byCat.get(key) ?? 0) + Math.abs(Number(m.amount)));
+      }
+      const topCat = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0];
+
       push({
         id: "cards:share",
         type: "CARD_SHARE",
-        category: null,
-        level: share >= 70 ? "WARNING" : "INFO",
-        priority: LEVEL_WEIGHT[share >= 70 ? "WARNING" : "INFO"] + 30,
-        value: Number(share.toFixed(1)),
-        origin: "CARDS",
+        severity: share >= 70 ? "WARNING" : "INFO",
         title: `Seu cartão representa ${share.toFixed(0)}% dos gastos.`,
         description: `${fmtBRL(cardExpense)} de ${fmtBRL(totalExpense)} em despesas do período.`,
+        source: "CARDS",
+        related_entity: "card",
+        related_entity_id: topCard[0],
+        quantity: byCard.size,
+        value: Number(share.toFixed(1)),
+        recommended_action: "OPEN_CARD",
+        action_label: "Abrir Cartão",
+        action_route: "/cartoes",
+        action_filters: { card: topCard[0] },
+        dismissible: true,
+        bonus: 30,
+        details: [
+          {
+            label: `Cartão responsável — ${cardName.get(topCard[0]) ?? "Cartão"}`,
+            amount: topCard[1],
+          },
+          ...(topCat
+            ? [
+                {
+                  label: `Maior categoria — ${
+                    topCat[0] === "none" ? "Sem categoria" : (catName.get(topCat[0]) ?? "—")
+                  }`,
+                  amount: topCat[1],
+                },
+              ]
+            : []),
+        ],
       });
     }
 
-    // 8. Projeção de saldo para o fim do período.
+    // ── 8. Cartões conciliados (positivo).
+    if (cards.length > 0 && cardExpenses.every((m) => !!m.invoice_id)) {
+      push({
+        id: "cards:reconciled",
+        type: "CARDS_RECONCILED",
+        severity: "INFO",
+        title: "Todos os cartões conciliados.",
+        description: "Todas as compras de cartão do período estão vinculadas a uma fatura.",
+        source: "CARDS",
+        related_entity: "card",
+        related_entity_id: null,
+        quantity: cards.length,
+        value: cardExpense,
+        recommended_action: "OPEN_CARD",
+        action_label: "Abrir Cartões",
+        action_route: "/cartoes",
+        action_filters: {},
+        dismissible: true,
+        bonus: 7,
+      });
+    }
+
+    // ── 9. Health Check.
+    const healthIssues = input.healthIssues ?? null;
+    if (healthIssues !== null) {
+      const ok = healthIssues === 0;
+      push({
+        id: "health:status",
+        type: "HEALTH_CHECK",
+        severity: ok ? "INFO" : "CRITICAL",
+        title: ok
+          ? "Health Check sem inconsistências."
+          : `Health Check encontrou ${healthIssues} inconsistências.`,
+        description: ok
+          ? "A última verificação de integridade financeira não encontrou problemas."
+          : "Execute novamente o Health Check e revise os itens sinalizados.",
+        source: "HEALTH",
+        related_entity: "health_check",
+        related_entity_id: null,
+        quantity: healthIssues,
+        value: healthIssues,
+        recommended_action: "RUN_HEALTH_CHECK",
+        action_label: ok ? "Abrir Configurações" : "Executar Health Check",
+        action_route: "/configuracoes",
+        action_filters: {},
+        dismissible: ok,
+        bonus: ok ? 6 : 95,
+        signature: `health:${healthIssues}:${input.healthCheckedAt ?? ""}`,
+      });
+    }
+
+    // ── 10. Saldo projetado.
     const projection = snapshot.cash + summary.result;
+    const previousProjection = snapshot.cash + previousSummary.result;
+    const diff = projection - previousProjection;
+    const diffPct = pct(projection, previousProjection);
     push({
       id: "projection:balance",
       type: "PROJECTION",
-      category: null,
-      level: projection < 0 ? "CRITICAL" : "INFO",
-      priority: LEVEL_WEIGHT[projection < 0 ? "CRITICAL" : "INFO"] + 20,
-      value: projection,
-      origin: "DASHBOARD",
+      severity: projection < 0 ? "CRITICAL" : "INFO",
       title: `Saldo projetado para o final do período: ${fmtBRL(projection)}.`,
       description:
         projection < 0
           ? "A projeção indica saldo negativo — revise despesas previstas."
           : "Projeção baseada no saldo atual e no resultado do período.",
+      source: "DASHBOARD",
+      related_entity: "workspace",
+      related_entity_id: null,
+      quantity: 1,
+      value: projection,
+      recommended_action: "OPEN_DASHBOARD",
+      action_label: "Abrir Dashboard",
+      action_route: "/dashboard",
+      action_filters: {},
+      dismissible: projection >= 0,
+      bonus: 20,
+      details: [
+        { label: "Diferença para o período anterior", amount: diff },
+        ...(diffPct !== null
+          ? [{ label: "Variação", value: `${diffPct.toFixed(1)}%` }]
+          : []),
+      ],
     });
 
-    return out.sort((a, b) => b.priority - a.priority);
+    const insights = out.sort((a, b) => b.priority - a.priority);
+    return { insights, summary: this.summarize(insights) };
+  }
+
+  /** Resumo executivo (contadores por severidade). */
+  summarize(insights: FinancialInsight[]): InsightSummary {
+    const critical = insights.filter((i) => i.severity === "CRITICAL").length;
+    const warning = insights.filter((i) => i.severity === "WARNING").length;
+    const info = insights.filter((i) => i.severity === "INFO").length;
+    return { critical, warning, info, total: insights.length };
   }
 }
 
