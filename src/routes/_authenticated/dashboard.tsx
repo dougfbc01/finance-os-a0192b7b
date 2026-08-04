@@ -45,7 +45,7 @@ function DashboardPage() {
     comparison,
     isLoading,
   } = useDashboardAnalytics(filter.resolved);
-  const { insights } = useFinancialInsights(filter.resolved);
+  const insightsState = useFinancialInsights(filter.resolved);
   const { snapshot, invoices } = usePatrimony();
 
   const lastNetWorth = netWorthSeries[netWorthSeries.length - 1];
@@ -93,7 +93,7 @@ function DashboardPage() {
             <KpiWidget title="Investimentos declarados" value={snapshot.assets} icon={PiggyBank} />
           </div>
 
-          <FinancialInsightsWidget insights={insights} />
+          <FinancialInsightsWidget {...insightsState} />
 
           <PeriodComparisonWidget rows={comparison} />
 
