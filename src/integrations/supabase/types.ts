@@ -649,6 +649,116 @@ export type Database = {
           },
         ]
       }
+      monthly_closing_events: {
+        Row: {
+          closing_id: string
+          created_at: string
+          event: string
+          id: string
+          performed_by: string | null
+          reason: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          closing_id: string
+          created_at?: string
+          event: string
+          id?: string
+          performed_by?: string | null
+          reason?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          closing_id?: string
+          created_at?: string
+          event?: string
+          id?: string
+          performed_by?: string | null
+          reason?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_closing_events_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_closing_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_closings: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          month: number
+          notes: string | null
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          snapshot_json: Json
+          status: string
+          updated_at: string
+          workspace_id: string
+          year: number
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          month: number
+          notes?: string | null
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          snapshot_json?: Json
+          status?: string
+          updated_at?: string
+          workspace_id: string
+          year: number
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          month?: number
+          notes?: string | null
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          snapshot_json?: Json
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_closings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movements: {
         Row: {
           account_id: string | null
