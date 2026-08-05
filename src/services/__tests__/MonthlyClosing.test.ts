@@ -103,7 +103,7 @@ describe("MonthlyClosingService", () => {
       mov({ id: "c", type: MovementType.INVESTMENT, amount: 500 }),
     ];
     const snap = Service.buildSnapshot(baseParams(2026, 7, movements));
-    expect(snap.quality.uncategorized).toBe(2); // despesa sem categoria + investimento? não
+    expect(snap.quality.uncategorized).toBe(1); // apenas a despesa sem categoria (transferência é ignorada)
     expect(snap.transfers).toEqual({ count: 1, amount: 700 });
     expect(snap.investments.contributions).toBe(500);
   });
