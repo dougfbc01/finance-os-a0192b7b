@@ -14,10 +14,13 @@ import {
   AccountsEvolutionWidget,
   PeriodComparisonWidget,
   FinancialInsightsWidget,
+  LastClosingWidget,
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
 import { usePatrimony } from "@/hooks/usePatrimony";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { useMonthlyClosings } from "@/hooks/useMonthlyClosings";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -47,6 +50,9 @@ function DashboardPage() {
   } = useDashboardAnalytics(filter.resolved);
   const insightsState = useFinancialInsights(filter.resolved);
   const { snapshot, invoices } = usePatrimony();
+  const { data: ws } = useWorkspace();
+  const { data: closings = [] } = useMonthlyClosings(ws?.id as string | undefined);
+  const lastClosing = closings[0] ?? null;
 
   const lastNetWorth = netWorthSeries[netWorthSeries.length - 1];
 
@@ -91,6 +97,10 @@ function DashboardPage() {
               tone={summary.result >= 0 ? "positive" : "negative"}
             />
             <KpiWidget title="Investimentos declarados" value={snapshot.assets} icon={PiggyBank} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <LastClosingWidget closing={lastClosing} />
           </div>
 
           <FinancialInsightsWidget {...insightsState} />
