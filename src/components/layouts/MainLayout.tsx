@@ -31,6 +31,7 @@ import {
   Shuffle,
   Sparkles,
   CopyCheck,
+  CalendarCheck,
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import type { NavItem } from "@/types";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { title: "Cartões", url: ROUTES.CARTOES, icon: CreditCard },
   { title: "Investimentos", url: ROUTES.INVESTIMENTOS, icon: TrendingUp },
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
+  { title: "Fechamentos", url: ROUTES.FECHAMENTOS, icon: CalendarCheck },
   { title: "Planejamento", url: ROUTES.PLANEJAMENTO, icon: Target },
   { title: "Relatórios", url: ROUTES.RELATORIOS, icon: FileBarChart },
   { title: "Configurações", url: ROUTES.CONFIGURACOES, icon: Settings },

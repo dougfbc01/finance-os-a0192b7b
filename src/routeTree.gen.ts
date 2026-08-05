@@ -18,6 +18,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDuplicidadesRouteImport } from './routes/_authenticated/duplicidades'
+import { Route as AuthenticatedFechamentosRouteImport } from './routes/_authenticated/fechamentos'
 import { Route as AuthenticatedImportacoesRouteImport } from './routes/_authenticated/importacoes'
 import { Route as AuthenticatedInvestimentosRouteImport } from './routes/_authenticated/investimentos'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
@@ -74,6 +75,12 @@ const AuthenticatedDuplicidadesRoute =
   AuthenticatedDuplicidadesRouteImport.update({
     id: '/duplicidades',
     path: '/duplicidades',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedFechamentosRoute =
+  AuthenticatedFechamentosRouteImport.update({
+    id: '/fechamentos',
+    path: '/fechamentos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedImportacoesRoute =
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/contas': typeof AuthenticatedContasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/duplicidades': typeof AuthenticatedDuplicidadesRoute
+  '/fechamentos': typeof AuthenticatedFechamentosRoute
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -168,6 +176,7 @@ export interface FileRoutesByTo {
   '/contas': typeof AuthenticatedContasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/duplicidades': typeof AuthenticatedDuplicidadesRoute
+  '/fechamentos': typeof AuthenticatedFechamentosRoute
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -191,6 +200,7 @@ export interface FileRoutesById {
   '/_authenticated/contas': typeof AuthenticatedContasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/duplicidades': typeof AuthenticatedDuplicidadesRoute
+  '/_authenticated/fechamentos': typeof AuthenticatedFechamentosRoute
   '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
   '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/contas'
     | '/dashboard'
     | '/duplicidades'
+    | '/fechamentos'
     | '/importacoes'
     | '/investimentos'
     | '/movimentacoes'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/contas'
     | '/dashboard'
     | '/duplicidades'
+    | '/fechamentos'
     | '/importacoes'
     | '/investimentos'
     | '/movimentacoes'
@@ -257,6 +269,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contas'
     | '/_authenticated/dashboard'
     | '/_authenticated/duplicidades'
+    | '/_authenticated/fechamentos'
     | '/_authenticated/importacoes'
     | '/_authenticated/investimentos'
     | '/_authenticated/movimentacoes'
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/duplicidades'
       fullPath: '/duplicidades'
       preLoaderRoute: typeof AuthenticatedDuplicidadesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/fechamentos': {
+      id: '/_authenticated/fechamentos'
+      path: '/fechamentos'
+      fullPath: '/fechamentos'
+      preLoaderRoute: typeof AuthenticatedFechamentosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/importacoes': {
@@ -429,6 +449,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDuplicidadesRoute: typeof AuthenticatedDuplicidadesRoute
+  AuthenticatedFechamentosRoute: typeof AuthenticatedFechamentosRoute
   AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRoute
   AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
@@ -446,6 +467,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContasRoute: AuthenticatedContasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDuplicidadesRoute: AuthenticatedDuplicidadesRoute,
+  AuthenticatedFechamentosRoute: AuthenticatedFechamentosRoute,
   AuthenticatedImportacoesRoute: AuthenticatedImportacoesRoute,
   AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,

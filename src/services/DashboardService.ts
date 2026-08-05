@@ -247,6 +247,13 @@ class DashboardServiceImpl extends BaseService {
     return this.groupBreakdown(movements, range, INCOME_TYPES, (m) => m.subcategory_id);
   }
 
+  /** Despesas do período agrupadas por subcategoria (com percentual). */
+  expensesBySubcategoryInRange(movements: Movement[], range: DateRange): BreakdownItem[] {
+    return this.groupBreakdown(movements, range, EXPENSE_TYPES, (m) => m.subcategory_id);
+  }
+
+
+
   private groupBreakdown(
     movements: Movement[],
     range: DateRange,
