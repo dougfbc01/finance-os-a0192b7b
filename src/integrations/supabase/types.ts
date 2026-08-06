@@ -649,6 +649,127 @@ export type Database = {
           },
         ]
       }
+      monthly_budget_items: {
+        Row: {
+          budget_id: string
+          category_id: string | null
+          created_at: string
+          deleted_at: string | null
+          goal_kind: string | null
+          id: string
+          notes: string | null
+          planned_amount: number
+          subcategory_id: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          budget_id: string
+          category_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          goal_kind?: string | null
+          id?: string
+          notes?: string | null
+          planned_amount?: number
+          subcategory_id?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          budget_id?: string
+          category_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          goal_kind?: string | null
+          id?: string
+          notes?: string | null
+          planned_amount?: number
+          subcategory_id?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_budget_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_budget_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_budget_items_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_budget_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_budgets: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          mode: string
+          month: number
+          name: string
+          notes: string | null
+          status: string
+          updated_at: string
+          workspace_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          mode?: string
+          month: number
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          mode?: string
+          month?: number
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_budgets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_closing_events: {
         Row: {
           closing_id: string
