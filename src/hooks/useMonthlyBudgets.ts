@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "./useWorkspace";
 import { useAllMovements } from "./useMovements";
 import { useCategories, useSubcategories } from "./useCategories";
-import { useMonthlyClosings } from "./useMonthlyClosings";
 import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
+import { MonthlyClosingService } from "@/services/MonthlyClosingService";
 import type { UUID } from "@/models";
 import type {
   BudgetComparison,
@@ -132,7 +132,12 @@ export function useBudgetSuggestion(
   const wsId = ws?.id as string | undefined;
   const { data: budgets = [] } = useMonthlyBudgets(wsId);
   const { data: allItems = [] } = useBudgetItems(wsId);
-  const { data: closings = [] } = useMonthlyClosings(wsId);
+  // Consulta direta ao Service para evitar dependência cíclica entre hooks.
+  const { data: closings = [] } = useQuery({
+    queryKey: ["monthly-closings", wsId],
+    queryFn: () => MonthlyClosingService.list(wsId as UUID),
+    enabled: !!wsId,
+  });
 
   return useMemo(() => {
     const prevRef = new Date(year, month - 2, 1);
