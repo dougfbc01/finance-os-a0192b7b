@@ -23,6 +23,8 @@ import type {
   ClosingWarning,
   MonthlyClosing,
 } from "@/models/MonthlyClosing";
+import type { BudgetComparison } from "@/models/MonthlyBudget";
+import { MonthlyBudgetService } from "./MonthlyBudgetService";
 
 const Dashboard = new DashboardServiceImpl();
 
@@ -44,6 +46,8 @@ export interface BuildSnapshotParams {
   insights: FinancialInsight[];
   insightsSummary: InsightSummary;
   health: ClosingHealth;
+  /** Comparação Planejado x Realizado do mês (Sprint 4.3). */
+  budget?: BudgetComparison | null;
 }
 
 interface ClosingRow {
@@ -229,6 +233,7 @@ class MonthlyClosingServiceImpl extends BaseService {
           .filter((m) => m.type === MovementType.INVESTMENT)
           .reduce((s, m) => s + Number(m.amount), 0),
       },
+      budget: MonthlyBudgetService.toClosingBudget(params.budget ?? null),
       transfers: {
         count: transfersRows.length,
         amount: transfersRows.reduce((s, m) => s + Number(m.amount), 0),

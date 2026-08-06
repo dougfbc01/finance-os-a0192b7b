@@ -3,6 +3,7 @@
 // fechamento. Nunca é recalculado durante consultas.
 import type { UUID, ISODateString } from "./index";
 import type { FinancialInsight, InsightSummary } from "./Insight";
+import type { ClosingBudget } from "./MonthlyBudget";
 
 export type MonthlyClosingStatus = "OPEN" | "CLOSED" | "LOCKED";
 
@@ -100,6 +101,8 @@ export interface ClosingSnapshot {
   cards: ClosingCardRow[];
   investments: ClosingInvestments;
   transfers: ClosingTransfers;
+  /** Planejado x Realizado congelado (Sprint 4.3). Nunca recalculado. */
+  budget?: ClosingBudget;
 }
 
 export interface MonthlyClosing {

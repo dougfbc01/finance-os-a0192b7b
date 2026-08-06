@@ -17,6 +17,7 @@ import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { NetWorthPoint, MonthSummary } from "./DashboardService";
 import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
+import type { BudgetComparison } from "@/models/MonthlyBudget";
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
 export interface InsightDuplicatePair {
@@ -41,6 +42,8 @@ export interface InsightsInput {
   /** Quantidade de inconsistências no último Health Check (null = sem execução). */
   healthIssues?: number | null;
   healthCheckedAt?: string | null;
+  /** Comparação Planejado x Realizado do mês (Sprint 4.3). */
+  budget?: BudgetComparison | null;
 }
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
@@ -562,9 +565,169 @@ class FinancialInsightsServiceImpl {
       ],
     });
 
+    // ── 11. Planejamento Mensal (Sprint 4.3) — alertas de orçamento.
+    for (const insight of this.budgetInsights(input.budget ?? null)) {
+      push({ ...insight, bonus: insight.priority });
+    }
+
     const insights = out.sort((a, b) => b.priority - a.priority);
     return { insights, summary: this.summarize(insights) };
   }
+
+  /**
+   * Alertas do Planejamento Mensal. Recebe a comparação já calculada pelo
+   * MonthlyBudgetService — aqui não há cálculo financeiro novo.
+   */
+  budgetInsights(budget: BudgetComparison | null): FinancialInsight[] {
+    if (!budget) return [];
+    const now = new Date().toISOString();
+    const out: FinancialInsight[] = [];
+    const period = `${String(budget.month).padStart(2, "0")}/${budget.year}`;
+
+    const base = (over: Partial<FinancialInsight>): FinancialInsight => ({
+      id: "budget",
+      type: "BUDGET",
+      severity: "INFO",
+      title: "",
+      description: "",
+      source: "BUDGET",
+      related_entity: "budget",
+      related_entity_id: budget.budgetId,
+      quantity: 1,
+      value: 0,
+      recommended_action: "OPEN_BUDGET",
+      action_label: "Abrir Planejamento",
+      action_route: "/planejamento",
+      action_filters: {},
+      dismissible: true,
+      created_at: now,
+      resolved: false,
+      priority: 0,
+      details: [],
+      signature: "",
+      ...over,
+    });
+
+    const expenses = budget.lines.filter((l) => l.kind === "EXPENSE" && l.planned > 0);
+
+    for (const line of expenses) {
+      const p = line.percent ?? 0;
+      const label = line.subcategoryName
+        ? `${line.categoryName} › ${line.subcategoryName}`
+        : line.categoryName;
+      if (p > 100) {
+        out.push(
+          base({
+            id: `budget:over:${line.key}`,
+            severity: "CRITICAL",
+            title: `${label} ultrapassou o orçamento de ${period}.`,
+            description: `Planejado ${fmtBRL(line.planned)} e realizado ${fmtBRL(line.actual)} (${p.toFixed(0)}%).`,
+            related_entity: "category",
+            related_entity_id: line.categoryId,
+            value: line.actual - line.planned,
+            dismissible: false,
+            priority: 90,
+            details: [
+              { label: "Planejado", amount: line.planned },
+              { label: "Realizado", amount: line.actual },
+              { label: "Excedente", amount: line.actual - line.planned },
+            ],
+            signature: `budget:over:${line.key}:${Math.round(p)}`,
+          }),
+        );
+      } else if (p >= 90) {
+        out.push(
+          base({
+            id: `budget:90:${line.key}`,
+            severity: "WARNING",
+            title: `${label} atingiu 90% do orçamento de ${period}.`,
+            description: `Restam ${fmtBRL(line.remaining)} para o período.`,
+            related_entity: "category",
+            related_entity_id: line.categoryId,
+            value: line.remaining,
+            priority: 70,
+            signature: `budget:90:${line.key}:${Math.round(p)}`,
+          }),
+        );
+      } else if (p >= 80) {
+        out.push(
+          base({
+            id: `budget:80:${line.key}`,
+            severity: "WARNING",
+            title: `${label} atingiu 80% do orçamento de ${period}.`,
+            description: `Restam ${fmtBRL(line.remaining)} para o período.`,
+            related_entity: "category",
+            related_entity_id: line.categoryId,
+            value: line.remaining,
+            priority: 55,
+            signature: `budget:80:${line.key}:${Math.round(p)}`,
+          }),
+        );
+      }
+    }
+
+    const savings = expenses
+      .filter((l) => l.difference > 0 && (l.percent ?? 0) <= 70)
+      .sort((a, b) => b.difference - a.difference);
+    const bestSaving = savings[0];
+    if (bestSaving && bestSaving.difference > 0) {
+      const label = bestSaving.subcategoryName
+        ? `${bestSaving.categoryName} › ${bestSaving.subcategoryName}`
+        : bestSaving.categoryName;
+      out.push(
+        base({
+          id: "budget:saving",
+          severity: "INFO",
+          title: `Economia relevante em ${label}: ${fmtBRL(bestSaving.difference)}.`,
+          description: `Realizado ${fmtBRL(bestSaving.actual)} contra ${fmtBRL(bestSaving.planned)} planejados.`,
+          related_entity: "category",
+          related_entity_id: bestSaving.categoryId,
+          value: bestSaving.difference,
+          resolved: true,
+          priority: 30,
+          signature: `budget:saving:${bestSaving.key}:${Math.round(bestSaving.difference)}`,
+        }),
+      );
+    }
+
+    const sorted = [...expenses].sort((a, b) => b.difference - a.difference);
+    const positive = sorted[0];
+    const negative = sorted[sorted.length - 1];
+    if (positive && positive.difference > 0) {
+      out.push(
+        base({
+          id: "budget:deviation:positive",
+          severity: "INFO",
+          title: `Maior desvio positivo: ${positive.categoryName} (${fmtBRL(positive.difference)} abaixo do planejado).`,
+          description: "Sobra de orçamento que pode ser realocada.",
+          related_entity: "category",
+          related_entity_id: positive.categoryId,
+          value: positive.difference,
+          resolved: true,
+          priority: 25,
+          signature: `budget:dev+:${positive.key}:${Math.round(positive.difference)}`,
+        }),
+      );
+    }
+    if (negative && negative.difference < 0 && negative.key !== positive?.key) {
+      out.push(
+        base({
+          id: "budget:deviation:negative",
+          severity: "WARNING",
+          title: `Maior desvio negativo: ${negative.categoryName} (${fmtBRL(Math.abs(negative.difference))} acima do planejado).`,
+          description: "Revise os lançamentos desta categoria no período.",
+          related_entity: "category",
+          related_entity_id: negative.categoryId,
+          value: Math.abs(negative.difference),
+          priority: 60,
+          signature: `budget:dev-:${negative.key}:${Math.round(negative.difference)}`,
+        }),
+      );
+    }
+
+    return out;
+  }
+
 
   /** Resumo executivo (contadores por severidade). */
   summarize(insights: FinancialInsight[]): InsightSummary {

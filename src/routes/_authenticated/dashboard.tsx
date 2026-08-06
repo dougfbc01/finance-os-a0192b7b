@@ -15,12 +15,14 @@ import {
   PeriodComparisonWidget,
   FinancialInsightsWidget,
   LastClosingWidget,
+  BudgetWidget,
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useMonthlyClosings } from "@/hooks/useMonthlyClosings";
+import { useMonthlyBudget } from "@/hooks/useMonthlyBudgets";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -53,6 +55,8 @@ function DashboardPage() {
   const { data: ws } = useWorkspace();
   const { data: closings = [] } = useMonthlyClosings(ws?.id as string | undefined);
   const lastClosing = closings[0] ?? null;
+  const budgetRef = new Date(`${filter.resolved.end}T00:00:00`);
+  const budgetState = useMonthlyBudget(budgetRef.getFullYear(), budgetRef.getMonth() + 1);
 
   const lastNetWorth = netWorthSeries[netWorthSeries.length - 1];
 
@@ -101,6 +105,10 @@ function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <LastClosingWidget closing={lastClosing} />
+            <BudgetWidget
+              comparison={budgetState.comparison}
+              hasBudget={!!budgetState.budget}
+            />
           </div>
 
           <FinancialInsightsWidget {...insightsState} />

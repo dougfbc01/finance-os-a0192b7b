@@ -11,6 +11,7 @@ import { useDuplicatePairs } from "./useDuplicates";
 import { useRuleIntegrity } from "./useRuleIntegrity";
 import { useHealthCheckRuns, useRunHealthCheck } from "./useHealthCheck";
 import { useInsightDismiss } from "./useInsightDismiss";
+import { useMonthlyBudget } from "./useMonthlyBudgets";
 import { FinancialInsightsService } from "@/services/FinancialInsightsService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
 import type { FinancialInsight, InsightSummary } from "@/models/Insight";
@@ -38,6 +39,13 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
   const { data: runs = [] } = useHealthCheckRuns(wsId);
   const ruleReport = useRuleIntegrity(rules);
   const { dismiss, restoreAll, isDismissed } = useInsightDismiss();
+
+  // Planejamento Mensal do mês de referência do período (Sprint 4.3).
+  const refDate = new Date(`${resolved.end}T00:00:00`);
+  const { comparison: budget } = useMonthlyBudget(
+    refDate.getFullYear(),
+    refDate.getMonth() + 1,
+  );
 
   const runHealthMut = useRunHealthCheck();
   const reprocessMut = useReprocessRules();
@@ -70,6 +78,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
         cards,
         healthIssues: lastRun ? lastRun.issues : null,
         healthCheckedAt: lastRun?.created_at ?? null,
+        budget,
       }),
     [
       resolved.start,
@@ -85,6 +94,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
       rules,
       cards,
       lastRun,
+      budget,
     ],
   );
 

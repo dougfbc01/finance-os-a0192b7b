@@ -15,6 +15,8 @@ const FINANCIAL_KEYS = [
   "imports",
   "classification-rules",
   "monthly-closings",
+  "monthly-budgets",
+  "monthly-budget-items",
 ] as const;
 
 export function invalidateFinancialQueries(qc: ReturnType<typeof useQueryClient>) {
