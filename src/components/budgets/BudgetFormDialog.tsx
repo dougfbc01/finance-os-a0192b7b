@@ -17,13 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MONTH_LABELS } from "@/models/MonthlyClosing";
 import {
   BUDGET_MODE_LABELS,
   BUDGET_SUGGESTION_LABELS,
-  MONTH_LABELS_FALLBACK,
   type BudgetMode,
   type BudgetSuggestionSource,
-} from "./labels";
+} from "@/models/MonthlyBudget";
 
 interface Props {
   open: boolean;
@@ -62,7 +62,7 @@ export function BudgetFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Novo planejamento — {MONTH_LABELS_FALLBACK[month - 1]} {year}
+            Novo planejamento — {MONTH_LABELS[month - 1]} {year}
           </DialogTitle>
           <DialogDescription>
             O orçamento guarda apenas o valor planejado; o realizado é sempre calculado a
@@ -88,7 +88,7 @@ export function BudgetFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(BUDGET_MODE_LABELS).map(([value, label]) => (
+                {(Object.entries(BUDGET_MODE_LABELS) as [string, string][]).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
                   </SelectItem>
@@ -107,7 +107,7 @@ export function BudgetFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(BUDGET_SUGGESTION_LABELS).map(([value, label]) => (
+                {(Object.entries(BUDGET_SUGGESTION_LABELS) as [string, string][]).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
                   </SelectItem>
