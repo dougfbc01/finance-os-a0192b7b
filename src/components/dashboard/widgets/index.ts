@@ -13,3 +13,4 @@ export { AccountsEvolutionWidget } from "./AccountsEvolutionWidget";
 export { PeriodComparisonWidget } from "./PeriodComparisonWidget";
 export { FinancialInsightsWidget } from "./FinancialInsightsWidget";
 export { LastClosingWidget } from "./LastClosingWidget";
+export { BudgetWidget } from "./BudgetWidget";
