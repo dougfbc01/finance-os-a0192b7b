@@ -17,6 +17,7 @@ import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { NetWorthPoint, MonthSummary } from "./DashboardService";
 import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
+import type { BudgetComparison } from "@/models/MonthlyBudget";
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
 export interface InsightDuplicatePair {
@@ -41,6 +42,8 @@ export interface InsightsInput {
   /** Quantidade de inconsistências no último Health Check (null = sem execução). */
   healthIssues?: number | null;
   healthCheckedAt?: string | null;
+  /** Comparação Planejado x Realizado do mês (Sprint 4.3). */
+  budget?: BudgetComparison | null;
 }
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
