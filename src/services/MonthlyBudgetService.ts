@@ -12,19 +12,24 @@ import { toISODate } from "@/lib/format";
 import type { Category, Movement, Subcategory, UUID } from "@/models";
 import type { MonthlyClosing } from "@/models/MonthlyClosing";
 import type {
+  BudgetCategoryGroup,
   BudgetComparison,
+  BudgetDrillDown,
   BudgetItemDraft,
+  BudgetKpis,
   BudgetLine,
   BudgetLineKind,
   BudgetMode,
   BudgetSideTotals,
   BudgetSortKey,
+  BudgetStatusLevel,
   BudgetSuggestionSource,
   BudgetSummary,
   ClosingBudget,
   MonthlyBudget,
   MonthlyBudgetItem,
 } from "@/models/MonthlyBudget";
+
 
 export interface CompareParams {
   year: number;
