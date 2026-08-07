@@ -222,11 +222,13 @@ function PlanejamentoPage() {
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <>
+          {comparison && <BudgetKpiCards kpis={expenseKpis} />}
           {comparison && <BudgetSummaryCards summary={comparison.summary} />}
 
           <Tabs defaultValue="comparison">
             <TabsList>
               <TabsTrigger value="comparison">Planejado x Realizado</TabsTrigger>
+              <TabsTrigger value="summary">Resumo por categoria</TabsTrigger>
               <TabsTrigger value="income">Receitas</TabsTrigger>
               <TabsTrigger value="edit" disabled={!budget}>
                 Editar planejamento
@@ -236,15 +238,43 @@ function PlanejamentoPage() {
             <TabsContent value="comparison" className="pt-4">
               <Card>
                 <CardContent className="pt-6">
-                  <BudgetTable lines={expenseLines} emptyLabel="Nenhuma despesa no período." />
+                  <BudgetTable
+                    lines={expenseLines}
+                    year={year}
+                    month={month}
+                    emptyLabel="Nenhuma despesa no período."
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="income" className="pt-4">
+            <TabsContent value="summary" className="pt-4">
               <Card>
                 <CardContent className="pt-6">
-                  <BudgetTable lines={incomeLines} emptyLabel="Nenhuma receita no período." />
+                  <BudgetCategoryTable
+                    groups={expenseGroups}
+                    year={year}
+                    month={month}
+                    expanded={expanded}
+                    onToggle={toggleGroup}
+                    onExpandAll={expandAll}
+                    onCollapseAll={collapseAll}
+                    emptyLabel="Nenhuma despesa no período."
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="income" className="space-y-4 pt-4">
+              <BudgetKpiCards kpis={incomeKpis} variant="INCOME" />
+              <Card>
+                <CardContent className="pt-6">
+                  <BudgetTable
+                    lines={incomeLines}
+                    year={year}
+                    month={month}
+                    emptyLabel="Nenhuma receita no período."
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -268,6 +298,7 @@ function PlanejamentoPage() {
           </Tabs>
         </>
       )}
+
 
       <BudgetFormDialog
         open={createOpen}
