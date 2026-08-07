@@ -58,12 +58,11 @@ export function BudgetWidget({ comparison, hasBudget }: Props) {
                 </p>
               </div>
             </div>
-            <div className="space-y-1">
-              <Progress value={Math.min(percent, 100)} />
-              <p className="text-xs text-muted-foreground">
-                {e.percent === null ? "Sem valor planejado" : `${percent.toFixed(0)}% utilizado`}
-              </p>
+            <div className="space-y-2">
+              <BudgetProgressBar percent={e.percent} status={status} />
+              <BudgetStatusBadge status={status} muted={e.percent === null} />
             </div>
+
           </Link>
         )}
       </CardContent>
