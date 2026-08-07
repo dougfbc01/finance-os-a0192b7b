@@ -278,6 +278,129 @@ class MonthlyBudgetServiceImpl extends BaseService {
     return copy.sort((a, b) => b.actual - a.actual);
   }
 
+  // ------------------------------------------------------------------
+  // Sprint 4.3.1 — status, KPIs, consolidação e drill down
+  // ------------------------------------------------------------------
+  /** Semáforo de utilização: até 80% OK, 80–100% atenção, acima disso estouro. */
+  statusLevel(percent: number | null): BudgetStatusLevel {
+    if (percent === null) return "OK";
+    if (percent > 100) return "OVER";
+    if (percent >= 80) return "WARNING";
+    return "OK";
+  }
+
+  /** Dias do período e quantos já decorreram até a data de referência. */
+  periodDays(year: number, month: number, today = new Date()) {
+    const daysTotal = new Date(year, month, 0).getDate();
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month - 1, daysTotal);
+    const ref = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let daysElapsed: number;
+    if (ref < start) daysElapsed = 0;
+    else if (ref > end) daysElapsed = daysTotal;
+    else daysElapsed = ref.getDate();
+    return { daysTotal, daysElapsed, daysRemaining: daysTotal - daysElapsed };
+  }
+
+  /** KPIs executivos de um lado do orçamento (despesas ou receitas). */
+  kpis(
+    side: BudgetSideTotals,
+    params: { year: number; month: number; today?: Date },
+  ): BudgetKpis {
+    const { daysTotal, daysElapsed, daysRemaining } = this.periodDays(
+      params.year,
+      params.month,
+      params.today ?? new Date(),
+    );
+    const dailyAverage = daysElapsed > 0 ? side.actual / daysElapsed : 0;
+    const projection = daysElapsed > 0 ? dailyAverage * daysTotal : side.actual;
+    return {
+      planned: side.planned,
+      actual: side.actual,
+      difference: side.difference,
+      remaining: side.remaining,
+      percent: side.percent,
+      daysTotal,
+      daysElapsed,
+      daysRemaining,
+      dailyAverage,
+      projection,
+      projectionPercent: this.percentUsed(side.planned, projection),
+      status: this.statusLevel(side.percent),
+    };
+  }
+
+  /**
+   * Consolida as linhas por categoria mantendo as subcategorias como filhas.
+   * Uma única estrutura hierárquica — a UI apenas expande/recolhe em memória.
+   */
+  groupByCategory(lines: BudgetLine[], sort: BudgetSortKey = "SPENT"): BudgetCategoryGroup[] {
+    const map = new Map<string, BudgetCategoryGroup>();
+
+    for (const line of lines) {
+      const key = `${line.kind}:${line.categoryId ?? "none"}`;
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          categoryId: line.categoryId,
+          categoryName: line.categoryName,
+          kind: line.kind,
+          planned: 0,
+          actual: 0,
+          difference: 0,
+          percent: null,
+          remaining: 0,
+          over: false,
+          status: "OK",
+          children: [],
+        };
+        map.set(key, group);
+      }
+      group.planned += line.planned;
+      group.actual += line.actual;
+      if (line.subcategoryId) group.children.push(line);
+    }
+
+    const groups = Array.from(map.values()).map((g) => {
+      const percent = this.percentUsed(g.planned, g.actual);
+      return {
+        ...g,
+        difference: g.planned - g.actual,
+        percent,
+        remaining: this.remaining(g.planned, g.actual),
+        over: g.planned > 0 && g.actual > g.planned,
+        status: this.statusLevel(percent),
+        children: this.sortLines(g.children, sort),
+      };
+    });
+
+    if (sort === "PLANNED") return groups.sort((a, b) => b.planned - a.planned);
+    if (sort === "DEVIATION")
+      return groups.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+    return groups.sort((a, b) => b.actual - a.actual);
+  }
+
+  /** Deep link para o extrato filtrado por competência do período. */
+  drillDown(params: {
+    year: number;
+    month: number;
+    categoryId?: UUID | null;
+    subcategoryId?: UUID | null;
+  }): BudgetDrillDown {
+    const range = this.periodRange(params.year, params.month);
+    return {
+      to: "/movimentacoes",
+      search: {
+        ...(params.categoryId ? { category: params.categoryId } : {}),
+        ...(params.subcategoryId ? { subcategory: params.subcategoryId } : {}),
+        from: range.start,
+        to: range.end,
+      },
+    };
+  }
+
+
   /** Bloco congelado no Fechamento Mensal — nunca recalculado depois. */
   toClosingBudget(comparison: BudgetComparison | null): ClosingBudget {
     if (!comparison) {
