@@ -103,6 +103,67 @@ export const BUDGET_SORT_LABELS: Record<BudgetSortKey, string> = {
   PLANNED: "Maior orçamento",
 };
 
+/** Semáforo de utilização do orçamento (Sprint 4.3.1). */
+export type BudgetStatusLevel = "OK" | "WARNING" | "OVER";
+
+export const BUDGET_STATUS_LEVEL_LABELS: Record<BudgetStatusLevel, string> = {
+  OK: "Dentro do planejado",
+  WARNING: "Em atenção",
+  OVER: "Acima do orçamento",
+};
+
+export const BUDGET_STATUS_LEVEL_ICONS: Record<BudgetStatusLevel, string> = {
+  OK: "🟢",
+  WARNING: "🟡",
+  OVER: "🔴",
+};
+
+/** Indicadores executivos do período (calculados apenas no Service). */
+export interface BudgetKpis {
+  planned: number;
+  actual: number;
+  difference: number;
+  remaining: number;
+  percent: number | null;
+  daysTotal: number;
+  daysElapsed: number;
+  daysRemaining: number;
+  /** Consumo médio diário do realizado. */
+  dailyAverage: number;
+  /** Projeção de fechamento do período. */
+  projection: number;
+  projectionPercent: number | null;
+  status: BudgetStatusLevel;
+}
+
+/** Linha consolidada por categoria, com as subcategorias como filhas. */
+export interface BudgetCategoryGroup {
+  key: string;
+  categoryId: UUID | null;
+  categoryName: string;
+  kind: BudgetLineKind;
+  planned: number;
+  actual: number;
+  difference: number;
+  percent: number | null;
+  remaining: number;
+  over: boolean;
+  status: BudgetStatusLevel;
+  children: BudgetLine[];
+}
+
+/** Deep link para o extrato filtrado (drill down). */
+export interface BudgetDrillDown {
+  to: "/movimentacoes";
+  search: {
+    category?: string;
+    subcategory?: string;
+    from: string;
+    to: string;
+  };
+}
+
+
 export const BUDGET_STATUS_LABELS: Record<BudgetStatus, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativo",
