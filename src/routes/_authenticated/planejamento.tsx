@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  BudgetCategoryTable,
   BudgetFormDialog,
   BudgetItemsEditor,
+  BudgetKpiCards,
   BudgetSummaryCards,
   BudgetTable,
 } from "@/components/budgets";
@@ -37,6 +39,14 @@ import {
   type BudgetSortKey,
   type BudgetSuggestionSource,
 } from "@/models/MonthlyBudget";
+
+const EMPTY_SIDE = {
+  planned: 0,
+  actual: 0,
+  difference: 0,
+  percent: null,
+  remaining: 0,
+} as const;
 
 export const Route = createFileRoute("/_authenticated/planejamento")({
   head: () => ({
@@ -91,8 +101,46 @@ function PlanejamentoPage() {
     [comparison, sort],
   );
 
-  const expenseLines = lines.filter((l) => l.kind === "EXPENSE");
-  const incomeLines = lines.filter((l) => l.kind === "INCOME");
+  const expenseLines = useMemo(() => lines.filter((l) => l.kind === "EXPENSE"), [lines]);
+  const incomeLines = useMemo(() => lines.filter((l) => l.kind === "INCOME"), [lines]);
+
+  // Consolidação e KPIs vêm prontos do Service — nada é calculado aqui.
+  const expenseGroups = useMemo(
+    () => MonthlyBudgetService.groupByCategory(expenseLines, sort),
+    [expenseLines, sort],
+  );
+  const expenseKpis = useMemo(
+    () =>
+      MonthlyBudgetService.kpis(
+        comparison?.summary.expense ?? EMPTY_SIDE,
+        { year, month },
+      ),
+    [comparison, year, month],
+  );
+  const incomeKpis = useMemo(
+    () =>
+      MonthlyBudgetService.kpis(
+        comparison?.summary.income ?? EMPTY_SIDE,
+        { year, month },
+      ),
+    [comparison, year, month],
+  );
+
+  // Estado de expansão apenas em memória, preservado durante a navegação.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleGroup = useCallback((key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  const expandAll = useCallback(
+    () => setExpanded(new Set(expenseGroups.map((g) => g.key))),
+    [expenseGroups],
+  );
+  const collapseAll = useCallback(() => setExpanded(new Set()), []);
 
   const suggestedTotal = suggestion.reduce((s, i) => s + i.planned_amount, 0);
 
