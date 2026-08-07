@@ -5,6 +5,8 @@
 // Nenhum componente React monta rota ou filtro manualmente.
 import { DashboardService } from "./DashboardService";
 import { DashboardFilterService } from "./DashboardFilterService";
+import { MonthlyBudgetService } from "./MonthlyBudgetService";
+
 import { MovementType } from "@/constants/enums";
 import type { Movement, UUID, Card, ClassificationRule } from "@/models";
 import type {
