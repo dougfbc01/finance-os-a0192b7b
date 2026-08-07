@@ -72,6 +72,9 @@ export interface InsightFilters {
   card?: string;
   account?: string;
   search?: string;
+  subcategory?: string;
+  from?: string;
+  to?: string;
 }
 
 /** Linha de detalhe exibida dentro do insight (ex.: 3 maiores lançamentos). */

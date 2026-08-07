@@ -66,12 +66,18 @@ type SortDir = "asc" | "desc";
 interface Search {
   account?: string;
   category?: string;
+  subcategory?: string;
+  from?: string;
+  to?: string;
 }
 
 export const Route = createFileRoute("/_authenticated/movimentacoes")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     account: typeof s.account === "string" ? s.account : undefined,
     category: typeof s.category === "string" ? s.category : undefined,
+    subcategory: typeof s.subcategory === "string" ? s.subcategory : undefined,
+    from: typeof s.from === "string" ? s.from : undefined,
+    to: typeof s.to === "string" ? s.to : undefined,
   }),
   head: () => ({
     meta: [
@@ -95,13 +101,14 @@ function MovimentacoesPage() {
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
 
-  const [from, setFrom] = useState(toISODate(firstDayOfMonth()));
-  const [to, setTo] = useState(toISODate(lastDayOfMonth()));
+  const [from, setFrom] = useState(searchParams.from ?? toISODate(firstDayOfMonth()));
+  const [to, setTo] = useState(searchParams.to ?? toISODate(lastDayOfMonth()));
   const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
   const [cardId, setCardId] = useState<string>(ALL);
   const [categoryId, setCategoryId] = useState<string>(
     searchParams.category === "null" ? NO_CATEGORY : (searchParams.category ?? ALL),
   );
+  const [subcategoryId, setSubcategoryId] = useState<string>(searchParams.subcategory ?? ALL);
   const [type, setType] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
   const [group, setGroup] = useState<MovementGroup>("all");
@@ -121,6 +128,15 @@ function MovimentacoesPage() {
       setCategoryId(searchParams.category === "null" ? NO_CATEGORY : searchParams.category);
   }, [searchParams.category]);
 
+  // Drill down vindo do Planejamento Mensal (categoria/subcategoria + período).
+  useEffect(() => {
+    if (searchParams.subcategory) setSubcategoryId(searchParams.subcategory);
+  }, [searchParams.subcategory]);
+  useEffect(() => {
+    if (searchParams.from) setFrom(searchParams.from);
+    if (searchParams.to) setTo(searchParams.to);
+  }, [searchParams.from, searchParams.to]);
+
   const filters: MovementFilters = useMemo(
     () => ({
       from,
@@ -128,12 +144,13 @@ function MovimentacoesPage() {
       accountId: accountId === ALL ? undefined : accountId,
       cardId: cardId === ALL ? undefined : cardId,
       categoryId: categoryId === ALL ? undefined : categoryId,
+      subcategoryId: subcategoryId === ALL ? undefined : subcategoryId,
       type: type === ALL ? undefined : (type as MovementType),
       status: status === ALL ? undefined : (status as MovementStatus),
       group: group === "all" ? undefined : group,
       search: search.trim() || undefined,
     }),
-    [from, to, accountId, cardId, categoryId, type, status, group, search],
+    [from, to, accountId, cardId, categoryId, subcategoryId, type, status, group, search],
   );
 
 
@@ -390,6 +407,20 @@ function MovimentacoesPage() {
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Subcategoria</label>
+          <Select value={subcategoryId} onValueChange={setSubcategoryId}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todas</SelectItem>
+              {subcategories
+                .filter((sc) => categoryId === ALL || sc.category_id === categoryId)
+                .map((sc) => (
+                  <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>

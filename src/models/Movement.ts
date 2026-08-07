@@ -90,6 +90,8 @@ export interface MovementFilters {
   cardId?: UUID | "all";
   /** "none" filtra lançamentos sem categoria. */
   categoryId?: UUID | "all" | "none";
+  /** "none" filtra lançamentos sem subcategoria. */
+  subcategoryId?: UUID | "all" | "none";
   type?: MovementType | "all";
   status?: MovementStatus | "all";
   group?: MovementGroup;
