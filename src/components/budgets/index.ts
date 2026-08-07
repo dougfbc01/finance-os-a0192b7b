@@ -1,4 +1,8 @@
 export { BudgetSummaryCards } from "./BudgetSummaryCards";
 export { BudgetTable } from "./BudgetTable";
+export { BudgetCategoryTable } from "./BudgetCategoryTable";
 export { BudgetFormDialog } from "./BudgetFormDialog";
 export { BudgetItemsEditor } from "./BudgetItemsEditor";
+export { BudgetKpiCards } from "./BudgetKpiCards";
+export { BudgetProgressBar } from "./BudgetProgressBar";
+export { BudgetStatusBadge } from "./BudgetStatusBadge";

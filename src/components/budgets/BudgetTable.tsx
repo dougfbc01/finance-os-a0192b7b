@@ -1,5 +1,5 @@
+import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -8,16 +8,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BudgetProgressBar } from "./BudgetProgressBar";
+import { BudgetStatusBadge } from "./BudgetStatusBadge";
 import { formatCurrency } from "@/lib/format";
+import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
 import type { BudgetLine } from "@/models/MonthlyBudget";
 
 interface Props {
   lines: BudgetLine[];
+  year: number;
+  month: number;
   emptyLabel?: string;
 }
 
 /** Tabela Planejado x Realizado. Recebe linhas já calculadas pelo Service. */
-export function BudgetTable({ lines, emptyLabel = "Nenhuma linha no período." }: Props) {
+export function BudgetTable({ lines, year, month, emptyLabel = "Nenhuma linha no período." }: Props) {
   if (lines.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
@@ -32,17 +37,31 @@ export function BudgetTable({ lines, emptyLabel = "Nenhuma linha no período." }
           <TableHead className="text-right">Realizado</TableHead>
           <TableHead className="text-right">Diferença</TableHead>
           <TableHead className="w-40">%</TableHead>
+          <TableHead>Status</TableHead>
           <TableHead className="text-right">Saldo restante</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {lines.map((l) => {
-          const percent = l.percent ?? 0;
+          const status = MonthlyBudgetService.statusLevel(l.percent);
+          const catLink = MonthlyBudgetService.drillDown({
+            year,
+            month,
+            categoryId: l.categoryId,
+          });
+          const subLink = MonthlyBudgetService.drillDown({
+            year,
+            month,
+            categoryId: l.categoryId,
+            subcategoryId: l.subcategoryId,
+          });
           return (
             <TableRow key={`${l.kind}:${l.key}`}>
               <TableCell className="font-medium">
                 <span className="flex items-center gap-2">
-                  {l.categoryName}
+                  <Link to={catLink.to} search={catLink.search} className="hover:underline">
+                    {l.categoryName}
+                  </Link>
                   {l.kind === "INCOME" && (
                     <Badge variant="secondary" className="text-[10px]">
                       Receita
@@ -51,7 +70,13 @@ export function BudgetTable({ lines, emptyLabel = "Nenhuma linha no período." }
                 </span>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {l.subcategoryName ?? "—"}
+                {l.subcategoryName ? (
+                  <Link to={subLink.to} search={subLink.search} className="hover:underline">
+                    {l.subcategoryName}
+                  </Link>
+                ) : (
+                  "—"
+                )}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCurrency(l.planned)}
@@ -67,16 +92,10 @@ export function BudgetTable({ lines, emptyLabel = "Nenhuma linha no período." }
                 {formatCurrency(l.difference)}
               </TableCell>
               <TableCell>
-                {l.percent === null ? (
-                  <span className="text-xs text-muted-foreground">Sem planejamento</span>
-                ) : (
-                  <div className="space-y-1">
-                    <Progress value={Math.min(percent, 100)} />
-                    <span className="text-xs text-muted-foreground">
-                      {percent.toFixed(0)}%
-                    </span>
-                  </div>
-                )}
+                <BudgetProgressBar percent={l.percent} status={status} />
+              </TableCell>
+              <TableCell>
+                <BudgetStatusBadge status={status} muted={l.percent === null} />
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCurrency(l.remaining)}
