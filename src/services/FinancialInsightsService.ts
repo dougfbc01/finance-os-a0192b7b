@@ -725,8 +725,65 @@ class FinancialInsightsServiceImpl {
       );
     }
 
+    // Categorias sem utilização — planejado reservado e nada gasto.
+    const unused = expenses.filter((l) => l.actual === 0);
+    if (unused.length > 0) {
+      const total = unused.reduce((s, l) => s + l.planned, 0);
+      out.push(
+        base({
+          id: "budget:unused",
+          severity: "INFO",
+          title: `${unused.length} categoria(s) sem utilização em ${period}.`,
+          description: `${fmtBRL(total)} planejados ainda não foram utilizados.`,
+          quantity: unused.length,
+          value: total,
+          resolved: true,
+          priority: 20,
+          details: unused.slice(0, 3).map((l) => ({
+            label: l.subcategoryName ? `${l.categoryName} › ${l.subcategoryName}` : l.categoryName,
+            amount: l.planned,
+          })),
+          signature: `budget:unused:${unused.length}:${Math.round(total)}`,
+        }),
+      );
+    }
+
+    // Maior excesso — abre direto o extrato filtrado (drill down).
+    const excess = expenses
+      .filter((l) => l.actual > l.planned)
+      .sort((a, b) => b.actual - b.planned - (a.actual - a.planned))[0];
+    if (excess) {
+      const link = MonthlyBudgetService.drillDown({
+        year: budget.year,
+        month: budget.month,
+        categoryId: excess.categoryId,
+        subcategoryId: excess.subcategoryId,
+      });
+      const label = excess.subcategoryName
+        ? `${excess.categoryName} › ${excess.subcategoryName}`
+        : excess.categoryName;
+      out.push(
+        base({
+          id: "budget:excess",
+          severity: "WARNING",
+          title: `Maior excesso do orçamento: ${label} (${fmtBRL(excess.actual - excess.planned)}).`,
+          description: "Abra os lançamentos do período para revisar os gastos.",
+          related_entity: "category",
+          related_entity_id: excess.categoryId,
+          value: excess.actual - excess.planned,
+          recommended_action: "CLASSIFY_MOVEMENTS",
+          action_label: "Ver lançamentos",
+          action_route: "/movimentacoes",
+          action_filters: link.search,
+          priority: 65,
+          signature: `budget:excess:${excess.key}:${Math.round(excess.actual - excess.planned)}`,
+        }),
+      );
+    }
+
     return out;
   }
+
 
 
   /** Resumo executivo (contadores por severidade). */
