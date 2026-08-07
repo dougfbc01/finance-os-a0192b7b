@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { BudgetProgressBar, BudgetStatusBadge } from "@/components/budgets";
 import { formatCurrency } from "@/lib/format";
 import { ROUTES } from "@/constants";
+import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
 
 interface Props {
@@ -14,7 +15,8 @@ interface Props {
 /** Widget "Orçamento do Mês" — apenas apresenta o que o Service calculou. */
 export function BudgetWidget({ comparison, hasBudget }: Props) {
   const e = comparison?.summary.expense;
-  const percent = e?.percent ?? 0;
+  const status = MonthlyBudgetService.statusLevel(e?.percent ?? null);
+
 
   return (
     <Card>
