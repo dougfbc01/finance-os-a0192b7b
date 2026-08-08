@@ -18,6 +18,7 @@ export const ROUTES = {
   REGRAS: "/regras",
   DUPLICIDADES: "/duplicidades",
   FECHAMENTOS: "/fechamentos",
+  METAS: "/metas",
 
 } as const;
 
