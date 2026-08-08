@@ -28,7 +28,8 @@ export type InsightSource =
   | "RULES"
   | "DEDUP"
   | "HEALTH"
-  | "BUDGET";
+  | "BUDGET"
+  | "GOALS";
 
 /** Entidade de negócio relacionada ao insight. */
 export type InsightRelatedEntity =
