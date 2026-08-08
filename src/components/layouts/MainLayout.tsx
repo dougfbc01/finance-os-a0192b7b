@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Landmark,
   Target,
+  Goal,
   FileBarChart,
   Settings,
   LogOut,
