@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Landmark,
   Target,
+  Goal,
   FileBarChart,
   Settings,
   LogOut,
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { title: "Patrimônio", url: ROUTES.PATRIMONIO, icon: Landmark },
   { title: "Fechamentos", url: ROUTES.FECHAMENTOS, icon: CalendarCheck },
   { title: "Planejamento", url: ROUTES.PLANEJAMENTO, icon: Target },
+  { title: "Metas", url: ROUTES.METAS, icon: Goal },
   { title: "Relatórios", url: ROUTES.RELATORIOS, icon: FileBarChart },
   { title: "Configurações", url: ROUTES.CONFIGURACOES, icon: Settings },
 ];

@@ -1,0 +1,432 @@
+// FinancialGoalService — Metas Financeiras (Sprint 4.4).
+// Toda a regra financeira das metas vive aqui.
+// REGRAS:
+//  • O banco guarda apenas a meta e os aportes REAIS informados pelo usuário.
+//  • Valor atual, restante, percentual, ritmo, previsão e status são SEMPRE
+//    recalculados — nunca persistidos.
+//  • Metas do tipo PATRIMONY acompanham o patrimônio líquido já existente
+//    (PatrimonyService), sem duplicar patrimônio nem criar movimentações.
+import { BaseService } from "./BaseService";
+import { toISODate } from "@/lib/format";
+import type { UUID } from "@/models";
+import type { PatrimonySnapshot } from "./PatrimonyService";
+import type { BudgetComparison } from "@/models/MonthlyBudget";
+import type {
+  CreateContributionInput,
+  CreateGoalInput,
+  FinancialGoal,
+  FinancialGoalStatus,
+  GoalBudgetRelation,
+  GoalClosingLine,
+  GoalContribution,
+  GoalHistoryPoint,
+  GoalProgress,
+  GoalStatusLevel,
+  GoalsOverview,
+  UpdateGoalInput,
+} from "@/models/FinancialGoal";
+
+const MONTH_LABEL = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" });
+
+function monthKey(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return MONTH_LABEL.format(new Date(y, (m ?? 1) - 1, 1));
+}
+
+function monthsBetween(fromISO: string, toISO: string): number {
+  const a = new Date(`${fromISO.slice(0, 10)}T00:00:00`);
+  const b = new Date(`${toISO.slice(0, 10)}T00:00:00`);
+  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+}
+
+function daysBetween(fromISO: string, toISO: string): number {
+  const a = new Date(`${fromISO.slice(0, 10)}T00:00:00`).getTime();
+  const b = new Date(`${toISO.slice(0, 10)}T00:00:00`).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+export interface GoalProgressParams {
+  goal: FinancialGoal;
+  contributions: GoalContribution[];
+  /** Fonte real de patrimônio, usada apenas por metas do tipo PATRIMONY. */
+  patrimony?: PatrimonySnapshot | null;
+  /** Data de referência (default: hoje). Facilita testes determinísticos. */
+  today?: string;
+}
+
+class FinancialGoalServiceImpl extends BaseService {
+  private readonly table = "financial_goals";
+  private readonly contribTable = "financial_goal_contributions";
+
+  // ------------------------------------------------------------------
+  // Persistência
+  // ------------------------------------------------------------------
+  async list(workspaceId: UUID): Promise<FinancialGoal[]> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
+    if (error) this.handleError(error, "list");
+    return (data ?? []) as unknown as FinancialGoal[];
+  }
+
+  async listContributions(workspaceId: UUID): Promise<GoalContribution[]> {
+    const { data, error } = await this.client
+      .from(this.contribTable)
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .order("contribution_date", { ascending: true });
+    if (error) this.handleError(error, "listContributions");
+    return (data ?? []) as unknown as GoalContribution[];
+  }
+
+  async create(input: CreateGoalInput): Promise<FinancialGoal> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .insert({
+        workspace_id: input.workspace_id,
+        name: input.name.trim(),
+        description: input.description ?? null,
+        goal_type: input.goal_type,
+        target_amount: input.target_amount,
+        initial_amount: input.initial_amount ?? 0,
+        target_date: input.target_date ?? null,
+        notes: input.notes ?? null,
+        status: input.status ?? "ACTIVE",
+      })
+      .select("*")
+      .single();
+    if (error) this.handleError(error, "create");
+    return data as unknown as FinancialGoal;
+  }
+
+  async update(id: UUID, input: UpdateGoalInput): Promise<FinancialGoal> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .update(input)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) this.handleError(error, "update");
+    return data as unknown as FinancialGoal;
+  }
+
+  /** Transição de status única — pausar/retomar/cancelar/concluir passam por aqui. */
+  async setStatus(id: UUID, status: FinancialGoalStatus): Promise<FinancialGoal> {
+    return this.update(id, { status });
+  }
+
+  pause(id: UUID) {
+    return this.setStatus(id, "PAUSED");
+  }
+
+  resume(id: UUID) {
+    return this.setStatus(id, "ACTIVE");
+  }
+
+  cancel(id: UUID) {
+    return this.setStatus(id, "CANCELLED");
+  }
+
+  complete(id: UUID) {
+    return this.setStatus(id, "COMPLETED");
+  }
+
+  async remove(id: UUID): Promise<void> {
+    const { error } = await this.client
+      .from(this.table)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) this.handleError(error, "remove");
+  }
+
+  async addContribution(input: CreateContributionInput): Promise<GoalContribution> {
+    const { data, error } = await this.client
+      .from(this.contribTable)
+      .insert({
+        workspace_id: input.workspace_id,
+        goal_id: input.goal_id,
+        amount: input.amount,
+        contribution_date: input.contribution_date,
+        notes: input.notes ?? null,
+      })
+      .select("*")
+      .single();
+    if (error) this.handleError(error, "addContribution");
+    return data as unknown as GoalContribution;
+  }
+
+  async removeContribution(id: UUID): Promise<void> {
+    const { error } = await this.client
+      .from(this.contribTable)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) this.handleError(error, "removeContribution");
+  }
+
+  // ------------------------------------------------------------------
+  // Cálculos puros
+  // ------------------------------------------------------------------
+  /** Aportes válidos da meta, ordenados por data. */
+  contributionsOf(goalId: UUID, contributions: GoalContribution[]): GoalContribution[] {
+    return contributions
+      .filter((c) => c.goal_id === goalId && !c.deleted_at)
+      .sort((a, b) => a.contribution_date.localeCompare(b.contribution_date));
+  }
+
+  /** Valor atual acumulado da meta. */
+  currentAmount(params: GoalProgressParams): number {
+    const { goal, patrimony } = params;
+    if (goal.goal_type === "PATRIMONY" && patrimony) {
+      return patrimony.netWorth;
+    }
+    const contributed = this.contributionsOf(goal.id, params.contributions).reduce(
+      (s, c) => s + Number(c.amount),
+      0,
+    );
+    return Number(goal.initial_amount) + contributed;
+  }
+
+  remainingAmount(target: number, current: number): number {
+    return Math.max(Number(target) - current, 0);
+  }
+
+  percentAchieved(target: number, current: number): number | null {
+    if (!target || Number(target) <= 0) return null;
+    return (current / Number(target)) * 100;
+  }
+
+  /** Histórico mensal acumulado a partir dos aportes reais. */
+  history(params: GoalProgressParams): GoalHistoryPoint[] {
+    const { goal } = params;
+    const contributions = this.contributionsOf(goal.id, params.contributions);
+    const byMonth = new Map<string, number>();
+    for (const c of contributions) {
+      const k = monthKey(c.contribution_date);
+      byMonth.set(k, (byMonth.get(k) ?? 0) + Number(c.amount));
+    }
+    const startKey = monthKey(goal.created_at);
+    const points: GoalHistoryPoint[] = [];
+    let accumulated = Number(goal.initial_amount);
+    const keys = Array.from(new Set([startKey, ...byMonth.keys()])).sort();
+    for (const k of keys) {
+      const contributed = byMonth.get(k) ?? 0;
+      accumulated += contributed;
+      points.push({ month: k, label: monthLabel(k), contributed, accumulated });
+    }
+    return points;
+  }
+
+  /**
+   * Ritmo médio mensal. Exige histórico real: pelo menos 2 aportes distribuídos
+   * em 2 ou mais meses. Sem isso, retorna null (nunca inventa previsão).
+   */
+  monthlyPace(params: GoalProgressParams): number | null {
+    const contributions = this.contributionsOf(params.goal.id, params.contributions);
+    if (contributions.length < 2) return null;
+    const months = new Set(contributions.map((c) => monthKey(c.contribution_date)));
+    if (months.size < 2) return null;
+    const first = contributions[0].contribution_date;
+    const last = contributions[contributions.length - 1].contribution_date;
+    const span = monthsBetween(first, last) + 1;
+    const total = contributions.reduce((s, c) => s + Number(c.amount), 0);
+    if (span <= 0 || total <= 0) return null;
+    return total / span;
+  }
+
+  /** Semáforo da meta. Depende do ritmo esperado até a data alvo. */
+  statusLevel(params: {
+    status: FinancialGoalStatus;
+    percent: number | null;
+    remaining: number;
+    createdAt: string;
+    targetDate: string | null;
+    today: string;
+  }): GoalStatusLevel {
+    if (params.status === "COMPLETED" || params.remaining <= 0) return "DONE";
+    if (params.status === "PAUSED" || params.status === "CANCELLED") return "INACTIVE";
+    const percent = params.percent ?? 0;
+    if (!params.targetDate) return "ON_TRACK";
+    if (params.today > params.targetDate) return "LATE";
+    const total = daysBetween(params.createdAt.slice(0, 10), params.targetDate);
+    if (total <= 0) return "LATE";
+    const elapsed = Math.max(daysBetween(params.createdAt.slice(0, 10), params.today), 0);
+    const expected = (elapsed / total) * 100;
+    if (percent >= expected) return "ON_TRACK";
+    if (percent >= expected * 0.8) return "ATTENTION";
+    return "LATE";
+  }
+
+  /** Progresso completo da meta — única fonte de verdade para a UI. */
+  progress(params: GoalProgressParams): GoalProgress {
+    const today = params.today ?? toISODate(new Date());
+    const goal = params.goal;
+    const target = Number(goal.target_amount);
+    const current = this.currentAmount({ ...params, today });
+    const remaining = this.remainingAmount(target, current);
+    const percent = this.percentAchieved(target, current);
+    const history = this.history(params);
+    const pace = this.monthlyPace(params);
+
+    let monthsToComplete: number | null = null;
+    let estimatedCompletionDate: string | null = null;
+    let forecastMessage: string | null = null;
+
+    if (remaining <= 0) {
+      forecastMessage = null;
+    } else if (pace && pace > 0) {
+      monthsToComplete = Math.ceil(remaining / pace);
+      const ref = new Date(`${today}T00:00:00`);
+      estimatedCompletionDate = toISODate(
+        new Date(ref.getFullYear(), ref.getMonth() + monthsToComplete + 1, 0),
+      );
+    } else {
+      forecastMessage = "Dados insuficientes para estimativa.";
+    }
+
+    const monthsToTarget = goal.target_date ? Math.max(monthsBetween(today, goal.target_date), 0) : null;
+    const requiredMonthly =
+      goal.target_date && remaining > 0
+        ? remaining / Math.max(monthsToTarget ?? 0, 1)
+        : goal.target_date
+          ? 0
+          : null;
+
+    const contributions = this.contributionsOf(goal.id, params.contributions);
+    const last = contributions[contributions.length - 1];
+
+    return {
+      goalId: goal.id,
+      name: goal.name,
+      type: goal.goal_type,
+      status: goal.status,
+      target,
+      current,
+      remaining,
+      percent,
+      level: this.statusLevel({
+        status: goal.status,
+        percent,
+        remaining,
+        createdAt: goal.created_at,
+        targetDate: goal.target_date,
+        today,
+      }),
+      history,
+      monthlyPace: pace,
+      monthsToComplete,
+      estimatedCompletionDate,
+      requiredMonthly,
+      monthsToTarget,
+      targetDate: goal.target_date,
+      forecastMessage,
+      daysSinceLastContribution: last ? daysBetween(last.contribution_date, today) : null,
+    };
+  }
+
+  /** Progresso de todas as metas do workspace. */
+  progressAll(params: {
+    goals: FinancialGoal[];
+    contributions: GoalContribution[];
+    patrimony?: PatrimonySnapshot | null;
+    today?: string;
+  }): GoalProgress[] {
+    return params.goals
+      .filter((g) => !g.deleted_at)
+      .map((goal) =>
+        this.progress({
+          goal,
+          contributions: params.contributions,
+          patrimony: params.patrimony ?? null,
+          today: params.today,
+        }),
+      );
+  }
+
+  /** Consolidado para o Dashboard. */
+  overview(progressList: GoalProgress[]): GoalsOverview {
+    const active = progressList.filter((p) => p.status === "ACTIVE");
+    const totalTarget = active.reduce((s, p) => s + p.target, 0);
+    const totalCurrent = active.reduce((s, p) => s + p.current, 0);
+    const pending = active.filter((p) => p.remaining > 0);
+    const closest =
+      pending.slice().sort((a, b) => a.remaining - b.remaining)[0] ?? null;
+    const best =
+      active.slice().sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0] ?? null;
+    return {
+      active: active.length,
+      completed: progressList.filter((p) => p.status === "COMPLETED" || p.level === "DONE").length,
+      paused: progressList.filter((p) => p.status === "PAUSED").length,
+      late: active.filter((p) => p.level === "LATE").length,
+      totalTarget,
+      totalCurrent,
+      percent: totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : null,
+      closest,
+      best,
+    };
+  }
+
+  /**
+   * Relação entre metas ativas e o orçamento do mês. Somente leitura:
+   * nada do Planejamento é alterado.
+   */
+  budgetRelation(
+    progressList: GoalProgress[],
+    budget: BudgetComparison | null,
+  ): GoalBudgetRelation[] {
+    const plannedAvailable = budget
+      ? budget.summary.income.planned - budget.summary.expense.planned
+      : 0;
+    return progressList
+      .filter((p) => p.status === "ACTIVE" && p.remaining > 0)
+      .map((p) => ({
+        goalId: p.goalId,
+        name: p.name,
+        requiredMonthly: p.requiredMonthly,
+        plannedAvailable,
+        difference: p.requiredMonthly === null ? null : plannedAvailable - p.requiredMonthly,
+        feasible:
+          p.requiredMonthly === null ? null : plannedAvailable >= p.requiredMonthly,
+      }));
+  }
+
+  /**
+   * Evolução das metas dentro de um período de fechamento. Calculado sob
+   * demanda — não altera nem regrava snapshots históricos.
+   */
+  closingLines(params: {
+    goals: FinancialGoal[];
+    contributions: GoalContribution[];
+    start: string;
+    end: string;
+  }): GoalClosingLine[] {
+    return params.goals
+      .filter((g) => !g.deleted_at)
+      .map((goal) => {
+        const all = this.contributionsOf(goal.id, params.contributions);
+        const untilEnd = all.filter((c) => c.contribution_date <= params.end);
+        const inPeriod = untilEnd.filter((c) => c.contribution_date >= params.start);
+        const accumulated =
+          Number(goal.initial_amount) + untilEnd.reduce((s, c) => s + Number(c.amount), 0);
+        return {
+          goalId: goal.id,
+          name: goal.name,
+          type: goal.goal_type,
+          target: Number(goal.target_amount),
+          accumulated,
+          contributedInPeriod: inPeriod.reduce((s, c) => s + Number(c.amount), 0),
+          percent: this.percentAchieved(Number(goal.target_amount), accumulated),
+        };
+      });
+  }
+}
+
+export const FinancialGoalService = new FinancialGoalServiceImpl();
+export { FinancialGoalServiceImpl };

@@ -16,7 +16,8 @@ export type InsightType =
   | "CARDS_RECONCILED"
   | "HEALTH_CHECK"
   | "PROJECTION"
-  | "BUDGET";
+  | "BUDGET"
+  | "GOAL";
 
 /** Origem do insight (módulo que o gerou). */
 export type InsightSource =
@@ -27,7 +28,8 @@ export type InsightSource =
   | "RULES"
   | "DEDUP"
   | "HEALTH"
-  | "BUDGET";
+  | "BUDGET"
+  | "GOALS";
 
 /** Entidade de negócio relacionada ao insight. */
 export type InsightRelatedEntity =
@@ -39,6 +41,7 @@ export type InsightRelatedEntity =
   | "workspace"
   | "health_check"
   | "budget"
+  | "goal"
   | "none";
 
 /** Ação recomendada — interpretada pela UI (navegação ou ação rápida). */
@@ -52,6 +55,7 @@ export type InsightAction =
   | "RUN_HEALTH_CHECK"
   | "REPROCESS_RULES"
   | "OPEN_BUDGET"
+  | "OPEN_GOAL"
   | "NONE";
 
 /** Rotas que um insight pode abrir (deep link). */
@@ -63,7 +67,8 @@ export type InsightRoute =
   | "/cartoes"
   | "/configuracoes"
   | "/planejamento"
-  | "/fechamentos";
+  | "/fechamentos"
+  | "/metas";
 
 /** Filtros aplicados ao abrir a tela de destino. */
 export interface InsightFilters {

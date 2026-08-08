@@ -12,6 +12,7 @@ import { useRuleIntegrity } from "./useRuleIntegrity";
 import { useHealthCheckRuns, useRunHealthCheck } from "./useHealthCheck";
 import { useInsightDismiss } from "./useInsightDismiss";
 import { useMonthlyBudget } from "./useMonthlyBudgets";
+import { useFinancialGoals } from "./useFinancialGoals";
 import { FinancialInsightsService } from "@/services/FinancialInsightsService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
 import type { FinancialInsight, InsightSummary } from "@/models/Insight";
@@ -47,6 +48,8 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
     refDate.getMonth() + 1,
   );
 
+  const { progress: goalProgress } = useFinancialGoals();
+
   const runHealthMut = useRunHealthCheck();
   const reprocessMut = useReprocessRules();
 
@@ -79,6 +82,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
         healthIssues: lastRun ? lastRun.issues : null,
         healthCheckedAt: lastRun?.created_at ?? null,
         budget,
+        goals: goalProgress,
       }),
     [
       resolved.start,
@@ -95,6 +99,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
       cards,
       lastRun,
       budget,
+      goalProgress,
     ],
   );
 

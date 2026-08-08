@@ -486,6 +486,113 @@ export type Database = {
           },
         ]
       }
+      financial_goal_contributions: {
+        Row: {
+          amount: number
+          contribution_date: string
+          created_at: string
+          deleted_at: string | null
+          goal_id: string
+          id: string
+          notes: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          amount: number
+          contribution_date?: string
+          created_at?: string
+          deleted_at?: string | null
+          goal_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          contribution_date?: string
+          created_at?: string
+          deleted_at?: string | null
+          goal_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_goal_contributions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "financial_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_goal_contributions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_goals: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          goal_type: Database["public"]["Enums"]["financial_goal_type"]
+          id: string
+          initial_amount: number
+          name: string
+          notes: string | null
+          status: Database["public"]["Enums"]["financial_goal_status"]
+          target_amount: number
+          target_date: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          goal_type?: Database["public"]["Enums"]["financial_goal_type"]
+          id?: string
+          initial_amount?: number
+          name: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["financial_goal_status"]
+          target_amount?: number
+          target_date?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          goal_type?: Database["public"]["Enums"]["financial_goal_type"]
+          id?: string
+          initial_amount?: number
+          name?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["financial_goal_status"]
+          target_amount?: number
+          target_date?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_goals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_check_runs: {
         Row: {
           acknowledged_at: string | null
@@ -1174,6 +1281,14 @@ export type Database = {
         | "OUTRO"
       card_invoice_status: "OPEN" | "CLOSED" | "PAID" | "OVERDUE"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
+      financial_goal_status: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED"
+      financial_goal_type:
+        | "EMERGENCY_RESERVE"
+        | "PURCHASE"
+        | "TRAVEL"
+        | "INVESTMENT"
+        | "PATRIMONY"
+        | "CUSTOM"
       import_source: "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL"
       import_status:
         | "PENDING"
@@ -1351,6 +1466,15 @@ export const Constants = {
       ],
       card_invoice_status: ["OPEN", "CLOSED", "PAID", "OVERDUE"],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
+      financial_goal_status: ["ACTIVE", "COMPLETED", "PAUSED", "CANCELLED"],
+      financial_goal_type: [
+        "EMERGENCY_RESERVE",
+        "PURCHASE",
+        "TRAVEL",
+        "INVESTMENT",
+        "PATRIMONY",
+        "CUSTOM",
+      ],
       import_source: ["NUBANK_ACCOUNT", "NUBANK_CREDIT_CARD", "OFX", "MANUAL"],
       import_status: [
         "PENDING",
