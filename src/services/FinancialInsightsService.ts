@@ -19,6 +19,7 @@ import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { NetWorthPoint, MonthSummary } from "./DashboardService";
 import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
+import type { GoalProgress } from "@/models/FinancialGoal";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
@@ -46,6 +47,8 @@ export interface InsightsInput {
   healthCheckedAt?: string | null;
   /** Comparação Planejado x Realizado do mês (Sprint 4.3). */
   budget?: BudgetComparison | null;
+  /** Progresso das metas financeiras (Sprint 4.4). */
+  goals?: GoalProgress[];
 }
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
@@ -572,8 +575,114 @@ class FinancialInsightsServiceImpl {
       push({ ...insight, bonus: insight.priority });
     }
 
+    // ── 12. Metas Financeiras (Sprint 4.4).
+    for (const insight of this.goalInsights(input.goals ?? [])) {
+      push({ ...insight, bonus: insight.priority });
+    }
+
     const insights = out.sort((a, b) => b.priority - a.priority);
     return { insights, summary: this.summarize(insights) };
+  }
+
+  /**
+   * Alertas das Metas Financeiras. Recebe o progresso já calculado pelo
+   * FinancialGoalService — nenhum cálculo financeiro acontece aqui.
+   */
+  goalInsights(goals: GoalProgress[]): FinancialInsight[] {
+    const now = new Date().toISOString();
+    const out: FinancialInsight[] = [];
+
+    const base = (over: Partial<FinancialInsight>): FinancialInsight => ({
+      id: "goal",
+      type: "GOAL",
+      severity: "INFO",
+      title: "",
+      description: "",
+      source: "GOALS",
+      related_entity: "goal",
+      related_entity_id: null,
+      quantity: 1,
+      value: 0,
+      recommended_action: "OPEN_GOAL",
+      action_label: "Ver metas",
+      action_route: "/metas",
+      action_filters: {},
+      dismissible: true,
+      created_at: now,
+      resolved: false,
+      priority: 100,
+      details: [],
+      signature: "goal",
+      ...over,
+    });
+
+    for (const g of goals.filter((x) => x.status === "ACTIVE")) {
+      if (g.level === "LATE") {
+        out.push(
+          base({
+            id: `goal:late:${g.goalId}`,
+            severity: "WARNING",
+            title: `Meta atrasada: ${g.name}`,
+            description: `Faltam ${g.remaining.toFixed(2)} para atingir a meta e o ritmo atual está abaixo do necessário.`,
+            related_entity_id: g.goalId,
+            value: g.remaining,
+            action_filters: { search: g.goalId },
+            priority: 210,
+            signature: `goal:late:${g.goalId}:${Math.round(g.percent ?? 0)}`,
+            details: [
+              { label: "Percentual atingido", value: `${(g.percent ?? 0).toFixed(1)}%` },
+              ...(g.requiredMonthly !== null
+                ? [{ label: "Aporte necessário por mês", amount: g.requiredMonthly }]
+                : []),
+            ],
+          }),
+        );
+      } else if (g.level === "ATTENTION") {
+        out.push(
+          base({
+            id: `goal:attention:${g.goalId}`,
+            severity: "INFO",
+            title: `Meta em atenção: ${g.name}`,
+            description: "O ritmo está um pouco abaixo do esperado para o prazo definido.",
+            related_entity_id: g.goalId,
+            value: g.remaining,
+            priority: 150,
+            signature: `goal:attention:${g.goalId}:${Math.round(g.percent ?? 0)}`,
+          }),
+        );
+      }
+
+      if (g.daysSinceLastContribution !== null && g.daysSinceLastContribution >= 60) {
+        out.push(
+          base({
+            id: `goal:stale:${g.goalId}`,
+            severity: "INFO",
+            title: `Sem aportes há ${g.daysSinceLastContribution} dias: ${g.name}`,
+            description: "Registre um aporte para manter a previsão de conclusão confiável.",
+            related_entity_id: g.goalId,
+            priority: 140,
+            signature: `goal:stale:${g.goalId}:${g.daysSinceLastContribution}`,
+          }),
+        );
+      }
+
+      if (g.remaining <= 0) {
+        out.push(
+          base({
+            id: `goal:done:${g.goalId}`,
+            severity: "INFO",
+            title: `Meta atingida: ${g.name}`,
+            description: "Você pode concluir esta meta ou definir um novo alvo.",
+            related_entity_id: g.goalId,
+            value: g.current,
+            priority: 130,
+            signature: `goal:done:${g.goalId}`,
+          }),
+        );
+      }
+    }
+
+    return out;
   }
 
   /**
