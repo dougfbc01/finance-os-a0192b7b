@@ -41,6 +41,7 @@ export type InsightRelatedEntity =
   | "workspace"
   | "health_check"
   | "budget"
+  | "goal"
   | "none";
 
 /** Ação recomendada — interpretada pela UI (navegação ou ação rápida). */
