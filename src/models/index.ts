@@ -32,3 +32,4 @@ export * from "./CardInvoice";
 export * from "./Asset";
 export * from "./Insight";
 export * from "./MonthlyClosing";
+export * from "./FinancialGoal";
