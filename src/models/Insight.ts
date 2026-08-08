@@ -16,7 +16,8 @@ export type InsightType =
   | "CARDS_RECONCILED"
   | "HEALTH_CHECK"
   | "PROJECTION"
-  | "BUDGET";
+  | "BUDGET"
+  | "GOAL";
 
 /** Origem do insight (módulo que o gerou). */
 export type InsightSource =
