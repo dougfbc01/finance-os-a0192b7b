@@ -55,6 +55,7 @@ export type InsightAction =
   | "RUN_HEALTH_CHECK"
   | "REPROCESS_RULES"
   | "OPEN_BUDGET"
+  | "OPEN_GOAL"
   | "NONE";
 
 /** Rotas que um insight pode abrir (deep link). */
