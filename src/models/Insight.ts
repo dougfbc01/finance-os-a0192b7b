@@ -67,7 +67,8 @@ export type InsightRoute =
   | "/cartoes"
   | "/configuracoes"
   | "/planejamento"
-  | "/fechamentos";
+  | "/fechamentos"
+  | "/metas";
 
 /** Filtros aplicados ao abrir a tela de destino. */
 export interface InsightFilters {
