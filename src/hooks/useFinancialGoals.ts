@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "./useWorkspace";
 import { usePatrimony } from "./usePatrimony";
+import { useDashboardData } from "./useDashboard";
 import { FinancialGoalService } from "@/services/FinancialGoalService";
 import type { UUID } from "@/models";
 import type {
@@ -11,6 +12,7 @@ import type {
   CreateGoalInput,
   FinancialGoal,
   FinancialGoalStatus,
+  GoalAccountLink,
   GoalProgress,
   GoalsOverview,
   UpdateGoalInput,
@@ -18,6 +20,7 @@ import type {
 
 const KEY = "financial-goals";
 const CONTRIB_KEY = "financial-goal-contributions";
+const ACCOUNTS_KEY = "financial-goal-accounts";
 
 export function useGoals(workspaceId: UUID | undefined) {
   return useQuery({
@@ -35,10 +38,20 @@ export function useGoalContributions(workspaceId: UUID | undefined) {
   });
 }
 
+/** Vínculos meta → conta do workspace (Sprint 4.4.1). */
+export function useGoalAccounts(workspaceId: UUID | undefined) {
+  return useQuery({
+    queryKey: [ACCOUNTS_KEY, workspaceId],
+    queryFn: () => FinancialGoalService.listGoalAccounts(workspaceId as UUID),
+    enabled: !!workspaceId,
+  });
+}
+
 export interface FinancialGoalsState {
   goals: FinancialGoal[];
   progress: GoalProgress[];
   overview: GoalsOverview;
+  links: GoalAccountLink[];
   isLoading: boolean;
 }
 
@@ -48,14 +61,26 @@ export function useFinancialGoals(): FinancialGoalsState {
   const wsId = ws?.id as string | undefined;
   const goalsQ = useGoals(wsId);
   const contribQ = useGoalContributions(wsId);
+  const linksQ = useGoalAccounts(wsId);
   const { snapshot } = usePatrimony();
+  // Mesmas queries já usadas pelo Dashboard — React Query deduplica.
+  const { accounts, movements } = useDashboardData();
 
   const goals = useMemo(() => goalsQ.data ?? [], [goalsQ.data]);
   const contributions = useMemo(() => contribQ.data ?? [], [contribQ.data]);
+  const links = useMemo(() => linksQ.data ?? [], [linksQ.data]);
 
   const progress = useMemo(
-    () => FinancialGoalService.progressAll({ goals, contributions, patrimony: snapshot }),
-    [goals, contributions, snapshot],
+    () =>
+      FinancialGoalService.progressAll({
+        goals,
+        contributions,
+        patrimony: snapshot,
+        links,
+        accounts,
+        movements,
+      }),
+    [goals, contributions, snapshot, links, accounts, movements],
   );
 
   const overview = useMemo(() => FinancialGoalService.overview(progress), [progress]);
@@ -64,7 +89,8 @@ export function useFinancialGoals(): FinancialGoalsState {
     goals,
     progress,
     overview,
-    isLoading: goalsQ.isLoading || contribQ.isLoading,
+    links,
+    isLoading: goalsQ.isLoading || contribQ.isLoading || linksQ.isLoading,
   };
 }
 
@@ -73,7 +99,18 @@ function useInvalidateGoals() {
   return () => {
     qc.invalidateQueries({ queryKey: [KEY] });
     qc.invalidateQueries({ queryKey: [CONTRIB_KEY] });
+    qc.invalidateQueries({ queryKey: [ACCOUNTS_KEY] });
   };
+}
+
+/** Substitui as contas vinculadas a uma meta (validação no Service). */
+export function useSetGoalAccounts() {
+  const invalidate = useInvalidateGoals();
+  return useMutation({
+    mutationFn: (vars: Parameters<typeof FinancialGoalService.setGoalAccounts>[0]) =>
+      FinancialGoalService.setGoalAccounts(vars),
+    onSuccess: invalidate,
+  });
 }
 
 export function useCreateGoal() {

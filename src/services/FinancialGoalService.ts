@@ -7,8 +7,10 @@
 //  • Metas do tipo PATRIMONY acompanham o patrimônio líquido já existente
 //    (PatrimonyService), sem duplicar patrimônio nem criar movimentações.
 import { BaseService } from "./BaseService";
+import { MovementServiceImpl } from "./MovementService";
+import { MovementType } from "@/constants/enums";
 import { toISODate } from "@/lib/format";
-import type { UUID } from "@/models";
+import type { Account, Movement, UUID } from "@/models";
 import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
 import type {
@@ -16,12 +18,16 @@ import type {
   CreateGoalInput,
   FinancialGoal,
   FinancialGoalStatus,
+  GoalAccountBreakdown,
+  GoalAccountConflict,
+  GoalAccountLink,
   GoalBudgetRelation,
   GoalClosingLine,
   GoalContribution,
   GoalHistoryPoint,
   GoalProgress,
   GoalStatusLevel,
+  GoalValueSource,
   GoalsOverview,
   UpdateGoalInput,
 } from "@/models/FinancialGoal";
@@ -54,6 +60,12 @@ export interface GoalProgressParams {
   contributions: GoalContribution[];
   /** Fonte real de patrimônio, usada apenas por metas do tipo PATRIMONY. */
   patrimony?: PatrimonySnapshot | null;
+  /** Vínculos meta → conta (Sprint 4.4.1). */
+  links?: GoalAccountLink[];
+  /** Contas do workspace — usadas para nome e saldo inicial. */
+  accounts?: Account[];
+  /** Movimentações reais — nunca são criadas pela meta, apenas lidas. */
+  movements?: Movement[];
   /** Data de referência (default: hoje). Facilita testes determinísticos. */
   today?: string;
 }
@@ -61,6 +73,7 @@ export interface GoalProgressParams {
 class FinancialGoalServiceImpl extends BaseService {
   private readonly table = "financial_goals";
   private readonly contribTable = "financial_goal_contributions";
+  private readonly accountsTable = "financial_goal_accounts";
 
   // ------------------------------------------------------------------
   // Persistência
@@ -172,6 +185,71 @@ class FinancialGoalServiceImpl extends BaseService {
   }
 
   // ------------------------------------------------------------------
+  // Vínculo Meta → Conta (Sprint 4.4.1)
+  // A meta NUNCA cria movimentação: ela apenas observa contas reais.
+  // ------------------------------------------------------------------
+  async listGoalAccounts(workspaceId: UUID): Promise<GoalAccountLink[]> {
+    const { data, error } = await this.client
+      .from(this.accountsTable)
+      .select("*")
+      .eq("workspace_id", workspaceId);
+    if (error) this.handleError(error, "listGoalAccounts");
+    return (data ?? []) as unknown as GoalAccountLink[];
+  }
+
+  /**
+   * Substitui os vínculos de uma meta. Valida a dupla contagem antes de
+   * gravar: uma conta não pode pertencer a duas metas ATIVAS.
+   */
+  async setGoalAccounts(params: {
+    goalId: UUID;
+    workspaceId: UUID;
+    accountIds: UUID[];
+    goals: FinancialGoal[];
+    links: GoalAccountLink[];
+    accounts: Account[];
+  }): Promise<void> {
+    const conflicts = this.linkConflicts(params);
+    if (conflicts.length > 0) {
+      const first = conflicts[0];
+      this.handleError(
+        new Error(
+          `A conta "${first.accountName}" já está vinculada à meta ativa "${first.goalName}". Remova o vínculo antes de reutilizá-la.`,
+        ),
+        "setGoalAccounts",
+      );
+    }
+
+    const { error: delError } = await this.client
+      .from(this.accountsTable)
+      .delete()
+      .eq("goal_id", params.goalId);
+    if (delError) this.handleError(delError, "setGoalAccounts");
+
+    const unique = Array.from(new Set(params.accountIds));
+    if (unique.length === 0) return;
+
+    const { error } = await this.client.from(this.accountsTable).insert(
+      unique.map((accountId) => ({
+        workspace_id: params.workspaceId,
+        goal_id: params.goalId,
+        account_id: accountId,
+      })),
+    );
+    if (error) this.handleError(error, "setGoalAccounts");
+  }
+
+  /** Remove um único vínculo conta → meta. */
+  async unlinkAccount(goalId: UUID, accountId: UUID): Promise<void> {
+    const { error } = await this.client
+      .from(this.accountsTable)
+      .delete()
+      .eq("goal_id", goalId)
+      .eq("account_id", accountId);
+    if (error) this.handleError(error, "unlinkAccount");
+  }
+
+  // ------------------------------------------------------------------
   // Cálculos puros
   // ------------------------------------------------------------------
   /** Aportes válidos da meta, ordenados por data. */
@@ -181,9 +259,124 @@ class FinancialGoalServiceImpl extends BaseService {
       .sort((a, b) => a.contribution_date.localeCompare(b.contribution_date));
   }
 
-  /** Valor atual acumulado da meta. */
+  /** Contas vinculadas a uma meta. */
+  accountIdsOf(goalId: UUID, links: GoalAccountLink[] = []): UUID[] {
+    return links.filter((l) => l.goal_id === goalId).map((l) => l.account_id);
+  }
+
+  /**
+   * Conflitos de vínculo: contas já usadas por outra meta ATIVA.
+   * Metas pausadas, concluídas ou canceladas não bloqueiam.
+   */
+  linkConflicts(params: {
+    goalId: UUID;
+    accountIds: UUID[];
+    goals: FinancialGoal[];
+    links: GoalAccountLink[];
+    accounts?: Account[];
+  }): GoalAccountConflict[] {
+    const activeGoals = new Map(
+      params.goals
+        .filter((g) => !g.deleted_at && g.status === "ACTIVE" && g.id !== params.goalId)
+        .map((g) => [g.id, g] as const),
+    );
+    const accountName = (id: UUID) =>
+      params.accounts?.find((a) => a.id === id)?.name ?? "conta";
+    const out: GoalAccountConflict[] = [];
+    for (const accountId of new Set(params.accountIds)) {
+      for (const link of params.links) {
+        if (link.account_id !== accountId || link.goal_id === params.goalId) continue;
+        const owner = activeGoals.get(link.goal_id);
+        if (!owner) continue;
+        out.push({
+          accountId,
+          accountName: accountName(accountId),
+          goalId: owner.id,
+          goalName: owner.name,
+        });
+        break;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Impacto de uma movimentação real sobre um conjunto de contas.
+   * Transferências entre duas contas do conjunto se anulam — por isso o
+   * patrimônio e o valor da meta nunca são duplicados.
+   */
+  private movementImpact(m: Movement, ids: Set<UUID>): number {
+    let delta = 0;
+    if (m.account_id && ids.has(m.account_id)) {
+      delta += MovementServiceImpl.impactOnAccount(m, m.account_id);
+    }
+    if (m.type === MovementType.TRANSFER && m.transfer_account_id && ids.has(m.transfer_account_id)) {
+      delta += MovementServiceImpl.impactOnAccount(m, m.transfer_account_id);
+    }
+    return delta;
+  }
+
+  /** Saldo real de um conjunto de contas (mesma regra do DashboardService). */
+  accountsBalance(params: {
+    accountIds: UUID[];
+    accounts: Account[];
+    movements: Movement[];
+  }): number {
+    const ids = new Set(params.accountIds);
+    let total = params.accounts
+      .filter((a) => ids.has(a.id))
+      .reduce((s, a) => s + (Number(a.initial_balance) || 0), 0);
+    for (const m of params.movements) {
+      if (m.deleted_at) continue;
+      total += this.movementImpact(m, ids);
+    }
+    return total;
+  }
+
+  /** "De onde vem o valor desta meta?" — saldo de cada conta vinculada. */
+  accountsBreakdown(params: {
+    accountIds: UUID[];
+    accounts: Account[];
+    movements: Movement[];
+  }): GoalAccountBreakdown[] {
+    return params.accountIds
+      .map((accountId) => {
+        const account = params.accounts.find((a) => a.id === accountId);
+        return {
+          accountId,
+          name: account?.name ?? "Conta removida",
+          balance: this.accountsBalance({ ...params, accountIds: [accountId] }),
+        };
+      })
+      .sort((a, b) => b.balance - a.balance);
+  }
+
+  /** Deep link para o extrato filtrado pelas contas da meta. */
+  drillDown(accountIds: UUID[]): { to: "/movimentacoes"; search: { account?: UUID } } {
+    return {
+      to: "/movimentacoes",
+      search: accountIds.length === 1 ? { account: accountIds[0] } : {},
+    };
+  }
+
+  /** Origem do valor atual da meta. */
+  valueSource(params: GoalProgressParams): GoalValueSource {
+    if (this.accountIdsOf(params.goal.id, params.links ?? []).length > 0) return "ACCOUNTS";
+    if (params.goal.goal_type === "PATRIMONY" && params.patrimony) return "PATRIMONY";
+    return "CONTRIBUTIONS";
+  }
+
+  /** Valor atual acumulado da meta. Sempre derivado — nunca persistido. */
   currentAmount(params: GoalProgressParams): number {
     const { goal, patrimony } = params;
+    const accountIds = this.accountIdsOf(goal.id, params.links ?? []);
+    if (accountIds.length > 0) {
+      return this.accountsBalance({
+        accountIds,
+        accounts: params.accounts ?? [],
+        movements: params.movements ?? [],
+      });
+    }
     if (goal.goal_type === "PATRIMONY" && patrimony) {
       return patrimony.netWorth;
     }
@@ -203,9 +396,47 @@ class FinancialGoalServiceImpl extends BaseService {
     return (current / Number(target)) * 100;
   }
 
-  /** Histórico mensal acumulado a partir dos aportes reais. */
+  /** Histórico mensal do saldo das contas vinculadas (movimentações reais). */
+  accountsHistory(params: {
+    accountIds: UUID[];
+    accounts: Account[];
+    movements: Movement[];
+  }): GoalHistoryPoint[] {
+    const ids = new Set(params.accountIds);
+    const initial = params.accounts
+      .filter((a) => ids.has(a.id))
+      .reduce((s, a) => s + (Number(a.initial_balance) || 0), 0);
+
+    const byMonth = new Map<string, number>();
+    for (const m of params.movements) {
+      if (m.deleted_at) continue;
+      const delta = this.movementImpact(m, ids);
+      if (delta === 0) continue;
+      const k = monthKey(m.transaction_date);
+      byMonth.set(k, (byMonth.get(k) ?? 0) + delta);
+    }
+
+    let accumulated = initial;
+    return Array.from(byMonth.keys())
+      .sort()
+      .map((k) => {
+        const contributed = byMonth.get(k) ?? 0;
+        accumulated += contributed;
+        return { month: k, label: monthLabel(k), contributed, accumulated };
+      });
+  }
+
+  /** Histórico mensal acumulado — contas vinculadas ou aportes reais. */
   history(params: GoalProgressParams): GoalHistoryPoint[] {
     const { goal } = params;
+    const accountIds = this.accountIdsOf(goal.id, params.links ?? []);
+    if (accountIds.length > 0) {
+      return this.accountsHistory({
+        accountIds,
+        accounts: params.accounts ?? [],
+        movements: params.movements ?? [],
+      });
+    }
     const contributions = this.contributionsOf(goal.id, params.contributions);
     const byMonth = new Map<string, number>();
     for (const c of contributions) {
@@ -227,8 +458,18 @@ class FinancialGoalServiceImpl extends BaseService {
   /**
    * Ritmo médio mensal. Exige histórico real: pelo menos 2 aportes distribuídos
    * em 2 ou mais meses. Sem isso, retorna null (nunca inventa previsão).
+   * Com contas vinculadas, o ritmo vem da evolução real do saldo.
    */
   monthlyPace(params: GoalProgressParams): number | null {
+    const accountIds = this.accountIdsOf(params.goal.id, params.links ?? []);
+    if (accountIds.length > 0) {
+      const points = this.history(params);
+      if (points.length < 2) return null;
+      const total = points.reduce((s, p) => s + p.contributed, 0);
+      const span = monthsBetween(`${points[0].month}-01`, `${points[points.length - 1].month}-01`) + 1;
+      if (span <= 0 || total <= 0) return null;
+      return total / span;
+    }
     const contributions = this.contributionsOf(params.goal.id, params.contributions);
     if (contributions.length < 2) return null;
     const months = new Set(contributions.map((c) => monthKey(c.contribution_date)));
@@ -301,6 +542,15 @@ class FinancialGoalServiceImpl extends BaseService {
 
     const contributions = this.contributionsOf(goal.id, params.contributions);
     const last = contributions[contributions.length - 1];
+    const accountIds = this.accountIdsOf(goal.id, params.links ?? []);
+    const accounts =
+      accountIds.length > 0
+        ? this.accountsBreakdown({
+            accountIds,
+            accounts: params.accounts ?? [],
+            movements: params.movements ?? [],
+          })
+        : [];
 
     return {
       goalId: goal.id,
@@ -328,6 +578,9 @@ class FinancialGoalServiceImpl extends BaseService {
       targetDate: goal.target_date,
       forecastMessage,
       daysSinceLastContribution: last ? daysBetween(last.contribution_date, today) : null,
+      source: this.valueSource(params),
+      accountIds,
+      accounts,
     };
   }
 
@@ -336,6 +589,9 @@ class FinancialGoalServiceImpl extends BaseService {
     goals: FinancialGoal[];
     contributions: GoalContribution[];
     patrimony?: PatrimonySnapshot | null;
+    links?: GoalAccountLink[];
+    accounts?: Account[];
+    movements?: Movement[];
     today?: string;
   }): GoalProgress[] {
     return params.goals
@@ -345,6 +601,9 @@ class FinancialGoalServiceImpl extends BaseService {
           goal,
           contributions: params.contributions,
           patrimony: params.patrimony ?? null,
+          links: params.links ?? [],
+          accounts: params.accounts ?? [],
+          movements: params.movements ?? [],
           today: params.today,
         }),
       );
@@ -395,6 +654,14 @@ class FinancialGoalServiceImpl extends BaseService {
         feasible:
           p.requiredMonthly === null ? null : plannedAvailable >= p.requiredMonthly,
       }));
+  }
+
+  /** Relação de uma única meta com o orçamento do mês (somente leitura). */
+  budgetRelationOf(
+    progress: GoalProgress,
+    budget: BudgetComparison | null,
+  ): GoalBudgetRelation | null {
+    return this.budgetRelation([progress], budget)[0] ?? null;
   }
 
   /**

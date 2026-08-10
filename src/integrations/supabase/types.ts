@@ -486,6 +486,55 @@ export type Database = {
           },
         ]
       }
+      financial_goal_accounts: {
+        Row: {
+          account_id: string
+          created_at: string
+          goal_id: string
+          id: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          goal_id: string
+          id?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          goal_id?: string
+          id?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_goal_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_goal_accounts_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "financial_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_goal_accounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_goal_contributions: {
         Row: {
           amount: number

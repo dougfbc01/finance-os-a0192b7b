@@ -5,3 +5,4 @@ export { GoalFormDialog } from "./GoalFormDialog";
 export { GoalContributionDialog } from "./GoalContributionDialog";
 export { GoalEvolutionChart } from "./GoalEvolutionChart";
 export { GoalDetailPanel } from "./GoalDetailPanel";
+export { GoalSourcePanel } from "./GoalSourcePanel";

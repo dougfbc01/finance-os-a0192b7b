@@ -18,7 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateGoal, useUpdateGoal } from "@/hooks/useFinancialGoals";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import {
+  useCreateGoal,
+  useFinancialGoals,
+  useSetGoalAccounts,
+  useUpdateGoal,
+} from "@/hooks/useFinancialGoals";
+import { FinancialGoalService } from "@/services/FinancialGoalService";
 import {
   GOAL_TYPE_LABELS,
   type FinancialGoal,
@@ -37,6 +46,10 @@ const TYPES = Object.keys(GOAL_TYPE_LABELS) as FinancialGoalType[];
 export function GoalFormDialog({ open, onOpenChange, workspaceId, goal }: Props) {
   const createMut = useCreateGoal();
   const updateMut = useUpdateGoal();
+  const accountsMut = useSetGoalAccounts();
+  const { data: ws } = useWorkspace();
+  const { data: accounts = [] } = useAccounts(ws?.id as string | undefined);
+  const { goals, links } = useFinancialGoals();
 
   const [name, setName] = useState("");
   const [type, setType] = useState<FinancialGoalType>("EMERGENCY_RESERVE");
@@ -44,6 +57,7 @@ export function GoalFormDialog({ open, onOpenChange, workspaceId, goal }: Props)
   const [initial, setInitial] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [description, setDescription] = useState("");
+  const [accountIds, setAccountIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +67,23 @@ export function GoalFormDialog({ open, onOpenChange, workspaceId, goal }: Props)
     setInitial(goal ? String(goal.initial_amount) : "");
     setTargetDate(goal?.target_date ?? "");
     setDescription(goal?.description ?? "");
+    setAccountIds(goal ? FinancialGoalService.accountIdsOf(goal.id, links) : []);
+    // links é estável entre aberturas; recarregar só ao abrir/trocar de meta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, goal]);
+
+  const toggleAccount = (id: string) =>
+    setAccountIds((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
+    );
+
+  const conflicts = FinancialGoalService.linkConflicts({
+    goalId: goal?.id ?? "new",
+    accountIds,
+    goals,
+    links,
+    accounts,
+  });
 
   const submit = () => {
     const targetAmount = Number(target.replace(",", "."));
@@ -69,18 +99,35 @@ export function GoalFormDialog({ open, onOpenChange, workspaceId, goal }: Props)
       description: description.trim() || null,
     };
 
-    const done = () => {
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      return toast.error(
+        `A conta "${c.accountName}" já está vinculada à meta ativa "${c.goalName}".`,
+      );
+    }
+
+    const saveAccounts = (goalId: string) =>
+      accountsMut.mutate(
+        { goalId, workspaceId, accountIds, goals, links, accounts },
+        { onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao vincular contas") },
+      );
+
+    const done = (goalId: string) => {
+      saveAccounts(goalId);
       toast.success(goal ? "Meta atualizada" : "Meta criada");
       onOpenChange(false);
     };
     const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : "Erro");
 
     if (goal) {
-      updateMut.mutate({ id: goal.id, input: payload }, { onSuccess: done, onError: fail });
+      updateMut.mutate(
+        { id: goal.id, input: payload },
+        { onSuccess: () => done(goal.id), onError: fail },
+      );
     } else {
       createMut.mutate(
         { workspace_id: workspaceId, ...payload },
-        { onSuccess: done, onError: fail },
+        { onSuccess: (created) => done(created.id), onError: fail },
       );
     }
   };
@@ -156,6 +203,34 @@ export function GoalFormDialog({ open, onOpenChange, workspaceId, goal }: Props)
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Contas vinculadas</Label>
+            <p className="text-xs text-muted-foreground">
+              O valor atual da meta passa a ser o saldo real dessas contas. Nenhuma
+              movimentação é criada.
+            </p>
+            <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
+              {accounts.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhuma conta cadastrada.</p>
+              ) : (
+                accounts.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={accountIds.includes(a.id)}
+                      onCheckedChange={() => toggleAccount(a.id)}
+                    />
+                    <span className="truncate">{a.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            {conflicts.map((c) => (
+              <p key={c.accountId} className="text-xs text-destructive">
+                A conta “{c.accountName}” já está vinculada à meta ativa “{c.goalName}”.
+              </p>
+            ))}
           </div>
 
           <div className="grid gap-2">

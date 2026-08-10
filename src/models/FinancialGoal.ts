@@ -117,6 +117,34 @@ export interface GoalHistoryPoint {
   accumulated: number;
 }
 
+/** Vínculo entre uma meta e uma conta real (Sprint 4.4.1). */
+export interface GoalAccountLink {
+  id: UUID;
+  workspace_id: UUID;
+  goal_id: UUID;
+  account_id: UUID;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+/** Composição do valor atual da meta a partir das contas vinculadas. */
+export interface GoalAccountBreakdown {
+  accountId: UUID;
+  name: string;
+  balance: number;
+}
+
+/** Origem do valor atual da meta — nunca persistida. */
+export type GoalValueSource = "ACCOUNTS" | "CONTRIBUTIONS" | "PATRIMONY";
+
+/** Conflito de vínculo: conta já usada por outra meta ativa. */
+export interface GoalAccountConflict {
+  accountId: UUID;
+  accountName: string;
+  goalId: UUID;
+  goalName: string;
+}
+
 export interface GoalProgress {
   goalId: UUID;
   name: string;
@@ -143,6 +171,12 @@ export interface GoalProgress {
   forecastMessage: string | null;
   /** Dias sem nenhum aporte (null quando nunca houve aporte). */
   daysSinceLastContribution: number | null;
+  /** Origem do valor atual (contas vinculadas, aportes ou patrimônio). */
+  source: GoalValueSource;
+  /** Contas vinculadas à meta. */
+  accountIds: UUID[];
+  /** Composição do valor atual por conta vinculada. */
+  accounts: GoalAccountBreakdown[];
 }
 
 export interface GoalsOverview {

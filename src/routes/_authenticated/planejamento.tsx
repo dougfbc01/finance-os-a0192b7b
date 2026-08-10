@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BudgetCategoryTable,
+  BudgetGoalsTable,
   BudgetFormDialog,
   BudgetItemsEditor,
   BudgetKpiCards,
@@ -30,6 +31,8 @@ import {
   useMonthlyBudget,
   useSaveBudgetItems,
 } from "@/hooks/useMonthlyBudgets";
+import { useFinancialGoals } from "@/hooks/useFinancialGoals";
+import { FinancialGoalService } from "@/services/FinancialGoalService";
 import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
 import { MONTH_LABELS } from "@/models/MonthlyClosing";
 import {
@@ -82,6 +85,11 @@ function PlanejamentoPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const { budget, items, comparison, isLoading } = useMonthlyBudget(year, month);
+  const { progress: goalProgress } = useFinancialGoals();
+  const goalRelations = useMemo(
+    () => FinancialGoalService.budgetRelation(goalProgress, comparison ?? null),
+    [goalProgress, comparison],
+  );
   const { data: categories = [] } = useCategories(wsId);
   const { data: subcategories = [] } = useSubcategories(wsId);
   const suggestion = useBudgetSuggestion(year, month, mode, source);
@@ -278,6 +286,7 @@ function PlanejamentoPage() {
               <TabsTrigger value="comparison">Planejado x Realizado</TabsTrigger>
               <TabsTrigger value="summary">Resumo por categoria</TabsTrigger>
               <TabsTrigger value="income">Receitas</TabsTrigger>
+              <TabsTrigger value="goals">Metas</TabsTrigger>
               <TabsTrigger value="edit" disabled={!budget}>
                 Editar planejamento
               </TabsTrigger>
@@ -323,6 +332,14 @@ function PlanejamentoPage() {
                     month={month}
                     emptyLabel="Nenhuma receita no período."
                   />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="goals" className="pt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <BudgetGoalsTable relations={goalRelations} />
                 </CardContent>
               </Card>
             </TabsContent>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { BudgetProgressBar } from "./BudgetProgressBar";
 import { BudgetStatusBadge } from "./BudgetStatusBadge";
+import { BudgetTotalsRow } from "./BudgetTotalsRow";
 import { formatCurrency } from "@/lib/format";
 import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
 import type { BudgetLine } from "@/models/MonthlyBudget";
@@ -19,10 +20,18 @@ interface Props {
   year: number;
   month: number;
   emptyLabel?: string;
+  /** Rótulo da linha de TOTAL (Sprint 4.4.1). */
+  totalLabel?: string;
 }
 
 /** Tabela Planejado x Realizado. Recebe linhas já calculadas pelo Service. */
-export function BudgetTable({ lines, year, month, emptyLabel = "Nenhuma linha no período." }: Props) {
+export function BudgetTable({
+  lines,
+  year,
+  month,
+  emptyLabel = "Nenhuma linha no período.",
+  totalLabel = "TOTAL",
+}: Props) {
   if (lines.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
@@ -103,6 +112,11 @@ export function BudgetTable({ lines, year, month, emptyLabel = "Nenhuma linha no
             </TableRow>
           );
         })}
+        <BudgetTotalsRow
+          label={totalLabel}
+          totals={MonthlyBudgetService.totals(lines)}
+          leadingColumns={2}
+        />
       </TableBody>
     </Table>
   );
