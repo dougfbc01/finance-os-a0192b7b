@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { BudgetProgressBar } from "./BudgetProgressBar";
 import { BudgetStatusBadge } from "./BudgetStatusBadge";
+import { BudgetTotalsRow } from "./BudgetTotalsRow";
 import { formatCurrency } from "@/lib/format";
 import { MonthlyBudgetService } from "@/services/MonthlyBudgetService";
 import type { BudgetCategoryGroup } from "@/models/MonthlyBudget";
@@ -24,6 +25,7 @@ interface Props {
   onExpandAll: () => void;
   onCollapseAll: () => void;
   emptyLabel?: string;
+  totalLabel?: string;
 }
 
 /**
@@ -39,6 +41,7 @@ export function BudgetCategoryTable({
   onExpandAll,
   onCollapseAll,
   emptyLabel = "Nenhuma linha no período.",
+  totalLabel = "TOTAL",
 }: Props) {
   return (
     <div className="space-y-3">
@@ -168,6 +171,10 @@ export function BudgetCategoryTable({
                   : []),
               ];
             })}
+            <BudgetTotalsRow
+              label={totalLabel}
+              totals={MonthlyBudgetService.groupTotals(groups)}
+            />
           </TableBody>
         </Table>
       )}
