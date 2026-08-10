@@ -19,7 +19,7 @@ import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { NetWorthPoint, MonthSummary } from "./DashboardService";
 import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
-import type { GoalProgress } from "@/models/FinancialGoal";
+import type { GoalBudgetRelation, GoalProgress } from "@/models/FinancialGoal";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
@@ -49,6 +49,8 @@ export interface InsightsInput {
   budget?: BudgetComparison | null;
   /** Progresso das metas financeiras (Sprint 4.4). */
   goals?: GoalProgress[];
+  /** Relação metas x orçamento do mês (Sprint 4.4.1). */
+  goalBudget?: GoalBudgetRelation[];
 }
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
@@ -580,6 +582,11 @@ class FinancialInsightsServiceImpl {
       push({ ...insight, bonus: insight.priority });
     }
 
+    // ── 13. Metas x Planejamento (Sprint 4.4.1).
+    for (const insight of this.goalBudgetInsights(input.goalBudget ?? [])) {
+      push({ ...insight, bonus: insight.priority });
+    }
+
     const insights = out.sort((a, b) => b.priority - a.priority);
     return { insights, summary: this.summarize(insights) };
   }
@@ -666,6 +673,25 @@ class FinancialInsightsServiceImpl {
         );
       }
 
+      if (
+        g.source === "ACCOUNTS" &&
+        g.remaining > 0 &&
+        g.monthlyPace === null
+      ) {
+        out.push(
+          base({
+            id: `goal:no-progress:${g.goalId}`,
+            severity: "INFO",
+            title: `Meta sem evolução: ${g.name}`,
+            description:
+              "As contas vinculadas não registraram evolução suficiente para calcular um ritmo.",
+            related_entity_id: g.goalId,
+            priority: 135,
+            signature: `goal:no-progress:${g.goalId}`,
+          }),
+        );
+      }
+
       if (g.remaining <= 0) {
         out.push(
           base({
@@ -683,6 +709,42 @@ class FinancialInsightsServiceImpl {
     }
 
     return out;
+  }
+
+  /**
+   * Alertas de metas cujo aporte necessário não cabe na sobra planejada do
+   * mês. O cálculo vem pronto do FinancialGoalService.budgetRelation.
+   */
+  goalBudgetInsights(relations: GoalBudgetRelation[]): FinancialInsight[] {
+    const now = new Date().toISOString();
+    return relations
+      .filter((r) => r.feasible === false && r.requiredMonthly !== null)
+      .map((r) => ({
+        id: `goal:budget:${r.goalId}`,
+        type: "GOAL" as const,
+        severity: "WARNING" as const,
+        title: `Planejamento insuficiente para a meta: ${r.name}`,
+        description:
+          "O aporte mensal necessário é maior do que a sobra planejada no orçamento do mês.",
+        source: "GOALS" as const,
+        related_entity: "goal" as const,
+        related_entity_id: r.goalId,
+        quantity: 1,
+        value: Math.abs(r.difference ?? 0),
+        recommended_action: "OPEN_GOAL" as const,
+        action_label: "Ver metas",
+        action_route: "/metas",
+        action_filters: {},
+        dismissible: true,
+        created_at: now,
+        resolved: false,
+        priority: 205,
+        details: [
+          { label: "Necessário por mês", amount: r.requiredMonthly ?? 0 },
+          { label: "Sobra planejada", amount: r.plannedAvailable },
+        ],
+        signature: `goal:budget:${r.goalId}:${Math.round(r.difference ?? 0)}`,
+      }));
   }
 
   /**
