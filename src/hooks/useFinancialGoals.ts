@@ -99,7 +99,18 @@ function useInvalidateGoals() {
   return () => {
     qc.invalidateQueries({ queryKey: [KEY] });
     qc.invalidateQueries({ queryKey: [CONTRIB_KEY] });
+    qc.invalidateQueries({ queryKey: [ACCOUNTS_KEY] });
   };
+}
+
+/** Substitui as contas vinculadas a uma meta (validação no Service). */
+export function useSetGoalAccounts() {
+  const invalidate = useInvalidateGoals();
+  return useMutation({
+    mutationFn: (vars: Parameters<typeof FinancialGoalService.setGoalAccounts>[0]) =>
+      FinancialGoalService.setGoalAccounts(vars),
+    onSuccess: invalidate,
+  });
 }
 
 export function useCreateGoal() {
