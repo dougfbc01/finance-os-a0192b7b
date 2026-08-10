@@ -542,6 +542,15 @@ class FinancialGoalServiceImpl extends BaseService {
 
     const contributions = this.contributionsOf(goal.id, params.contributions);
     const last = contributions[contributions.length - 1];
+    const accountIds = this.accountIdsOf(goal.id, params.links ?? []);
+    const accounts =
+      accountIds.length > 0
+        ? this.accountsBreakdown({
+            accountIds,
+            accounts: params.accounts ?? [],
+            movements: params.movements ?? [],
+          })
+        : [];
 
     return {
       goalId: goal.id,
@@ -569,6 +578,9 @@ class FinancialGoalServiceImpl extends BaseService {
       targetDate: goal.target_date,
       forecastMessage,
       daysSinceLastContribution: last ? daysBetween(last.contribution_date, today) : null,
+      source: this.valueSource(params),
+      accountIds,
+      accounts,
     };
   }
 
@@ -577,6 +589,9 @@ class FinancialGoalServiceImpl extends BaseService {
     goals: FinancialGoal[];
     contributions: GoalContribution[];
     patrimony?: PatrimonySnapshot | null;
+    links?: GoalAccountLink[];
+    accounts?: Account[];
+    movements?: Movement[];
     today?: string;
   }): GoalProgress[] {
     return params.goals
@@ -586,6 +601,9 @@ class FinancialGoalServiceImpl extends BaseService {
           goal,
           contributions: params.contributions,
           patrimony: params.patrimony ?? null,
+          links: params.links ?? [],
+          accounts: params.accounts ?? [],
+          movements: params.movements ?? [],
           today: params.today,
         }),
       );
