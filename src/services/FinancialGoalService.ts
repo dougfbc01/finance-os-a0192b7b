@@ -60,6 +60,12 @@ export interface GoalProgressParams {
   contributions: GoalContribution[];
   /** Fonte real de patrimônio, usada apenas por metas do tipo PATRIMONY. */
   patrimony?: PatrimonySnapshot | null;
+  /** Vínculos meta → conta (Sprint 4.4.1). */
+  links?: GoalAccountLink[];
+  /** Contas do workspace — usadas para nome e saldo inicial. */
+  accounts?: Account[];
+  /** Movimentações reais — nunca são criadas pela meta, apenas lidas. */
+  movements?: Movement[];
   /** Data de referência (default: hoje). Facilita testes determinísticos. */
   today?: string;
 }
