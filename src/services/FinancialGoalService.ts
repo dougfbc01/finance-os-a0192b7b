@@ -656,6 +656,14 @@ class FinancialGoalServiceImpl extends BaseService {
       }));
   }
 
+  /** Relação de uma única meta com o orçamento do mês (somente leitura). */
+  budgetRelationOf(
+    progress: GoalProgress,
+    budget: BudgetComparison | null,
+  ): GoalBudgetRelation | null {
+    return this.budgetRelation([progress], budget)[0] ?? null;
+  }
+
   /**
    * Evolução das metas dentro de um período de fechamento. Calculado sob
    * demanda — não altera nem regrava snapshots históricos.
