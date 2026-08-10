@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { GoalEvolutionChart } from "./GoalEvolutionChart";
 import { GoalProgressBar } from "./GoalProgressBar";
 import { GoalStatusBadge } from "./GoalStatusBadge";
+import { GoalSourcePanel } from "./GoalSourcePanel";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { GOAL_TYPE_ICONS, GOAL_TYPE_LABELS } from "@/models/FinancialGoal";
 import type { GoalContribution, GoalProgress } from "@/models/FinancialGoal";
@@ -49,7 +50,11 @@ export function GoalDetailPanel({
           <Button size="sm" variant="secondary" onClick={onEdit}>
             Editar
           </Button>
-          <Button size="sm" onClick={onAddContribution} disabled={p.type === "PATRIMONY"}>
+          <Button
+            size="sm"
+            onClick={onAddContribution}
+            disabled={p.type === "PATRIMONY" || p.source === "ACCOUNTS"}
+          >
             Registrar aporte
           </Button>
         </div>
@@ -87,6 +92,8 @@ export function GoalDetailPanel({
           }
         />
       </div>
+
+      <GoalSourcePanel progress={p} />
 
       <GoalEvolutionChart history={p.history} target={p.target} />
 
