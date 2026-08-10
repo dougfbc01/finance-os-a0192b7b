@@ -7,8 +7,10 @@
 //  • Metas do tipo PATRIMONY acompanham o patrimônio líquido já existente
 //    (PatrimonyService), sem duplicar patrimônio nem criar movimentações.
 import { BaseService } from "./BaseService";
+import { MovementServiceImpl } from "./MovementService";
+import { MovementType } from "@/constants/enums";
 import { toISODate } from "@/lib/format";
-import type { UUID } from "@/models";
+import type { Account, Movement, UUID } from "@/models";
 import type { PatrimonySnapshot } from "./PatrimonyService";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
 import type {
@@ -16,12 +18,16 @@ import type {
   CreateGoalInput,
   FinancialGoal,
   FinancialGoalStatus,
+  GoalAccountBreakdown,
+  GoalAccountConflict,
+  GoalAccountLink,
   GoalBudgetRelation,
   GoalClosingLine,
   GoalContribution,
   GoalHistoryPoint,
   GoalProgress,
   GoalStatusLevel,
+  GoalValueSource,
   GoalsOverview,
   UpdateGoalInput,
 } from "@/models/FinancialGoal";
