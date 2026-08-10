@@ -73,6 +73,7 @@ export interface GoalProgressParams {
 class FinancialGoalServiceImpl extends BaseService {
   private readonly table = "financial_goals";
   private readonly contribTable = "financial_goal_contributions";
+  private readonly accountsTable = "financial_goal_accounts";
 
   // ------------------------------------------------------------------
   // Persistência
