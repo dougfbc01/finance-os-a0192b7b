@@ -246,6 +246,27 @@ class MonthlyBudgetServiceImpl extends BaseService {
     };
   }
 
+  /**
+   * Totais de um conjunto de linhas (Sprint 4.4.1) — usado nas linhas de
+   * TOTAL das tabelas. Nunca duplica valores: soma apenas as linhas recebidas.
+   */
+  totals(lines: BudgetLine[]): BudgetSideTotals {
+    return this.side(lines);
+  }
+
+  /** Totais consolidados dos grupos por categoria (pais, sem as filhas). */
+  groupTotals(groups: BudgetCategoryGroup[]): BudgetSideTotals {
+    const planned = groups.reduce((s, g) => s + g.planned, 0);
+    const actual = groups.reduce((s, g) => s + g.actual, 0);
+    return {
+      planned,
+      actual,
+      difference: planned - actual,
+      percent: this.percentUsed(planned, actual),
+      remaining: this.remaining(planned, actual),
+    };
+  }
+
   private side(lines: BudgetLine[]): BudgetSideTotals {
     if (lines.length === 0) return { ...EMPTY_SIDE };
     const planned = lines.reduce((s, l) => s + l.planned, 0);
