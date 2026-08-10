@@ -171,6 +171,12 @@ export interface GoalProgress {
   forecastMessage: string | null;
   /** Dias sem nenhum aporte (null quando nunca houve aporte). */
   daysSinceLastContribution: number | null;
+  /** Origem do valor atual (contas vinculadas, aportes ou patrimônio). */
+  source: GoalValueSource;
+  /** Contas vinculadas à meta. */
+  accountIds: UUID[];
+  /** Composição do valor atual por conta vinculada. */
+  accounts: GoalAccountBreakdown[];
 }
 
 export interface GoalsOverview {
