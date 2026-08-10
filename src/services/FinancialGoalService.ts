@@ -426,9 +426,17 @@ class FinancialGoalServiceImpl extends BaseService {
       });
   }
 
-  /** Histórico mensal acumulado a partir dos aportes reais. */
+  /** Histórico mensal acumulado — contas vinculadas ou aportes reais. */
   history(params: GoalProgressParams): GoalHistoryPoint[] {
     const { goal } = params;
+    const accountIds = this.accountIdsOf(goal.id, params.links ?? []);
+    if (accountIds.length > 0) {
+      return this.accountsHistory({
+        accountIds,
+        accounts: params.accounts ?? [],
+        movements: params.movements ?? [],
+      });
+    }
     const contributions = this.contributionsOf(goal.id, params.contributions);
     const byMonth = new Map<string, number>();
     for (const c of contributions) {
@@ -450,8 +458,18 @@ class FinancialGoalServiceImpl extends BaseService {
   /**
    * Ritmo médio mensal. Exige histórico real: pelo menos 2 aportes distribuídos
    * em 2 ou mais meses. Sem isso, retorna null (nunca inventa previsão).
+   * Com contas vinculadas, o ritmo vem da evolução real do saldo.
    */
   monthlyPace(params: GoalProgressParams): number | null {
+    const accountIds = this.accountIdsOf(params.goal.id, params.links ?? []);
+    if (accountIds.length > 0) {
+      const points = this.history(params);
+      if (points.length < 2) return null;
+      const total = points.reduce((s, p) => s + p.contributed, 0);
+      const span = monthsBetween(`${points[0].month}-01`, `${points[points.length - 1].month}-01`) + 1;
+      if (span <= 0 || total <= 0) return null;
+      return total / span;
+    }
     const contributions = this.contributionsOf(params.goal.id, params.contributions);
     if (contributions.length < 2) return null;
     const months = new Set(contributions.map((c) => monthKey(c.contribution_date)));
