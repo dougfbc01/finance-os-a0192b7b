@@ -6,3 +6,4 @@ export { BudgetItemsEditor } from "./BudgetItemsEditor";
 export { BudgetKpiCards } from "./BudgetKpiCards";
 export { BudgetProgressBar } from "./BudgetProgressBar";
 export { BudgetStatusBadge } from "./BudgetStatusBadge";
+export { BudgetTotalsRow } from "./BudgetTotalsRow";
