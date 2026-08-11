@@ -51,7 +51,10 @@ export interface InsightsInput {
   goals?: GoalProgress[];
   /** Relação metas x orçamento do mês (Sprint 4.4.1). */
   goalBudget?: GoalBudgetRelation[];
+  /** Relatório comportamental do FinancialAnalyticsService (Sprint 4.5). */
+  analytics?: AnalyticsReport | null;
 }
+
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
   CRITICAL: 300,
