@@ -77,6 +77,24 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
     [pairs],
   );
 
+  // Sprint 4.5 — relatório comportamental (tendências, outliers, sazonalidade).
+  const report = useMemo(
+    () =>
+      FinancialAnalyticsService.analyze({
+        range: { start: resolved.start, end: resolved.end },
+        movements: analytics.movements,
+        categories: analytics.categories.map((c) => ({ id: c.id, name: c.name })),
+        budget,
+        goals: goalProgress,
+      }),
+    [resolved.start, resolved.end, analytics.movements, analytics.categories, budget, goalProgress],
+  );
+
+  const behaviorSummary = useMemo(
+    () => FinancialInsightsService.behaviorSummary(report),
+    [report],
+  );
+
   const result = useMemo(
     () =>
       FinancialInsightsService.analyze({
@@ -96,7 +114,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
         budget,
         goals: goalProgress,
         goalBudget,
+        analytics: report,
       }),
+
     [
       resolved.start,
       resolved.end,
