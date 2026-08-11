@@ -166,6 +166,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
   return {
     insights: visible,
     summary,
+    analytics: report,
+    behaviorSummary,
+
     isLoading: analytics.isLoading || pairsLoading,
     dismiss,
     restoreAll,
