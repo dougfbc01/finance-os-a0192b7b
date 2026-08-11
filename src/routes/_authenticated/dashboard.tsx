@@ -17,6 +17,8 @@ import {
   LastClosingWidget,
   BudgetWidget,
   GoalsWidget,
+  BehavioralInsightsWidget,
+
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
