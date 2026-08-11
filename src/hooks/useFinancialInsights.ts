@@ -134,7 +134,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
       budget,
       goalProgress,
       goalBudget,
+      report,
     ],
+
   );
 
   const visible = useMemo(
