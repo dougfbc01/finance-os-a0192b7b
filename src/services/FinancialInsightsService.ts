@@ -21,6 +21,8 @@ import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
 import type { GoalBudgetRelation, GoalProgress } from "@/models/FinancialGoal";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
+import type { AnalyticsReport } from "@/models/Analytics";
+
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
 export interface InsightDuplicatePair {
