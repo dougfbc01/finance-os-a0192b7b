@@ -15,12 +15,18 @@ import { useMonthlyBudget } from "./useMonthlyBudgets";
 import { FinancialGoalService } from "@/services/FinancialGoalService";
 import { useFinancialGoals } from "./useFinancialGoals";
 import { FinancialInsightsService } from "@/services/FinancialInsightsService";
+import { FinancialAnalyticsService } from "@/services/FinancialAnalyticsService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
 import type { FinancialInsight, InsightSummary } from "@/models/Insight";
+import type { AnalyticsReport } from "@/models/Analytics";
 
 export interface FinancialInsightsState {
   insights: FinancialInsight[];
   summary: InsightSummary;
+  /** Relatório comportamental (Sprint 4.5). */
+  analytics: AnalyticsReport;
+  /** Resumo executivo em linguagem natural. */
+  behaviorSummary: string[];
   isLoading: boolean;
   dismiss: (insight: FinancialInsight) => void;
   restoreAll: () => void;
@@ -28,6 +34,7 @@ export interface FinancialInsightsState {
   reprocessRules: () => void;
   isRunningAction: boolean;
 }
+
 
 export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsightsState {
   const { data: ws } = useWorkspace();
