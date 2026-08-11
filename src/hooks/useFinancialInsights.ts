@@ -15,12 +15,18 @@ import { useMonthlyBudget } from "./useMonthlyBudgets";
 import { FinancialGoalService } from "@/services/FinancialGoalService";
 import { useFinancialGoals } from "./useFinancialGoals";
 import { FinancialInsightsService } from "@/services/FinancialInsightsService";
+import { FinancialAnalyticsService } from "@/services/FinancialAnalyticsService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
 import type { FinancialInsight, InsightSummary } from "@/models/Insight";
+import type { AnalyticsReport } from "@/models/Analytics";
 
 export interface FinancialInsightsState {
   insights: FinancialInsight[];
   summary: InsightSummary;
+  /** Relatório comportamental (Sprint 4.5). */
+  analytics: AnalyticsReport;
+  /** Resumo executivo em linguagem natural. */
+  behaviorSummary: string[];
   isLoading: boolean;
   dismiss: (insight: FinancialInsight) => void;
   restoreAll: () => void;
@@ -28,6 +34,7 @@ export interface FinancialInsightsState {
   reprocessRules: () => void;
   isRunningAction: boolean;
 }
+
 
 export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsightsState {
   const { data: ws } = useWorkspace();
@@ -70,6 +77,24 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
     [pairs],
   );
 
+  // Sprint 4.5 — relatório comportamental (tendências, outliers, sazonalidade).
+  const report = useMemo(
+    () =>
+      FinancialAnalyticsService.analyze({
+        range: { start: resolved.start, end: resolved.end },
+        movements: analytics.movements,
+        categories: analytics.categories.map((c) => ({ id: c.id, name: c.name })),
+        budget,
+        goals: goalProgress,
+      }),
+    [resolved.start, resolved.end, analytics.movements, analytics.categories, budget, goalProgress],
+  );
+
+  const behaviorSummary = useMemo(
+    () => FinancialInsightsService.behaviorSummary(report),
+    [report],
+  );
+
   const result = useMemo(
     () =>
       FinancialInsightsService.analyze({
@@ -89,7 +114,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
         budget,
         goals: goalProgress,
         goalBudget,
+        analytics: report,
       }),
+
     [
       resolved.start,
       resolved.end,
@@ -107,7 +134,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
       budget,
       goalProgress,
       goalBudget,
+      report,
     ],
+
   );
 
   const visible = useMemo(
@@ -139,6 +168,9 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
   return {
     insights: visible,
     summary,
+    analytics: report,
+    behaviorSummary,
+
     isLoading: analytics.isLoading || pairsLoading,
     dismiss,
     restoreAll,

@@ -17,7 +17,12 @@ export type InsightType =
   | "HEALTH_CHECK"
   | "PROJECTION"
   | "BUDGET"
-  | "GOAL";
+  | "GOAL"
+  | "CATEGORY_TREND"
+  | "OUTLIER"
+  | "CONCENTRATION"
+  | "SAVING_OPPORTUNITY"
+  | "SEASONALITY";
 
 /** Origem do insight (módulo que o gerou). */
 export type InsightSource =
@@ -29,7 +34,9 @@ export type InsightSource =
   | "DEDUP"
   | "HEALTH"
   | "BUDGET"
-  | "GOALS";
+  | "GOALS"
+  | "ANALYTICS";
+
 
 /** Entidade de negócio relacionada ao insight. */
 export type InsightRelatedEntity =

@@ -17,6 +17,8 @@ import {
   LastClosingWidget,
   BudgetWidget,
   GoalsWidget,
+  BehavioralInsightsWidget,
+
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
@@ -116,6 +118,12 @@ function DashboardPage() {
           </div>
 
           <FinancialInsightsWidget {...insightsState} />
+
+          <BehavioralInsightsWidget
+            report={insightsState.analytics}
+            summary={insightsState.behaviorSummary}
+          />
+
 
           <PeriodComparisonWidget rows={comparison} />
 

@@ -17,6 +17,8 @@ export { TransactionFingerprintService } from "./TransactionFingerprintService";
 export { SimilarityService } from "./SimilarityService";
 export { RuleIntegrityService } from "./RuleIntegrityService";
 export { FinancialInsightsService } from "./FinancialInsightsService";
+export { FinancialAnalyticsService } from "./FinancialAnalyticsService";
+
 export { MonthlyClosingService } from "./MonthlyClosingService";
 export { MonthlyBudgetService } from "./MonthlyBudgetService";
 export { FinancialGoalService } from "./FinancialGoalService";

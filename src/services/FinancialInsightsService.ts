@@ -21,6 +21,8 @@ import type { RuleIntegrityReport } from "./RuleIntegrityService";
 import type { DateRange } from "./DashboardFilterService";
 import type { GoalBudgetRelation, GoalProgress } from "@/models/FinancialGoal";
 import type { BudgetComparison } from "@/models/MonthlyBudget";
+import type { AnalyticsReport } from "@/models/Analytics";
+
 
 /** Par de duplicidade reduzido ao que o insight precisa (sem I/O). */
 export interface InsightDuplicatePair {
@@ -51,7 +53,10 @@ export interface InsightsInput {
   goals?: GoalProgress[];
   /** Relação metas x orçamento do mês (Sprint 4.4.1). */
   goalBudget?: GoalBudgetRelation[];
+  /** Relatório comportamental do FinancialAnalyticsService (Sprint 4.5). */
+  analytics?: AnalyticsReport | null;
 }
+
 
 const LEVEL_WEIGHT: Record<InsightSeverity, number> = {
   CRITICAL: 300,
@@ -587,6 +592,12 @@ class FinancialInsightsServiceImpl {
       push({ ...insight, bonus: insight.priority });
     }
 
+    // ── 14. Comportamento financeiro (Sprint 4.5).
+    for (const insight of this.behaviorInsights(input.analytics ?? null)) {
+      push({ ...insight, bonus: insight.priority });
+    }
+
+
     const insights = out.sort((a, b) => b.priority - a.priority);
     return { insights, summary: this.summarize(insights) };
   }
@@ -957,6 +968,235 @@ class FinancialInsightsServiceImpl {
     return out;
   }
 
+  /**
+   * Insights de comportamento financeiro (Sprint 4.5). Todo o cálculo vem
+   * pronto do FinancialAnalyticsService — aqui só há tradução para linguagem.
+   */
+  behaviorInsights(report: AnalyticsReport | null): FinancialInsight[] {
+    if (!report || report.window.monthsAnalyzed === 0) return [];
+    const now = new Date().toISOString();
+    const low = report.window.confidence === "LOW";
+    const suffix = low ? " (baixa confiabilidade — pouco histórico)" : "";
+
+    const base = (over: Partial<FinancialInsight>): FinancialInsight => ({
+      id: "behavior",
+      type: "CATEGORY_TREND",
+      severity: "INFO",
+      title: "",
+      description: "",
+      source: "ANALYTICS",
+      related_entity: "category",
+      related_entity_id: null,
+      quantity: 1,
+      value: 0,
+      recommended_action: "CLASSIFY_MOVEMENTS",
+      action_label: "Ver lançamentos",
+      action_route: "/movimentacoes",
+      action_filters: {},
+      dismissible: true,
+      created_at: now,
+      resolved: false,
+      priority: 100,
+      details: [],
+      signature: "behavior",
+      ...over,
+    });
+
+    const out: FinancialInsight[] = [];
+
+    // Categorias em crescimento consistente.
+    for (const t of report.growing.slice(0, 3)) {
+      out.push(
+        base({
+          id: `behavior:growing:${t.categoryId ?? "none"}`,
+          severity: (t.variationPercent ?? 0) >= 40 ? "WARNING" : "INFO",
+          title: `${t.name} está ${Math.abs(t.variationPercent ?? 0).toFixed(0)}% acima da média${suffix}.`,
+          description: `${fmtBRL(t.current)} no período contra média de ${fmtBRL(t.average)} nos ${t.monthsAnalyzed} meses anteriores.`,
+          related_entity_id: t.categoryId,
+          value: t.difference,
+          action_filters: t.categoryId ? { category: t.categoryId } : {},
+          priority: 80,
+          details: [
+            { label: "Período atual", amount: t.current },
+            { label: "Média histórica", amount: t.average },
+            { label: "Diferença", amount: t.difference },
+          ],
+          signature: `behavior:growing:${t.categoryId ?? "none"}:${Math.round(t.difference)}`,
+        }),
+      );
+    }
+
+    // Categorias em redução (comportamento positivo).
+    for (const t of report.decreasing.slice(0, 2)) {
+      out.push(
+        base({
+          id: `behavior:decreasing:${t.categoryId ?? "none"}`,
+          title: `${t.name} caiu ${Math.abs(t.variationPercent ?? 0).toFixed(0)}% em relação à média${suffix}.`,
+          description: `Economia de ${fmtBRL(Math.abs(t.difference))} frente à média histórica.`,
+          related_entity_id: t.categoryId,
+          value: Math.abs(t.difference),
+          action_filters: t.categoryId ? { category: t.categoryId } : {},
+          resolved: true,
+          priority: 25,
+          signature: `behavior:decreasing:${t.categoryId ?? "none"}:${Math.round(t.difference)}`,
+        }),
+      );
+    }
+
+    // Lançamentos atípicos.
+    for (const o of report.outliers.slice(0, 3)) {
+      out.push(
+        base({
+          id: `behavior:outlier:${o.movementId}`,
+          type: "OUTLIER",
+          severity: "WARNING",
+          title: `Lançamento atípico em ${o.categoryName}: ${fmtBRL(o.amount)}.`,
+          description: `Valor ${o.times.toFixed(1)}x maior que a média da categoria (${fmtBRL(o.average)}).`,
+          related_entity: "movement",
+          related_entity_id: o.movementId,
+          value: o.amount,
+          action_filters: { search: o.description },
+          priority: 75,
+          details: [
+            { label: o.description, amount: o.amount, date: o.date },
+            { label: "Média da categoria", amount: o.average },
+          ],
+          signature: `behavior:outlier:${o.movementId}`,
+        }),
+      );
+    }
+
+    // Concentração de gastos.
+    const top = report.concentration[0];
+    if (top && top.percent >= 30) {
+      out.push(
+        base({
+          id: "behavior:concentration",
+          type: "CONCENTRATION",
+          severity: top.percent >= 50 ? "WARNING" : "INFO",
+          title: `${top.name} concentra ${top.percent.toFixed(0)}% das despesas do período.`,
+          description: `${fmtBRL(top.amount)} de um total de ${fmtBRL(report.totalExpense)}.`,
+          related_entity_id: top.categoryId,
+          value: top.amount,
+          action_filters: top.categoryId ? { category: top.categoryId } : {},
+          priority: 50,
+          signature: `behavior:concentration:${top.categoryId ?? "none"}:${Math.round(top.percent)}`,
+        }),
+      );
+    }
+
+    // Oportunidades de economia frente ao planejamento.
+    for (const s of report.savings.slice(0, 3)) {
+      out.push(
+        base({
+          id: `behavior:saving:${s.categoryId ?? "none"}`,
+          type: "SAVING_OPPORTUNITY",
+          title: `Oportunidade de economia em ${s.name}: ${fmtBRL(s.excess)}/mês.`,
+          description: `Média mensal de ${fmtBRL(s.monthlyAverage)} contra ${fmtBRL(s.planned)} planejados.`,
+          related_entity_id: s.categoryId,
+          value: s.excess,
+          recommended_action: "OPEN_BUDGET",
+          action_label: "Abrir Planejamento",
+          action_route: "/planejamento",
+          action_filters: {},
+          priority: 45,
+          signature: `behavior:saving:${s.categoryId ?? "none"}:${Math.round(s.excess)}`,
+        }),
+      );
+    }
+
+    // Sazonalidade — mesmo mês do ano anterior.
+    const s = report.seasonality;
+    if (s && s.variationPercent !== null && Math.abs(s.variationPercent) >= 20) {
+      const up = s.variationPercent > 0;
+      out.push(
+        base({
+          id: "behavior:seasonality",
+          type: "SEASONALITY",
+          severity: up ? "INFO" : "INFO",
+          title: `Despesas ${up ? "acima" : "abaixo"} do mesmo mês do ano anterior (${Math.abs(s.variationPercent).toFixed(0)}%).`,
+          description: `${fmtBRL(s.current)} agora contra ${fmtBRL(s.reference)} em ${s.referenceKey}.`,
+          related_entity: "workspace",
+          recommended_action: "OPEN_DASHBOARD",
+          action_label: "Abrir Dashboard",
+          action_route: "/dashboard",
+          value: s.current - s.reference,
+          resolved: !up,
+          priority: 35,
+          signature: `behavior:seasonality:${s.monthKey}:${Math.round(s.variationPercent)}`,
+        }),
+      );
+    }
+
+    // Impacto do comportamento sobre as metas.
+    for (const g of report.goals.slice(0, 3)) {
+      out.push(
+        base({
+          id: `behavior:goal:${g.goalId}`,
+          type: "GOAL",
+          severity: "WARNING",
+          title: `Ritmo atual insuficiente para a meta ${g.name}.`,
+          description: `Ritmo de ${fmtBRL(g.currentPace)}/mês contra ${fmtBRL(g.requiredMonthly)}/mês necessários.`,
+          related_entity: "goal",
+          related_entity_id: g.goalId,
+          recommended_action: "OPEN_GOAL",
+          action_label: "Ver metas",
+          action_route: "/metas",
+          value: Math.abs(g.difference),
+          priority: 85,
+          signature: `behavior:goal:${g.goalId}:${Math.round(g.difference)}`,
+        }),
+      );
+    }
+
+    return out;
+  }
+
+  /**
+   * Resumo executivo em linguagem natural do comportamento do período.
+   */
+  behaviorSummary(report: AnalyticsReport | null): string[] {
+    if (!report || report.window.monthsAnalyzed === 0) {
+      return ["Sem histórico suficiente para análise comportamental."];
+    }
+    const lines: string[] = [report.window.label];
+
+    const v = report.expenseVariationPercent;
+    if (v !== null && Math.abs(v) >= 5) {
+      lines.push(
+        `Despesas ${v > 0 ? "acima" : "abaixo"} da média histórica em ${Math.abs(v).toFixed(0)}% (${fmtBRL(report.totalExpense)} contra ${fmtBRL(report.averageExpense)}).`,
+      );
+    } else {
+      lines.push(`Despesas estáveis em relação à média histórica (${fmtBRL(report.totalExpense)}).`);
+    }
+
+    const iv = report.income.variationPercent;
+    if (iv !== null && Math.abs(iv) >= 5) {
+      lines.push(
+        `Receitas ${iv > 0 ? "cresceram" : "caíram"} ${Math.abs(iv).toFixed(0)}% frente à média mensal.`,
+      );
+    }
+
+    const growing = report.growing[0];
+    if (growing) {
+      lines.push(
+        `Maior pressão de gasto: ${growing.name} (${fmtBRL(growing.difference)} acima da média).`,
+      );
+    }
+
+    const saving = report.savings[0];
+    if (saving) {
+      lines.push(
+        `Maior oportunidade de economia: ${saving.name} (${fmtBRL(saving.excess)} por mês).`,
+      );
+    }
+
+    if (report.outliers.length > 0) {
+      lines.push(`${report.outliers.length} lançamento(s) atípico(s) identificado(s) no período.`);
+    }
+
+    return lines;
+  }
 
 
   /** Resumo executivo (contadores por severidade). */

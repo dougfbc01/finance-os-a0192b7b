@@ -15,3 +15,5 @@ export { FinancialInsightsWidget } from "./FinancialInsightsWidget";
 export { LastClosingWidget } from "./LastClosingWidget";
 export { BudgetWidget } from "./BudgetWidget";
 export { GoalsWidget } from "./GoalsWidget";
+export { BehavioralInsightsWidget } from "./BehavioralInsightsWidget";
+
