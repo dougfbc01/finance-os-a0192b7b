@@ -119,6 +119,12 @@ function DashboardPage() {
 
           <FinancialInsightsWidget {...insightsState} />
 
+          <BehavioralInsightsWidget
+            report={insightsState.analytics}
+            summary={insightsState.behaviorSummary}
+          />
+
+
           <PeriodComparisonWidget rows={comparison} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
