@@ -592,6 +592,12 @@ class FinancialInsightsServiceImpl {
       push({ ...insight, bonus: insight.priority });
     }
 
+    // ── 14. Comportamento financeiro (Sprint 4.5).
+    for (const insight of this.behaviorInsights(input.analytics ?? null)) {
+      push({ ...insight, bonus: insight.priority });
+    }
+
+
     const insights = out.sort((a, b) => b.priority - a.priority);
     return { insights, summary: this.summarize(insights) };
   }
