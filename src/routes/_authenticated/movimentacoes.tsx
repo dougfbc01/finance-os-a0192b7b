@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MovementFormDialog } from "@/components/movements";
+import { MovementFormDialog, MovementTotalsBar } from "@/components/movements";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCards } from "@/hooks/useCards";
