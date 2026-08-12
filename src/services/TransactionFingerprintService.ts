@@ -133,6 +133,34 @@ class TransactionFingerprintServiceImpl {
     return fp.split(" ")[0] ?? "";
   }
 
+  /**
+   * Extrai a contraparte (beneficiário/pagador) de descrições bancárias.
+   * "Transferência enviada pelo Pix - MARIA DO CARMO - 123.456 - BANCO"
+   *   -> "MARIA DO CARMO"
+   * Quando não há separador, devolve o texto após os prefixos conhecidos.
+   */
+  counterparty(description: string): string {
+    const raw = (description ?? "").replace(/\s+/g, " ").trim();
+    if (!raw) return "";
+    const parts = raw.split(/\s+[-–—]\s+|\s*\|\s*/).filter((p) => p.trim());
+    let candidate = parts.length > 1 ? parts[1] : parts[0] ?? "";
+    candidate = candidate
+      .replace(
+        /^(transfer[eê]ncia|pagamento|pix|ted|doc|compra|d[eé]bito|cr[eé]dito)\b[\s\w()çãáéíóúâêôõ]*?(?=\s[A-ZÀ-Ý]{2,}|$)/i,
+        "",
+      )
+      .replace(/\b\d{2,}[\d.\-/]*\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return candidate;
+  }
+
+  /** Contraparte normalizada (comparação de regras). */
+  counterpartyKey(description: string): string {
+    return this.normalize(this.counterparty(description));
+  }
+
+
   /** Similaridade textual 0..1 (coeficiente de Dice sobre tokens). */
   textSimilarity(a: string, b: string): number {
     const ta = new Set(this.tokens(a));
