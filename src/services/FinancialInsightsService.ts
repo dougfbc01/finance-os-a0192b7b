@@ -408,7 +408,42 @@ class FinancialInsightsServiceImpl {
           details,
         });
       }
-      if (!report.conflicts.length && !report.duplicates.length && report.total > 0) {
+      // Sprint 4.5.1 — regras excessivamente genéricas.
+      if (report.broad?.length) {
+        const worst = report.broadDetails[0];
+        push({
+          id: "rules:broad",
+          type: "RULES_BROAD",
+          severity: "WARNING",
+          title: worst
+            ? `Uma regra muito genérica está classificando ${worst.movements} movimentações com ${worst.counterparties.length} contrapartes diferentes.`
+            : `${report.broad.length} regras muito amplas.`,
+          description:
+            "Regras amplas misturam contextos diferentes. Torne-as mais específicas informando a contraparte.",
+          source: "RULES",
+          related_entity: "rule",
+          related_entity_id: worst?.ruleId ?? null,
+          quantity: report.broad.length,
+          value: worst?.movements ?? report.broad.length,
+          recommended_action: "OPEN_RULES",
+          action_label: "Revisar regra",
+          action_route: "/regras",
+          action_filters: { status: "broad" },
+          dismissible: true,
+          bonus: 60,
+          details: (report.broadDetails ?? []).slice(0, 3).map((d) => ({
+            label: d.pattern,
+            value: `${d.movements} lançamentos · ${d.counterparties.length} contrapartes · ${d.counterparties.slice(0, 3).join(", ")}`,
+          })),
+        });
+      }
+
+      if (
+        !report.conflicts.length &&
+        !report.duplicates.length &&
+        !report.broad?.length &&
+        report.total > 0
+      ) {
         push({
           id: "rules:consistent",
           type: "RULES_CONFLICT",

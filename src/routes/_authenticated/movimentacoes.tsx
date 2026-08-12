@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MovementFormDialog } from "@/components/movements";
+import { MovementFormDialog, MovementTotalsBar } from "@/components/movements";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCards } from "@/hooks/useCards";
@@ -155,6 +155,15 @@ function MovimentacoesPage() {
 
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
+
+  // Destaque do totalizador conforme o filtro aplicado (receitas x despesas).
+  const totalsEmphasis: "income" | "expense" | "all" = useMemo(() => {
+    if (group === "income" || (type !== ALL && INCOME_TYPES.includes(type as MovementType)))
+      return "income";
+    if (group === "expense" || (type !== ALL && EXPENSE_TYPES.includes(type as MovementType)))
+      return "expense";
+    return "all";
+  }, [group, type]);
   const deleteMut = useDeleteMovement();
   const bulkDelMut = useBulkDeleteMovements();
   const bulkUpdMut = useBulkUpdateMovements();
@@ -606,6 +615,7 @@ function MovimentacoesPage() {
               })}
             </tbody>
           </table>
+          <MovementTotalsBar movements={sorted} emphasis={totalsEmphasis} />
         </div>
       )}
 

@@ -117,7 +117,16 @@ class ImportServiceImpl extends BaseService {
     // possui categoria manual do próprio importador.
     for (const row of preview.rows) {
       if (row.category_id) continue;
-      const match = ClassificationRuleServiceImpl.match(row.description, rules);
+      const match = ClassificationRuleServiceImpl.match(
+        {
+          description: row.description,
+          type: row.type,
+          amount: row.amount,
+          account_id: row.account_id ?? params.accountId ?? null,
+          card_id: row.card_id ?? params.cardId ?? null,
+        },
+        rules,
+      );
       if (match) {
         row.category_id = match.category_id;
         row.subcategory_id = match.subcategory_id;

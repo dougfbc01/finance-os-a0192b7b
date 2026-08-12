@@ -1,12 +1,13 @@
-// RuleIntegrityService — Sprint 4.1.1
+// RuleIntegrityService — Sprint 4.1.1 / 4.5.1
 // Detecta problemas no conjunto de regras de classificação:
-// duplicadas, conflitantes, sobrepostas e nunca utilizadas.
+// duplicadas, conflitantes, sobrepostas, nunca utilizadas e MUITO AMPLAS.
 // Somente leitura/diagnóstico: nunca altera regras automaticamente.
 import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
 import { ClassificationRuleServiceImpl } from "./ClassificationRuleService";
-import type { ClassificationRule, UUID } from "@/models";
+import type { RuleContext } from "./ClassificationRuleService";
+import type { ClassificationRule, Movement, UUID } from "@/models";
 
-export type RuleIssueType = "DUPLICATE" | "CONFLICT" | "OVERLAP" | "UNUSED";
+export type RuleIssueType = "DUPLICATE" | "CONFLICT" | "OVERLAP" | "UNUSED" | "BROAD";
 
 export interface RuleIssue {
   id: string;
@@ -14,6 +15,21 @@ export interface RuleIssue {
   level: "INFO" | "WARNING" | "CRITICAL";
   message: string;
   ruleIds: UUID[];
+}
+
+/** Detalhe de uma regra excessivamente genérica (Sprint 4.5.1). */
+export interface BroadRuleAnalysis {
+  ruleId: UUID;
+  pattern: string;
+  /** Movimentações classificadas por esta regra na amostra analisada. */
+  movements: number;
+  /** Contrapartes distintas encontradas. */
+  counterparties: string[];
+  /** Categorias resultantes (ids) — quando o usuário reclassificou manualmente. */
+  categories: UUID[];
+  /** Exemplos de lançamentos afetados. */
+  examples: Array<{ description: string; amount: number; date: string }>;
+  recommendation: string;
 }
 
 export interface RuleIntegrityReport {
@@ -27,41 +43,65 @@ export interface RuleIntegrityReport {
   conflicts: RuleIssue[];
   overlaps: RuleIssue[];
   unused: RuleIssue[];
+  broad: RuleIssue[];
+  broadDetails: BroadRuleAnalysis[];
 }
 
+/** Limites usados para classificar uma regra como "muito ampla". */
+export const BROAD_RULE_THRESHOLDS = {
+  minMovements: 10,
+  minCounterparties: 3,
+} as const;
+
 class RuleIntegrityServiceImpl {
-  analyze(rules: ClassificationRule[]): RuleIntegrityReport {
+  /** Assinatura contextual da regra (texto + condições estruturais). */
+  private contextKey(rule: ClassificationRule): string {
+    const fp = FP.build(rule.text_pattern) || FP.normalize(rule.text_pattern);
+    return [
+      fp,
+      FP.normalize(rule.counterparty_pattern ?? ""),
+      rule.movement_type ?? "",
+      rule.direction ?? "",
+      rule.account_id ?? "",
+      rule.card_id ?? "",
+    ].join("|");
+  }
+
+  analyze(rules: ClassificationRule[], movements: Movement[] = []): RuleIntegrityReport {
     const active = rules.filter((r) => !r.deleted_at);
     const duplicates: RuleIssue[] = [];
     const conflicts: RuleIssue[] = [];
     const overlaps: RuleIssue[] = [];
     const unused: RuleIssue[] = [];
 
-    const byFingerprint = new Map<string, ClassificationRule[]>();
+    const byContext = new Map<string, ClassificationRule[]>();
     for (const rule of active) {
-      const fp = FP.build(rule.text_pattern) || FP.normalize(rule.text_pattern);
-      const list = byFingerprint.get(fp) ?? [];
+      const key = this.contextKey(rule);
+      const list = byContext.get(key) ?? [];
       list.push(rule);
-      byFingerprint.set(fp, list);
+      byContext.set(key, list);
     }
 
-    for (const [fp, group] of byFingerprint) {
-      if (group.length < 2 || !fp) continue;
+    for (const [key, group] of byContext) {
+      if (group.length < 2 || !key.replace(/\|/g, "")) continue;
+      const label = group[0].counterparty_pattern
+        ? `${group[0].text_pattern} + ${group[0].counterparty_pattern}`
+        : group[0].text_pattern;
       const categories = new Set(group.map((g) => `${g.category_id}|${g.subcategory_id}`));
       if (categories.size === 1) {
         duplicates.push({
-          id: `dup:${fp}`,
+          id: `dup:${key}`,
           type: "DUPLICATE",
           level: "WARNING",
-          message: `${group.length} regras idênticas para "${fp}".`,
+          message: `${group.length} regras idênticas para "${label}".`,
           ruleIds: group.map((g) => g.id),
         });
       } else {
         conflicts.push({
-          id: `conf:${fp}`,
+          id: `conf:${key}`,
           type: "CONFLICT",
           level: "CRITICAL",
-          message: `${group.length} regras conflitantes para "${fp}" apontam para categorias diferentes.`,
+          message: `${group.length} regras com o mesmo contexto ("${label}") apontam para categorias diferentes.`,
           ruleIds: group.map((g) => g.id),
         });
       }
@@ -101,6 +141,15 @@ class RuleIntegrityServiceImpl {
       });
     }
 
+    const broadDetails = this.analyzeBreadth(active, movements);
+    const broad: RuleIssue[] = broadDetails.map((d) => ({
+      id: `broad:${d.ruleId}`,
+      type: "BROAD",
+      level: "WARNING",
+      message: `A regra "${d.pattern}" é muito ampla: ${d.movements} movimentações e ${d.counterparties.length} contrapartes diferentes.`,
+      ruleIds: [d.ruleId],
+    }));
+
     return {
       total: active.length,
       enabled: active.filter((r) => r.enabled).length,
@@ -111,13 +160,91 @@ class RuleIntegrityServiceImpl {
       conflicts,
       overlaps,
       unused,
-      issues: [...conflicts, ...duplicates, ...overlaps, ...unused],
+      broad,
+      broadDetails,
+      issues: [...conflicts, ...duplicates, ...broad, ...overlaps, ...unused],
     };
   }
 
+  /**
+   * Sprint 4.5.1 — identifica regras excessivamente genéricas.
+   * Uma regra é "muito ampla" quando venceria em muitas movimentações
+   * com contrapartes distintas, sem condição de contraparte própria.
+   */
+  analyzeBreadth(
+    rules: ClassificationRule[],
+    movements: Movement[],
+  ): BroadRuleAnalysis[] {
+    if (!movements.length) return [];
+    const enabled = rules.filter((r) => r.enabled && !r.deleted_at);
+    if (!enabled.length) return [];
+
+    const acc = new Map<
+      UUID,
+      {
+        rule: ClassificationRule;
+        movements: number;
+        counterparties: Set<string>;
+        categories: Set<UUID>;
+        examples: BroadRuleAnalysis["examples"];
+      }
+    >();
+
+    for (const m of movements) {
+      const ctx: RuleContext = {
+        description: m.description,
+        type: m.type,
+        amount: m.amount,
+        account_id: m.account_id,
+        transfer_account_id: m.transfer_account_id,
+        card_id: m.card_id,
+      };
+      const winner = ClassificationRuleServiceImpl.evaluate(ctx, enabled);
+      if (!winner) continue;
+      const entry =
+        acc.get(winner.rule.id) ??
+        {
+          rule: winner.rule,
+          movements: 0,
+          counterparties: new Set<string>(),
+          categories: new Set<UUID>(),
+          examples: [] as BroadRuleAnalysis["examples"],
+        };
+      entry.movements++;
+      const cp = FP.counterparty(m.description).trim();
+      if (cp) entry.counterparties.add(cp);
+      if (m.category_id) entry.categories.add(m.category_id);
+      if (entry.examples.length < 5) {
+        entry.examples.push({
+          description: m.description,
+          amount: Number(m.amount),
+          date: m.transaction_date,
+        });
+      }
+      acc.set(winner.rule.id, entry);
+    }
+
+    const out: BroadRuleAnalysis[] = [];
+    for (const entry of acc.values()) {
+      if (entry.rule.counterparty_pattern) continue;
+      if (entry.movements < BROAD_RULE_THRESHOLDS.minMovements) continue;
+      if (entry.counterparties.size < BROAD_RULE_THRESHOLDS.minCounterparties) continue;
+      out.push({
+        ruleId: entry.rule.id,
+        pattern: entry.rule.text_pattern,
+        movements: entry.movements,
+        counterparties: [...entry.counterparties].sort(),
+        categories: [...entry.categories],
+        examples: entry.examples,
+        recommendation: "Torne esta regra mais específica (informe a contraparte).",
+      });
+    }
+    return out.sort((a, b) => b.movements - a.movements);
+  }
+
   /** Atalho para o simulador (mantém a lógica no motor de regras). */
-  simulate(description: string, rules: ClassificationRule[]) {
-    return ClassificationRuleServiceImpl.simulate(description, rules);
+  simulate(input: RuleContext | string, rules: ClassificationRule[]) {
+    return ClassificationRuleServiceImpl.simulate(input, rules);
   }
 }
 

@@ -351,13 +351,18 @@ export type Database = {
       }
       classification_rules: {
         Row: {
+          account_id: string | null
+          card_id: string | null
           category_id: string | null
+          counterparty_pattern: string | null
           created_at: string
           deleted_at: string | null
+          direction: string | null
           enabled: boolean
           id: string
           last_matched_at: string | null
           match_count: number
+          movement_type: Database["public"]["Enums"]["movement_type"] | null
           priority: number
           subcategory_id: string | null
           text_pattern: string
@@ -365,13 +370,18 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          account_id?: string | null
+          card_id?: string | null
           category_id?: string | null
+          counterparty_pattern?: string | null
           created_at?: string
           deleted_at?: string | null
+          direction?: string | null
           enabled?: boolean
           id?: string
           last_matched_at?: string | null
           match_count?: number
+          movement_type?: Database["public"]["Enums"]["movement_type"] | null
           priority?: number
           subcategory_id?: string | null
           text_pattern: string
@@ -379,13 +389,18 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          account_id?: string | null
+          card_id?: string | null
           category_id?: string | null
+          counterparty_pattern?: string | null
           created_at?: string
           deleted_at?: string | null
+          direction?: string | null
           enabled?: boolean
           id?: string
           last_matched_at?: string | null
           match_count?: number
+          movement_type?: Database["public"]["Enums"]["movement_type"] | null
           priority?: number
           subcategory_id?: string | null
           text_pattern?: string
@@ -393,6 +408,20 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "classification_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "classification_rules_category_id_fkey"
             columns: ["category_id"]

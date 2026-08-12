@@ -46,7 +46,7 @@ export function useFinancialInsights(resolved: ResolvedPeriod): FinancialInsight
   const { data: cards = [] } = useCards(wsId);
   const { data: pairs = [], isLoading: pairsLoading } = useDuplicatePairs(wsId);
   const { data: runs = [] } = useHealthCheckRuns(wsId);
-  const ruleReport = useRuleIntegrity(rules);
+  const ruleReport = useRuleIntegrity(rules, analytics.movements);
   const { dismiss, restoreAll, isDismissed } = useInsightDismiss();
 
   // Planejamento Mensal do mês de referência do período (Sprint 4.3).
