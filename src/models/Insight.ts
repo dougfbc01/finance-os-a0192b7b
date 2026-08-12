@@ -12,6 +12,7 @@ export type InsightType =
   | "DUPLICATES"
   | "RULES_CONFLICT"
   | "RULES_DUPLICATE"
+  | "RULES_BROAD"
   | "CARD_SHARE"
   | "CARDS_RECONCILED"
   | "HEALTH_CHECK"
