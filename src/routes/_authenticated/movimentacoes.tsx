@@ -155,6 +155,15 @@ function MovimentacoesPage() {
 
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
+
+  // Destaque do totalizador conforme o filtro aplicado (receitas x despesas).
+  const totalsEmphasis: "income" | "expense" | "all" = useMemo(() => {
+    if (group === "income" || (type !== ALL && INCOME_TYPES.includes(type as MovementType)))
+      return "income";
+    if (group === "expense" || (type !== ALL && EXPENSE_TYPES.includes(type as MovementType)))
+      return "expense";
+    return "all";
+  }, [group, type]);
   const deleteMut = useDeleteMovement();
   const bulkDelMut = useBulkDeleteMovements();
   const bulkUpdMut = useBulkUpdateMovements();
