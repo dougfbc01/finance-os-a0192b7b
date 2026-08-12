@@ -16,7 +16,7 @@ import {
 import { useRuleIntegrity } from "@/hooks/useRuleIntegrity";
 import type { ClassificationRule } from "@/models";
 
-type RuleStatusFilter = "all" | "conflict" | "duplicate" | "overlap" | "unused";
+type RuleStatusFilter = "all" | "conflict" | "duplicate" | "broad" | "overlap" | "unused";
 
 interface Search {
   status?: RuleStatusFilter;
@@ -26,6 +26,7 @@ const STATUS_OPTIONS: Array<{ value: RuleStatusFilter; label: string }> = [
   { value: "all", label: "Todas" },
   { value: "conflict", label: "Conflitantes" },
   { value: "duplicate", label: "Duplicadas" },
+  { value: "broad", label: "Muito amplas" },
   { value: "overlap", label: "Sobrepostas" },
   { value: "unused", label: "Nunca usadas" },
 ];
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/regras")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     status:
       typeof s.status === "string" &&
-      ["all", "conflict", "duplicate", "overlap", "unused"].includes(s.status)
+      ["all", "conflict", "duplicate", "broad", "overlap", "unused"].includes(s.status)
         ? (s.status as RuleStatusFilter)
         : undefined,
   }),
@@ -70,6 +71,8 @@ function RegrasPage() {
         ? report.conflicts
         : status === "duplicate"
           ? report.duplicates
+          : status === "broad"
+            ? report.broad
           : status === "overlap"
             ? report.overlaps
             : status === "unused"
@@ -133,6 +136,8 @@ function RegrasPage() {
               ? report.conflicts.length
               : opt.value === "duplicate"
                 ? report.duplicates.length
+                : opt.value === "broad"
+                  ? report.broad.length
                 : opt.value === "overlap"
                   ? report.overlaps.length
                   : opt.value === "unused"
