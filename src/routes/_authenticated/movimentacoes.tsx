@@ -606,6 +606,7 @@ function MovimentacoesPage() {
               })}
             </tbody>
           </table>
+          <MovementTotalsBar movements={sorted} emphasis={totalsEmphasis} />
         </div>
       )}
 
