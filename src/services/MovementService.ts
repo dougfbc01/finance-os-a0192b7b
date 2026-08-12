@@ -389,6 +389,30 @@ class MovementServiceImpl extends BaseService {
     return EXPENSE_TYPES.includes(m.type);
   }
 
+  /**
+   * Sprint 4.5.1 — totalizador do conjunto FILTRADO de movimentações.
+   * Cálculo puro sobre a mesma lista exibida (nenhuma consulta extra).
+   * Transferências e pagamentos de fatura não são receita nem despesa.
+   */
+  static totals(movements: Movement[]): {
+    count: number;
+    income: number;
+    expense: number;
+    net: number;
+    transfers: number;
+  } {
+    let income = 0;
+    let expense = 0;
+    let transfers = 0;
+    for (const m of movements) {
+      const value = Math.abs(Number(m.amount));
+      if (MovementServiceImpl.isIncome(m)) income += value;
+      else if (MovementServiceImpl.isExpense(m)) expense += value;
+      else transfers += value;
+    }
+    return { count: movements.length, income, expense, net: income - expense, transfers };
+  }
+
   // ---------------------------------------------------------------------------
   // Validações internas
   // ---------------------------------------------------------------------------
