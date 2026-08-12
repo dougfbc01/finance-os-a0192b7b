@@ -26,10 +26,14 @@ import {
   useCreateClassificationRule,
   useUpdateClassificationRule,
 } from "@/hooks/useClassificationRules";
-import type { ClassificationRule } from "@/models";
+import { MOVEMENT_TYPE_OPTIONS, type MovementType } from "@/constants/enums";
+import type { ClassificationRule, RuleDirection } from "@/models";
 
 const schema = z.object({
   text_pattern: z.string().trim().min(2, "Padrão muito curto").max(200),
+  counterparty_pattern: z.string().trim().max(200).optional().or(z.literal("")),
+  movement_type: z.string().optional().or(z.literal("")),
+  direction: z.string().optional().or(z.literal("")),
   category_id: z.string().optional().or(z.literal("")),
   subcategory_id: z.string().optional().or(z.literal("")),
   priority: z.coerce.number().int().min(0).max(1000),
@@ -57,6 +61,9 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
     resolver: zodResolver(schema),
     defaultValues: {
       text_pattern: "",
+      counterparty_pattern: "",
+      movement_type: "",
+      direction: "",
       category_id: "",
       subcategory_id: "",
       priority: 100,
@@ -70,6 +77,9 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
       rule
         ? {
             text_pattern: rule.text_pattern,
+            counterparty_pattern: rule.counterparty_pattern ?? "",
+            movement_type: rule.movement_type ?? "",
+            direction: rule.direction ?? "",
             category_id: rule.category_id ?? "",
             subcategory_id: rule.subcategory_id ?? "",
             priority: rule.priority,
@@ -77,6 +87,9 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
           }
         : {
             text_pattern: "",
+            counterparty_pattern: "",
+            movement_type: "",
+            direction: "",
             category_id: "",
             subcategory_id: "",
             priority: 100,
@@ -99,6 +112,9 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
           id: rule.id,
           input: {
             text_pattern: values.text_pattern,
+            counterparty_pattern: values.counterparty_pattern || null,
+            movement_type: (values.movement_type || null) as MovementType | null,
+            direction: (values.direction || null) as RuleDirection | null,
             category_id: values.category_id || null,
             subcategory_id: values.subcategory_id || null,
             priority: values.priority,
@@ -110,6 +126,9 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
         await createMut.mutateAsync({
           workspace_id: workspaceId,
           text_pattern: values.text_pattern,
+          counterparty_pattern: values.counterparty_pattern || null,
+          movement_type: (values.movement_type || null) as MovementType | null,
+          direction: (values.direction || null) as RuleDirection | null,
           category_id: values.category_id || null,
           subcategory_id: values.subcategory_id || null,
           priority: values.priority,
@@ -141,6 +160,53 @@ export function RuleFormDialog({ open, onOpenChange, workspaceId, rule }: Props)
                 {form.formState.errors.text_pattern.message as string}
               </p>
             )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Contraparte (opcional)</Label>
+            <Input
+              {...form.register("counterparty_pattern")}
+              placeholder="ex.: Stephanie, Comunidade da Graça"
+            />
+            <p className="text-xs text-muted-foreground">
+              Torna a regra específica: vence regras genéricas com o mesmo texto.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Tipo (opcional)</Label>
+              <Select
+                value={form.watch("movement_type") || NONE}
+                onValueChange={(v) => form.setValue("movement_type", v === NONE ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  {MOVEMENT_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Direção (opcional)</Label>
+              <Select
+                value={form.watch("direction") || NONE}
+                onValueChange={(v) => form.setValue("direction", v === NONE ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  <SelectItem value="IN">Entrada (recebido)</SelectItem>
+                  <SelectItem value="OUT">Saída (enviado)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
