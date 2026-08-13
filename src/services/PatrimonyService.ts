@@ -3,6 +3,7 @@
 // Regra: Patrimônio Líquido = Ativos − Passivos.
 import { BaseService } from "./BaseService";
 import { AssetServiceImpl } from "./AssetService";
+import { AssetValuationServiceImpl } from "./AssetValuationService";
 import { assetTypeToGroup, AssetClassGroup } from "@/constants/enums";
 import type { Asset } from "@/models";
 import type { CardInvoice } from "@/models/CardInvoice";
@@ -30,16 +31,22 @@ class PatrimonyServiceImpl extends BaseService {
       .reduce((s, i) => s + Number(i.amount), 0);
   }
 
+  /**
+   * Ativos que podem entrar no total sem dupla contagem.
+   * Ativos que espelham uma conta (caixinhas) já estão representados no caixa.
+   */
+  static countableAssets(assets: Asset[]): Asset[] {
+    return assets.filter((a) => a.is_active && AssetValuationServiceImpl.countsInTotal(a));
+  }
+
   /** Total dos ativos declarados (valor de mercado atual). */
   static totalAssetsValue(assets: Asset[]): number {
-    return assets.filter((a) => a.is_active).reduce((s, a) => s + Number(a.current_value), 0);
+    return this.countableAssets(assets).reduce((s, a) => s + Number(a.current_value), 0);
   }
 
   /** Rentabilidade agregada = soma(current − acquisition). */
   static totalAssetProfit(assets: Asset[]): number {
-    return assets
-      .filter((a) => a.is_active)
-      .reduce((s, a) => s + AssetServiceImpl.profit(a), 0);
+    return this.countableAssets(assets).reduce((s, a) => s + AssetServiceImpl.profit(a), 0);
   }
 
   /** Snapshot completo do patrimônio. */
@@ -65,8 +72,7 @@ class PatrimonyServiceImpl extends BaseService {
   static byClassGroup(cashBalance: number, assets: Asset[]): GroupBreakdown[] {
     const map = new Map<AssetClassGroup, number>();
     if (cashBalance !== 0) map.set(AssetClassGroup.CAIXA, cashBalance);
-    for (const a of assets) {
-      if (!a.is_active) continue;
+    for (const a of this.countableAssets(assets)) {
       const g = assetTypeToGroup(a.asset_type);
       map.set(g, (map.get(g) ?? 0) + Number(a.current_value));
     }
@@ -78,8 +84,7 @@ class PatrimonyServiceImpl extends BaseService {
   /** Distribuição por instituição declarada nos ativos. */
   static byInstitution(assets: Asset[]): GroupBreakdown[] {
     const map = new Map<string, number>();
-    for (const a of assets) {
-      if (!a.is_active) continue;
+    for (const a of this.countableAssets(assets)) {
       const key = (a.institution?.trim() || "Sem instituição");
       map.set(key, (map.get(key) ?? 0) + Number(a.current_value));
     }
