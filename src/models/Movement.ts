@@ -30,6 +30,8 @@ export interface Movement {
   due_date: string | null;
   tags: string[];
   attachments: MovementAttachment[];
+  /** Impressão digital usada pela deduplicação inteligente. */
+  duplicate_hash: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
   deleted_at: ISODateString | null;
@@ -96,5 +98,7 @@ export interface MovementFilters {
   status?: MovementStatus | "all";
   group?: MovementGroup;
   search?: string;
+  /** Restringe aos lançamentos de uma importação específica (revisão). */
+  importId?: UUID;
 }
 

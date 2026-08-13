@@ -25,6 +25,9 @@ export interface ImportRecord {
   duplicated_rows: number;
   status: ImportStatus;
   log: ImportLogEntry[];
+  /** Sprint 4.5.2 — quando a revisão dos lançamentos novos foi concluída. */
+  reviewed_at: ISODateString | null;
+  reviewed_by: UUID | null;
   created_at: ISODateString;
   updated_at: ISODateString;
 }
