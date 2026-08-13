@@ -68,6 +68,38 @@ class ImportHistoryServiceImpl extends BaseService {
     return data as unknown as ImportRecord;
   }
 
+  async getById(id: UUID): Promise<ImportRecord | null> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) this.handleError(error, "getById");
+    return (data as unknown as ImportRecord) ?? null;
+  }
+
+  /**
+   * Sprint 4.5.2 — registra (ou reabre) a revisão dos lançamentos importados.
+   * Não altera contadores, status da importação nem as movimentações.
+   */
+  async setReviewed(
+    id: UUID,
+    reviewed: boolean,
+    userId: UUID | null = null,
+  ): Promise<ImportRecord> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .update({
+        reviewed_at: reviewed ? new Date().toISOString() : null,
+        reviewed_by: reviewed ? userId : null,
+      } as never)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) this.handleError(error, "setReviewed");
+    return data as unknown as ImportRecord;
+  }
+
   async delete(id: UUID): Promise<void> {
     const { error } = await this.client.from(this.table).delete().eq("id", id);
     if (error) this.handleError(error, "delete");

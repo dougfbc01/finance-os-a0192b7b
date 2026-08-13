@@ -28,6 +28,30 @@ export function useCommitImport() {
   });
 }
 
+export function useImportRecord(importId: UUID | undefined) {
+  return useQuery({
+    queryKey: [KEY, "record", importId],
+    queryFn: () => ImportHistoryService.getById(importId as UUID),
+    enabled: !!importId,
+  });
+}
+
+export function useSetImportReviewed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      reviewed,
+      userId,
+    }: {
+      id: UUID;
+      reviewed: boolean;
+      userId?: UUID | null;
+    }) => ImportHistoryService.setReviewed(id, reviewed, userId ?? null),
+    onSuccess: () => invalidateFinancialQueries(qc),
+  });
+}
+
 export function useDeleteImport() {
   const qc = useQueryClient();
   return useMutation({
