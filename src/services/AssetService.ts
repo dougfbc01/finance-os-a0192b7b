@@ -107,6 +107,13 @@ class AssetServiceImpl extends BaseService {
     if (typeof payload.name === "string") payload.name = (payload.name as string).trim();
     if (typeof payload.institution === "string")
       payload.institution = (payload.institution as string).trim() || null;
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.ACCOUNT) {
+      payload.account_id = null;
+    }
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.MOVEMENTS) {
+      payload.opening_value = 0;
+    }
+
     const { data, error } = await this.client
       .from(this.table)
       .update(payload as never)
