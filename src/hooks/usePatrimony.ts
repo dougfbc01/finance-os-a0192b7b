@@ -5,6 +5,7 @@ import { useCardInvoices } from "./useCardInvoices";
 import { useDashboardData } from "./useDashboard";
 import { PatrimonyServiceImpl } from "@/services/PatrimonyService";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
+import { AssetValuationServiceImpl } from "@/services/AssetValuationService";
 
 export function usePatrimony() {
   const { data: ws } = useWorkspace();
@@ -13,9 +14,16 @@ export function usePatrimony() {
   const invoicesQ = useCardInvoices(wsId);
   const dash = useDashboardData();
 
-  const assets = assetsQ.data ?? [];
+  const rawAssets = assetsQ.data ?? [];
   const invoices = invoicesQ.data ?? [];
   const cashBalance = dash.totalBalance;
+
+  // Sprint 4.5.2 — o valor do ativo é sempre derivado da sua fonte declarada
+  // (manual, movimentações ou saldo de conta). Nada é persistido.
+  const assets = useMemo(
+    () => AssetValuationServiceImpl.effectiveAssets(rawAssets, dash.movements, dash.balances),
+    [rawAssets, dash.movements, dash.balances],
+  );
 
   const snapshot = useMemo(
     () => PatrimonyServiceImpl.snapshot({ cashBalance, assets, invoices }),
