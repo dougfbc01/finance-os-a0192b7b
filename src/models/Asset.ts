@@ -1,4 +1,4 @@
-import type { AssetType } from "@/constants/enums";
+import type { AssetType, AssetValuationSource } from "@/constants/enums";
 import type { UUID, ISODateString } from "./index";
 
 export interface Asset {
@@ -15,6 +15,12 @@ export interface Asset {
   acquisition_date: string | null;
   is_active: boolean;
   notes: string | null;
+  /** Sprint 4.5.2 — de onde vem o valor patrimonial deste ativo. */
+  valuation_source: AssetValuationSource;
+  /** Conta espelhada quando valuation_source = ACCOUNT (caixinhas). */
+  account_id: UUID | null;
+  /** Base usada quando valuation_source = MOVEMENTS. */
+  opening_value: number;
   created_at: ISODateString;
   updated_at: ISODateString;
   deleted_at: ISODateString | null;
@@ -32,6 +38,9 @@ export interface CreateAssetInput {
   acquisition_value?: number;
   acquisition_date?: string | null;
   notes?: string | null;
+  valuation_source?: AssetValuationSource;
+  account_id?: UUID | null;
+  opening_value?: number;
 }
 
 export interface UpdateAssetInput {
@@ -46,4 +55,8 @@ export interface UpdateAssetInput {
   acquisition_date?: string | null;
   notes?: string | null;
   is_active?: boolean;
+  valuation_source?: AssetValuationSource;
+  account_id?: UUID | null;
+  opening_value?: number;
 }
+
