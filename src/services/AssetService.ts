@@ -56,10 +56,21 @@ class AssetServiceImpl extends BaseService {
       this.handleError(new Error("Valor atual não pode ser negativo."), "validate");
     if (input.quantity !== undefined && input.quantity < 0)
       this.handleError(new Error("Quantidade não pode ser negativa."), "validate");
+    if (input.valuation_source === AssetValuationSource.ACCOUNT && !input.account_id)
+      this.handleError(
+        new Error("Selecione a conta que este ativo deve espelhar."),
+        "validate",
+      );
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.ACCOUNT && input.account_id)
+      this.handleError(
+        new Error("A conta vinculada só se aplica a ativos que espelham uma conta."),
+        "validate",
+      );
   }
 
   async create(input: CreateAssetInput): Promise<Asset> {
     this.validate(input);
+    const source = input.valuation_source ?? AssetValuationSource.MANUAL;
     const payload: Row = {
       workspace_id: input.workspace_id,
       name: input.name.trim(),
@@ -73,7 +84,14 @@ class AssetServiceImpl extends BaseService {
       acquisition_date: input.acquisition_date ?? null,
       notes: input.notes ?? null,
       is_active: true,
+      valuation_source: source,
+      account_id: source === AssetValuationSource.ACCOUNT ? (input.account_id ?? null) : null,
+      opening_value:
+        source === AssetValuationSource.MOVEMENTS
+          ? (input.opening_value ?? 0)
+          : 0,
     };
+
     const { data, error } = await this.client
       .from(this.table)
       .insert(payload as never)
