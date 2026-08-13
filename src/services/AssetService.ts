@@ -2,6 +2,7 @@
 // Regras: nunca inclui o saldo bancário; representa apenas ativos declarados
 // (investimentos, caixinhas, previdência, etc.).
 import { BaseService } from "./BaseService";
+import { AssetValuationSource } from "@/constants/enums";
 import type { Asset, CreateAssetInput, UpdateAssetInput, UUID } from "@/models";
 
 type Row = Record<string, unknown>;
@@ -16,8 +17,14 @@ class AssetServiceImpl extends BaseService {
       unit_price: Number((r as { unit_price: unknown }).unit_price ?? 0),
       current_value: Number((r as { current_value: unknown }).current_value ?? 0),
       acquisition_value: Number((r as { acquisition_value: unknown }).acquisition_value ?? 0),
+      opening_value: Number((r as { opening_value?: unknown }).opening_value ?? 0),
+      valuation_source:
+        ((r as { valuation_source?: AssetValuationSource }).valuation_source ??
+          AssetValuationSource.MANUAL) as AssetValuationSource,
+      account_id: ((r as { account_id?: UUID | null }).account_id ?? null) as UUID | null,
     };
   }
+
 
   async list(workspaceId: UUID): Promise<Asset[]> {
     const { data, error } = await this.client
@@ -49,10 +56,21 @@ class AssetServiceImpl extends BaseService {
       this.handleError(new Error("Valor atual não pode ser negativo."), "validate");
     if (input.quantity !== undefined && input.quantity < 0)
       this.handleError(new Error("Quantidade não pode ser negativa."), "validate");
+    if (input.valuation_source === AssetValuationSource.ACCOUNT && !input.account_id)
+      this.handleError(
+        new Error("Selecione a conta que este ativo deve espelhar."),
+        "validate",
+      );
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.ACCOUNT && input.account_id)
+      this.handleError(
+        new Error("A conta vinculada só se aplica a ativos que espelham uma conta."),
+        "validate",
+      );
   }
 
   async create(input: CreateAssetInput): Promise<Asset> {
     this.validate(input);
+    const source = input.valuation_source ?? AssetValuationSource.MANUAL;
     const payload: Row = {
       workspace_id: input.workspace_id,
       name: input.name.trim(),
@@ -66,7 +84,14 @@ class AssetServiceImpl extends BaseService {
       acquisition_date: input.acquisition_date ?? null,
       notes: input.notes ?? null,
       is_active: true,
+      valuation_source: source,
+      account_id: source === AssetValuationSource.ACCOUNT ? (input.account_id ?? null) : null,
+      opening_value:
+        source === AssetValuationSource.MOVEMENTS
+          ? (input.opening_value ?? 0)
+          : 0,
     };
+
     const { data, error } = await this.client
       .from(this.table)
       .insert(payload as never)
@@ -82,6 +107,13 @@ class AssetServiceImpl extends BaseService {
     if (typeof payload.name === "string") payload.name = (payload.name as string).trim();
     if (typeof payload.institution === "string")
       payload.institution = (payload.institution as string).trim() || null;
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.ACCOUNT) {
+      payload.account_id = null;
+    }
+    if (input.valuation_source && input.valuation_source !== AssetValuationSource.MOVEMENTS) {
+      payload.opening_value = 0;
+    }
+
     const { data, error } = await this.client
       .from(this.table)
       .update(payload as never)

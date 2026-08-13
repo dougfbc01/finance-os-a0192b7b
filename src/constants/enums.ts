@@ -252,3 +252,52 @@ export function assetTypeToGroup(t: AssetType): AssetClassGroup {
       return AssetClassGroup.OUTROS;
   }
 }
+
+// -----------------------------------------------------------------------------
+// Sprint 4.5.2 — Origem do valor patrimonial de um ativo
+// -----------------------------------------------------------------------------
+/**
+ * MANUAL     → valor informado pelo usuário (current_value).
+ * MOVEMENTS  → valor inicial + impacto das movimentações vinculadas ao ativo.
+ * ACCOUNT    → espelha o saldo de uma conta financeira (caixinhas).
+ *              NUNCA soma no total de ativos: o saldo já está no caixa.
+ */
+export enum AssetValuationSource {
+  MANUAL = "MANUAL",
+  MOVEMENTS = "MOVEMENTS",
+  ACCOUNT = "ACCOUNT",
+}
+
+export const ASSET_VALUATION_SOURCE_LABELS: Record<AssetValuationSource, string> = {
+  [AssetValuationSource.MANUAL]: "Valor informado manualmente",
+  [AssetValuationSource.MOVEMENTS]: "Calculado pelas movimentações",
+  [AssetValuationSource.ACCOUNT]: "Espelha o saldo de uma conta",
+};
+
+export const ASSET_VALUATION_SOURCE_OPTIONS = Object.values(AssetValuationSource).map((v) => ({
+  value: v,
+  label: ASSET_VALUATION_SOURCE_LABELS[v],
+}));
+
+/** Operação de investimento registrada na tag `op:` da movimentação. */
+export enum InvestmentOperation {
+  APORTE = "APORTE",
+  RESGATE = "RESGATE",
+  RENDIMENTO = "RENDIMENTO",
+  AJUSTE = "AJUSTE",
+}
+
+export const INVESTMENT_OPERATION_LABELS: Record<InvestmentOperation, string> = {
+  [InvestmentOperation.APORTE]: "Aporte",
+  [InvestmentOperation.RESGATE]: "Resgate",
+  [InvestmentOperation.RENDIMENTO]: "Rendimento",
+  [InvestmentOperation.AJUSTE]: "Ajuste",
+};
+
+export const INVESTMENT_OPERATION_OPTIONS = Object.values(InvestmentOperation).map((v) => ({
+  value: v,
+  label: INVESTMENT_OPERATION_LABELS[v],
+}));
+
+/** Prefixo da tag que carrega a operação de investimento. */
+export const INVESTMENT_OP_TAG_PREFIX = "op:";

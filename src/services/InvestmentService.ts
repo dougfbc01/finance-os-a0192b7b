@@ -3,6 +3,7 @@
 // (renda fixa, ações, fundos, cripto, previdência, FIIs, ETFs, BDRs, etc.).
 import { BaseService } from "./BaseService";
 import { AssetServiceImpl } from "./AssetService";
+import { AssetValuationServiceImpl } from "./AssetValuationService";
 import { INVESTMENT_ASSET_TYPES } from "@/constants/enums";
 import type { Asset } from "@/models";
 
@@ -16,7 +17,12 @@ export interface InvestmentRow {
 
 class InvestmentServiceImpl extends BaseService {
   static filterInvestments(assets: Asset[]): Asset[] {
-    return assets.filter((a) => a.is_active && INVESTMENT_ASSET_TYPES.includes(a.asset_type));
+    return assets.filter(
+      (a) =>
+        a.is_active &&
+        INVESTMENT_ASSET_TYPES.includes(a.asset_type) &&
+        AssetValuationServiceImpl.countsInTotal(a),
+    );
   }
 
   static rows(assets: Asset[]): InvestmentRow[] {

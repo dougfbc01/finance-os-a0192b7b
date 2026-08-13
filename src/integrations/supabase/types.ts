@@ -75,6 +75,7 @@ export type Database = {
       }
       assets: {
         Row: {
+          account_id: string | null
           acquisition_date: string | null
           acquisition_value: number
           asset_type: Database["public"]["Enums"]["asset_type"]
@@ -87,12 +88,15 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          opening_value: number
           quantity: number
           unit_price: number
           updated_at: string
+          valuation_source: string
           workspace_id: string
         }
         Insert: {
+          account_id?: string | null
           acquisition_date?: string | null
           acquisition_value?: number
           asset_type: Database["public"]["Enums"]["asset_type"]
@@ -105,12 +109,15 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          opening_value?: number
           quantity?: number
           unit_price?: number
           updated_at?: string
+          valuation_source?: string
           workspace_id: string
         }
         Update: {
+          account_id?: string | null
           acquisition_date?: string | null
           acquisition_value?: number
           asset_type?: Database["public"]["Enums"]["asset_type"]
@@ -123,12 +130,21 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          opening_value?: number
           quantity?: number
           unit_price?: number
           updated_at?: string
+          valuation_source?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "assets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assets_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -775,6 +791,8 @@ export type Database = {
           imported_by: string | null
           imported_rows: number
           log: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
           source: Database["public"]["Enums"]["import_source"]
           status: Database["public"]["Enums"]["import_status"]
           total_rows: number
@@ -793,6 +811,8 @@ export type Database = {
           imported_by?: string | null
           imported_rows?: number
           log?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source: Database["public"]["Enums"]["import_source"]
           status?: Database["public"]["Enums"]["import_status"]
           total_rows?: number
@@ -811,6 +831,8 @@ export type Database = {
           imported_by?: string | null
           imported_rows?: number
           log?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source?: Database["public"]["Enums"]["import_source"]
           status?: Database["public"]["Enums"]["import_status"]
           total_rows?: number

@@ -64,6 +64,7 @@ class MovementServiceImpl extends BaseService {
     } else if (filters.subcategoryId && filters.subcategoryId !== "all") {
       q = q.eq("subcategory_id", filters.subcategoryId);
     }
+    if (filters.importId) q = q.eq("import_id", filters.importId);
     if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.search) q = q.ilike("description", `%${filters.search}%`);

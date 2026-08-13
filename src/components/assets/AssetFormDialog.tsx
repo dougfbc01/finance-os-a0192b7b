@@ -22,10 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AssetType, ASSET_TYPE_OPTIONS } from "@/constants/enums";
+import {
+  AssetType,
+  ASSET_TYPE_OPTIONS,
+  AssetValuationSource,
+  ASSET_VALUATION_SOURCE_OPTIONS,
+} from "@/constants/enums";
 import { CURRENCY_OPTIONS } from "@/constants";
 import type { Asset } from "@/models";
 import { useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
+import { useAccounts } from "@/hooks/useAccounts";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Informe um nome").max(80),
@@ -46,7 +52,15 @@ const schema = z.object({
   ),
   acquisition_date: z.string().optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
-});
+  valuation_source: z.nativeEnum(AssetValuationSource),
+  account_id: z.string().optional().or(z.literal("")),
+  opening_value: z.union([z.string(), z.number()]).transform((v) =>
+    typeof v === "string" ? Number(v.replace(",", ".")) : v,
+  ),
+}).refine(
+  (v) => v.valuation_source !== AssetValuationSource.ACCOUNT || !!v.account_id,
+  { message: "Selecione a conta espelhada", path: ["account_id"] },
+);
 
 type FormValues = z.input<typeof schema>;
 
@@ -68,6 +82,9 @@ const defaults: FormValues = {
   acquisition_value: 0,
   acquisition_date: "",
   notes: "",
+  valuation_source: AssetValuationSource.MANUAL,
+  account_id: "",
+  opening_value: 0,
 };
 
 export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Props) {
@@ -75,6 +92,9 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const createMut = useCreateAsset();
   const updateMut = useUpdateAsset();
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const { data: accounts = [] } = useAccounts(workspaceId);
+  const source = form.watch("valuation_source") as AssetValuationSource;
+  const isManual = source === AssetValuationSource.MANUAL;
 
   useEffect(() => {
     if (!open) return;
@@ -91,6 +111,9 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
             acquisition_value: Number(asset.acquisition_value),
             acquisition_date: asset.acquisition_date ?? "",
             notes: asset.notes ?? "",
+            valuation_source: asset.valuation_source ?? AssetValuationSource.MANUAL,
+            account_id: asset.account_id ?? "",
+            opening_value: Number(asset.opening_value ?? 0),
           }
         : defaults,
     );
@@ -113,6 +136,11 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
             acquisition_value: v.acquisition_value,
             acquisition_date: v.acquisition_date || null,
             notes: v.notes || null,
+            valuation_source: v.valuation_source,
+            account_id:
+              v.valuation_source === AssetValuationSource.ACCOUNT ? v.account_id || null : null,
+            opening_value:
+              v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
           },
         });
         toast.success("Ativo atualizado");
@@ -129,6 +157,11 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           acquisition_value: v.acquisition_value,
           acquisition_date: v.acquisition_date || null,
           notes: v.notes || null,
+          valuation_source: v.valuation_source,
+          account_id:
+            v.valuation_source === AssetValuationSource.ACCOUNT ? v.account_id || null : null,
+          opening_value:
+            v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
         });
         toast.success("Ativo criado");
       }
@@ -202,14 +235,76 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               <Input type="number" step="0.00000001" {...form.register("unit_price")} />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Valor atual</Label>
-              <Input type="number" step="0.01" {...form.register("current_value")} />
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>Origem do valor</Label>
+              <Select
+                value={source}
+                onValueChange={(v) =>
+                  form.setValue("valuation_source", v as AssetValuationSource, {
+                    shouldDirty: true,
+                  })
+                }
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ASSET_VALUATION_SOURCE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {source === AssetValuationSource.MOVEMENTS
+                  ? "Aportes, resgates e rendimentos lançados neste ativo atualizam o valor automaticamente."
+                  : source === AssetValuationSource.ACCOUNT
+                    ? "O valor espelha o saldo da conta escolhida e não é somado novamente ao patrimônio."
+                    : "Você mantém o valor atual manualmente."}
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Valor de aquisição</Label>
-              <Input type="number" step="0.01" {...form.register("acquisition_value")} />
-            </div>
+
+            {source === AssetValuationSource.ACCOUNT && (
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Conta espelhada</Label>
+                <Select
+                  value={(form.watch("account_id") as string) || ""}
+                  onValueChange={(v) => form.setValue("account_id", v, { shouldDirty: true })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.account_id && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.account_id.message}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {source === AssetValuationSource.MOVEMENTS && (
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Valor inicial</Label>
+                <Input type="number" step="0.01" {...form.register("opening_value")} />
+                <p className="text-xs text-muted-foreground">
+                  Saldo que o ativo já possuía antes das movimentações registradas aqui.
+                </p>
+              </div>
+            )}
+
+            {isManual && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Valor atual</Label>
+                  <Input type="number" step="0.01" {...form.register("current_value")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Valor de aquisição</Label>
+                  <Input type="number" step="0.01" {...form.register("acquisition_value")} />
+                </div>
+              </>
+            )}
 
             <div className="space-y-1.5 md:col-span-2">
               <Label>Data de aquisição</Label>
