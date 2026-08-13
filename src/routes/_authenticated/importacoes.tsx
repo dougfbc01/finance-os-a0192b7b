@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,7 +115,15 @@ function ImportacoesPage() {
                       <td className="px-3 py-2">
                         <StatusBadge status={imp.status} />
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link
+                            to="/importacoes/revisao/$importId"
+                            params={{ importId: imp.id }}
+                          >
+                            {imp.reviewed_at ? "Ver revisão" : "Revisar"}
+                          </Link>
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(imp.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>

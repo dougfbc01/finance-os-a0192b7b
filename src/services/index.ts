@@ -10,6 +10,8 @@ export { ImportService } from "./ImportService";
 export { ImportHistoryService } from "./ImportHistoryService";
 export { DashboardService } from "./DashboardService";
 export { AssetService } from "./AssetService";
+export { AssetValuationService } from "./AssetValuationService";
+export { ImportReviewService } from "./ImportReviewService";
 export { PatrimonyService } from "./PatrimonyService";
 export { InvestmentService } from "./InvestmentService";
 export { HealthCheckService } from "./HealthCheckService";

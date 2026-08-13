@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import type { CommitResult } from "@/services/ImportService";
 import { Upload, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +53,7 @@ export function ImportDialog({
   userId,
 }: ImportDialogProps) {
   const [step, setStep] = useState<Step>("select");
+  const [result, setResult] = useState<CommitResult | null>(null);
   const [source, setSource] = useState<ImportSource>("NUBANK_ACCOUNT");
   const [accountId, setAccountId] = useState<string>("");
   const [cardId, setCardId] = useState<string>("");
@@ -135,6 +138,7 @@ export function ImportDialog({
       toast.success(
         `Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.${extra}`,
       );
+      setResult(res);
       setStep("done");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao importar");
@@ -339,11 +343,29 @@ export function ImportDialog({
           <div className="text-center py-6 space-y-3">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
             <p>Importação concluída com sucesso.</p>
+            {result && (
+              <p className="text-sm text-muted-foreground">
+                {result.inserted} novo(s) lançamento(s) · {result.duplicated} duplicado(s)
+                descartado(s) · {result.ignored} ignorado(s).
+              </p>
+            )}
             <DialogFooter className="justify-center gap-2">
               <Button variant="outline" onClick={reset}>
                 Importar outro arquivo
               </Button>
-              <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+              {result && result.inserted > 0 && (
+                <Button asChild onClick={() => onOpenChange(false)}>
+                  <Link
+                    to="/importacoes/revisao/$importId"
+                    params={{ importId: result.importRecord.id }}
+                  >
+                    Revisar lançamentos
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Ir para Movimentações
+              </Button>
             </DialogFooter>
           </div>
         )}
