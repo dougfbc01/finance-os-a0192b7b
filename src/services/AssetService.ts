@@ -2,6 +2,7 @@
 // Regras: nunca inclui o saldo bancário; representa apenas ativos declarados
 // (investimentos, caixinhas, previdência, etc.).
 import { BaseService } from "./BaseService";
+import { AssetValuationSource } from "@/constants/enums";
 import type { Asset, CreateAssetInput, UpdateAssetInput, UUID } from "@/models";
 
 type Row = Record<string, unknown>;
@@ -16,8 +17,14 @@ class AssetServiceImpl extends BaseService {
       unit_price: Number((r as { unit_price: unknown }).unit_price ?? 0),
       current_value: Number((r as { current_value: unknown }).current_value ?? 0),
       acquisition_value: Number((r as { acquisition_value: unknown }).acquisition_value ?? 0),
+      opening_value: Number((r as { opening_value?: unknown }).opening_value ?? 0),
+      valuation_source:
+        ((r as { valuation_source?: AssetValuationSource }).valuation_source ??
+          AssetValuationSource.MANUAL) as AssetValuationSource,
+      account_id: ((r as { account_id?: UUID | null }).account_id ?? null) as UUID | null,
     };
   }
+
 
   async list(workspaceId: UUID): Promise<Asset[]> {
     const { data, error } = await this.client
