@@ -12,9 +12,10 @@ import type { Asset } from "@/models";
 interface Props {
   asset: Asset;
   onEdit: (a: Asset) => void;
+  onOpenDetail?: (a: Asset) => void;
 }
 
-export function AssetCard({ asset, onEdit }: Props) {
+export function AssetCard({ asset, onEdit, onOpenDetail }: Props) {
   const del = useDeleteAsset();
   const profit = AssetServiceImpl.profit(asset);
   const pct = AssetServiceImpl.profitPercent(asset);
@@ -35,7 +36,17 @@ export function AssetCard({ asset, onEdit }: Props) {
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-semibold truncate">{asset.name}</p>
+            {onOpenDetail ? (
+              <button
+                type="button"
+                className="truncate font-semibold hover:underline"
+                onClick={() => onOpenDetail(asset)}
+              >
+                {asset.name}
+              </button>
+            ) : (
+              <p className="font-semibold truncate">{asset.name}</p>
+            )}
             <p className="text-xs text-muted-foreground truncate">
               {asset.institution || "—"}
             </p>

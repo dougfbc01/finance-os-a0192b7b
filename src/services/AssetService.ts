@@ -22,6 +22,7 @@ class AssetServiceImpl extends BaseService {
         ((r as { valuation_source?: AssetValuationSource }).valuation_source ??
           AssetValuationSource.MANUAL) as AssetValuationSource,
       account_id: ((r as { account_id?: UUID | null }).account_id ?? null) as UUID | null,
+      ticker: (((r as { ticker?: string | null }).ticker ?? null) || null) as string | null,
     };
   }
 
@@ -76,6 +77,7 @@ class AssetServiceImpl extends BaseService {
       name: input.name.trim(),
       asset_type: input.asset_type,
       institution: input.institution?.trim() || null,
+      ticker: input.ticker?.trim() || null,
       currency: input.currency ?? "BRL",
       quantity: input.quantity ?? 0,
       unit_price: input.unit_price ?? 0,
@@ -107,6 +109,8 @@ class AssetServiceImpl extends BaseService {
     if (typeof payload.name === "string") payload.name = (payload.name as string).trim();
     if (typeof payload.institution === "string")
       payload.institution = (payload.institution as string).trim() || null;
+    if (typeof payload.ticker === "string")
+      payload.ticker = (payload.ticker as string).trim() || null;
     if (input.valuation_source && input.valuation_source !== AssetValuationSource.ACCOUNT) {
       payload.account_id = null;
     }

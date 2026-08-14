@@ -158,6 +158,8 @@ export enum Currency {
 export enum AssetType {
   BANK = "BANK",
   CASH = "CASH",
+  POUPANCA = "POUPANCA",
+  RENDA_FIXA = "RENDA_FIXA",
   CDB = "CDB",
   TESOURO = "TESOURO",
   LCI = "LCI",
@@ -177,6 +179,8 @@ export enum AssetType {
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   [AssetType.BANK]: "Conta Bancária",
   [AssetType.CASH]: "Dinheiro",
+  [AssetType.POUPANCA]: "Poupança",
+  [AssetType.RENDA_FIXA]: "Renda Fixa (outros)",
   [AssetType.CDB]: "CDB",
   [AssetType.TESOURO]: "Tesouro Direto",
   [AssetType.LCI]: "LCI",
@@ -198,12 +202,43 @@ export const ASSET_TYPE_OPTIONS = Object.values(AssetType).map((v) => ({
   label: ASSET_TYPE_LABELS[v],
 }));
 
+/**
+ * Sprint 4.6 — características do tipo de ativo.
+ * Define quais campos fazem sentido no cadastro (nada é obrigatório à força).
+ */
+export interface AssetTypeTraits {
+  /** Quantidade e preço médio são relevantes (ativos negociados em cotas). */
+  hasQuantity: boolean;
+  /** Código de negociação (ticker) é relevante. */
+  hasTicker: boolean;
+}
+
+const QUOTED_TYPES: AssetType[] = [
+  AssetType.ACAO,
+  AssetType.FII,
+  AssetType.ETF,
+  AssetType.BDR,
+  AssetType.CRIPTO,
+  AssetType.FUNDO,
+];
+
+export function assetTypeTraits(t: AssetType): AssetTypeTraits {
+  const quoted = QUOTED_TYPES.includes(t);
+  return {
+    hasQuantity: quoted || t === AssetType.TESOURO,
+    hasTicker: quoted,
+  };
+}
+
+
 /** Classes que aparecem no dashboard de investimentos (exclui BANK/CASH/CAIXINHA/OUTRO). */
 export const INVESTMENT_ASSET_TYPES: AssetType[] = [
+  AssetType.POUPANCA, AssetType.RENDA_FIXA,
   AssetType.CDB, AssetType.TESOURO, AssetType.LCI, AssetType.LCA, AssetType.DEBENTURE,
   AssetType.ACAO, AssetType.FII, AssetType.ETF, AssetType.BDR, AssetType.CRIPTO,
   AssetType.PREVIDENCIA, AssetType.FUNDO,
 ];
+
 
 export enum AssetClassGroup {
   CAIXA = "CAIXA",
@@ -231,6 +266,8 @@ export function assetTypeToGroup(t: AssetType): AssetClassGroup {
     case AssetType.CASH:
     case AssetType.CAIXINHA:
       return AssetClassGroup.CAIXA;
+    case AssetType.POUPANCA:
+    case AssetType.RENDA_FIXA:
     case AssetType.CDB:
     case AssetType.TESOURO:
     case AssetType.LCI:
@@ -252,6 +289,71 @@ export function assetTypeToGroup(t: AssetType): AssetClassGroup {
       return AssetClassGroup.OUTROS;
   }
 }
+
+// -----------------------------------------------------------------------------
+// Sprint 4.6 — Composição patrimonial por tipo (visão executiva)
+// -----------------------------------------------------------------------------
+export enum PatrimonyBucket {
+  CONTAS = "CONTAS",
+  CAIXINHAS = "CAIXINHAS",
+  POUPANCA = "POUPANCA",
+  RENDA_FIXA = "RENDA_FIXA",
+  TESOURO = "TESOURO",
+  ACOES = "ACOES",
+  FIIS = "FIIS",
+  ETFS = "ETFS",
+  OUTROS = "OUTROS",
+}
+
+export const PATRIMONY_BUCKET_LABELS: Record<PatrimonyBucket, string> = {
+  [PatrimonyBucket.CONTAS]: "Contas",
+  [PatrimonyBucket.CAIXINHAS]: "Caixinhas",
+  [PatrimonyBucket.POUPANCA]: "Poupança",
+  [PatrimonyBucket.RENDA_FIXA]: "Renda Fixa",
+  [PatrimonyBucket.TESOURO]: "Tesouro",
+  [PatrimonyBucket.ACOES]: "Ações",
+  [PatrimonyBucket.FIIS]: "FIIs",
+  [PatrimonyBucket.ETFS]: "ETFs",
+  [PatrimonyBucket.OUTROS]: "Outros",
+};
+
+/** Ordem canônica de apresentação da composição patrimonial. */
+export const PATRIMONY_BUCKET_ORDER: PatrimonyBucket[] = [
+  PatrimonyBucket.CONTAS,
+  PatrimonyBucket.CAIXINHAS,
+  PatrimonyBucket.POUPANCA,
+  PatrimonyBucket.RENDA_FIXA,
+  PatrimonyBucket.TESOURO,
+  PatrimonyBucket.ACOES,
+  PatrimonyBucket.FIIS,
+  PatrimonyBucket.ETFS,
+  PatrimonyBucket.OUTROS,
+];
+
+/** Bucket de um ativo declarado (contas/caixinhas são resolvidas no service). */
+export function assetTypeToBucket(t: AssetType): PatrimonyBucket {
+  switch (t) {
+    case AssetType.POUPANCA:
+      return PatrimonyBucket.POUPANCA;
+    case AssetType.CDB:
+    case AssetType.LCI:
+    case AssetType.LCA:
+    case AssetType.DEBENTURE:
+    case AssetType.RENDA_FIXA:
+      return PatrimonyBucket.RENDA_FIXA;
+    case AssetType.TESOURO:
+      return PatrimonyBucket.TESOURO;
+    case AssetType.ACAO:
+      return PatrimonyBucket.ACOES;
+    case AssetType.FII:
+      return PatrimonyBucket.FIIS;
+    case AssetType.ETF:
+      return PatrimonyBucket.ETFS;
+    default:
+      return PatrimonyBucket.OUTROS;
+  }
+}
+
 
 // -----------------------------------------------------------------------------
 // Sprint 4.5.2 — Origem do valor patrimonial de um ativo

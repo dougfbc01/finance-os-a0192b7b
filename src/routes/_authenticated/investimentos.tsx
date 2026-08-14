@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiWidget } from "@/components/dashboard/widgets";
-import { AssetFormDialog } from "@/components/assets";
+import { AssetFormDialog, AssetDetailDialog } from "@/components/assets";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
@@ -37,7 +37,8 @@ export const Route = createFileRoute("/_authenticated/investimentos")({
 function InvestimentosPage() {
   const { data: ws } = useWorkspace();
   const wsId = ws?.id;
-  const { investments, investmentTotals, isLoading } = usePatrimony();
+  const { investments, investmentTotals, movements, isLoading } = usePatrimony();
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
@@ -101,6 +102,7 @@ function InvestimentosPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Ativo</TableHead>
+                        <TableHead>Código</TableHead>
                         <TableHead>Classe</TableHead>
                         <TableHead>Instituição</TableHead>
                         <TableHead className="text-right">Qtd.</TableHead>
@@ -116,7 +118,18 @@ function InvestimentosPage() {
                         const positive = r.profit >= 0;
                         return (
                           <TableRow key={r.asset.id}>
-                            <TableCell className="font-medium">{r.asset.name}</TableCell>
+                            <TableCell className="font-medium">
+                              <button
+                                type="button"
+                                className="hover:underline"
+                                onClick={() => setDetailId(r.asset.id)}
+                              >
+                                {r.asset.name}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {r.asset.ticker || "—"}
+                            </TableCell>
                             <TableCell>
                               <Badge variant="secondary">
                                 {ASSET_TYPE_LABELS[r.asset.asset_type]}
@@ -168,6 +181,13 @@ function InvestimentosPage() {
           </Card>
         </>
       )}
+
+      <AssetDetailDialog
+        open={!!detailId}
+        onOpenChange={(o) => !o && setDetailId(null)}
+        asset={investments.find((r) => r.asset.id === detailId)?.asset ?? null}
+        movements={movements}
+      />
 
       {wsId && (
         <AssetFormDialog

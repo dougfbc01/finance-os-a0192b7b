@@ -27,6 +27,7 @@ import {
   ASSET_TYPE_OPTIONS,
   AssetValuationSource,
   ASSET_VALUATION_SOURCE_OPTIONS,
+  assetTypeTraits,
 } from "@/constants/enums";
 import { CURRENCY_OPTIONS } from "@/constants";
 import type { Asset } from "@/models";
@@ -37,6 +38,7 @@ const schema = z.object({
   name: z.string().trim().min(1, "Informe um nome").max(80),
   asset_type: z.nativeEnum(AssetType),
   institution: z.string().trim().max(80).optional().or(z.literal("")),
+  ticker: z.string().trim().max(20).optional().or(z.literal("")),
   currency: z.string().min(1),
   quantity: z.union([z.string(), z.number()]).transform((v) =>
     typeof v === "string" ? Number(v.replace(",", ".")) : v,
@@ -75,6 +77,7 @@ const defaults: FormValues = {
   name: "",
   asset_type: AssetType.CDB,
   institution: "",
+  ticker: "",
   currency: "BRL",
   quantity: 0,
   unit_price: 0,
@@ -95,6 +98,8 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const { data: accounts = [] } = useAccounts(workspaceId);
   const source = form.watch("valuation_source") as AssetValuationSource;
   const isManual = source === AssetValuationSource.MANUAL;
+  const assetType = form.watch("asset_type") as AssetType;
+  const traits = assetTypeTraits(assetType);
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +109,7 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
             name: asset.name,
             asset_type: asset.asset_type,
             institution: asset.institution ?? "",
+            ticker: asset.ticker ?? "",
             currency: asset.currency,
             quantity: Number(asset.quantity),
             unit_price: Number(asset.unit_price),
@@ -129,9 +135,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
             name: v.name,
             asset_type: v.asset_type,
             institution: v.institution || null,
+            ticker: traits.hasTicker ? v.ticker || null : null,
             currency: v.currency,
-            quantity: v.quantity,
-            unit_price: v.unit_price,
+            quantity: traits.hasQuantity ? v.quantity : 0,
+            unit_price: traits.hasQuantity ? v.unit_price : 0,
             current_value: v.current_value,
             acquisition_value: v.acquisition_value,
             acquisition_date: v.acquisition_date || null,
@@ -150,9 +157,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           name: v.name,
           asset_type: v.asset_type,
           institution: v.institution || null,
+          ticker: traits.hasTicker ? v.ticker || null : null,
           currency: v.currency,
-          quantity: v.quantity,
-          unit_price: v.unit_price,
+          quantity: traits.hasQuantity ? v.quantity : 0,
+          unit_price: traits.hasQuantity ? v.unit_price : 0,
           current_value: v.current_value,
           acquisition_value: v.acquisition_value,
           acquisition_date: v.acquisition_date || null,
@@ -226,14 +234,25 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               <Input placeholder="Ex.: XP, Nubank, B3" {...form.register("institution")} maxLength={80} />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Quantidade</Label>
-              <Input type="number" step="0.00000001" {...form.register("quantity")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Preço unitário</Label>
-              <Input type="number" step="0.00000001" {...form.register("unit_price")} />
-            </div>
+            {traits.hasTicker && (
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Código / Ticker</Label>
+                <Input placeholder="Ex.: PETR4, HGLG11" {...form.register("ticker")} maxLength={20} />
+              </div>
+            )}
+
+            {traits.hasQuantity && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Quantidade</Label>
+                  <Input type="number" step="0.00000001" {...form.register("quantity")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Preço médio</Label>
+                  <Input type="number" step="0.00000001" {...form.register("unit_price")} />
+                </div>
+              </>
+            )}
 
             <div className="space-y-1.5 md:col-span-2">
               <Label>Origem do valor</Label>

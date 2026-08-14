@@ -7,6 +7,8 @@ export interface Asset {
   name: string;
   asset_type: AssetType;
   institution: string | null;
+  /** Código de negociação (ex.: PETR4, HGLG11). Opcional por tipo de ativo. */
+  ticker: string | null;
   currency: string;
   quantity: number;
   unit_price: number;
@@ -31,6 +33,7 @@ export interface CreateAssetInput {
   name: string;
   asset_type: AssetType;
   institution?: string | null;
+  ticker?: string | null;
   currency?: string;
   quantity?: number;
   unit_price?: number;
@@ -47,6 +50,7 @@ export interface UpdateAssetInput {
   name?: string;
   asset_type?: AssetType;
   institution?: string | null;
+  ticker?: string | null;
   currency?: string;
   quantity?: number;
   unit_price?: number;

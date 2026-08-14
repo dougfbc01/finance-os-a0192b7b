@@ -37,6 +37,15 @@ export function usePatrimony() {
     () => PatrimonyServiceImpl.byInstitution(assets),
     [assets],
   );
+  const composition = useMemo(
+    () =>
+      PatrimonyServiceImpl.composition({
+        accounts: dash.accounts,
+        balances: dash.balances,
+        assets,
+      }),
+    [dash.accounts, dash.balances, assets],
+  );
   const investments = useMemo(() => InvestmentServiceImpl.rows(assets), [assets]);
   const investmentTotals = useMemo(() => InvestmentServiceImpl.totals(assets), [assets]);
 
@@ -47,6 +56,9 @@ export function usePatrimony() {
     snapshot,
     byClass,
     byInstitution,
+    composition,
+    accounts: dash.accounts,
+    movements: dash.movements,
     investments,
     investmentTotals,
     cashflow: dash.cashflow,
