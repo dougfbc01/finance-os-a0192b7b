@@ -10,8 +10,9 @@ import {
   AssetsByInstitutionWidget,
   LiabilitiesWidget,
   BalanceEvolutionWidget,
+  PatrimonyCompositionWidget,
 } from "@/components/dashboard/widgets";
-import { AssetCard, AssetFormDialog } from "@/components/assets";
+import { AssetCard, AssetFormDialog, AssetDetailDialog } from "@/components/assets";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import type { Asset } from "@/models";
@@ -33,8 +34,18 @@ export const Route = createFileRoute("/_authenticated/patrimonio")({
 function PatrimonioPage() {
   const { data: ws } = useWorkspace();
   const wsId = ws?.id;
-  const { assets, invoices, snapshot, byClass, byInstitution, cashflow, isLoading } =
-    usePatrimony();
+  const {
+    assets,
+    invoices,
+    snapshot,
+    byClass,
+    byInstitution,
+    composition,
+    movements,
+    cashflow,
+    isLoading,
+  } = usePatrimony();
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -92,6 +103,8 @@ function PatrimonioPage() {
             />
           </div>
 
+          <PatrimonyCompositionWidget composition={composition} onSelectAsset={setDetailId} />
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <AssetsByClassWidget data={byClass} />
             <AssetsByInstitutionWidget data={byInstitution} />
@@ -129,12 +142,20 @@ function PatrimonioPage() {
                     setEditing(as);
                     setFormOpen(true);
                   }}
+                  onOpenDetail={(as) => setDetailId(as.id)}
                 />
               ))}
             </div>
           )}
         </>
       )}
+
+      <AssetDetailDialog
+        open={!!detailId}
+        onOpenChange={(o) => !o && setDetailId(null)}
+        asset={assets.find((a) => a.id === detailId) ?? null}
+        movements={movements}
+      />
 
       {wsId && (
         <AssetFormDialog
