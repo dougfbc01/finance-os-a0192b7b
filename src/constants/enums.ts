@@ -158,6 +158,8 @@ export enum Currency {
 export enum AssetType {
   BANK = "BANK",
   CASH = "CASH",
+  POUPANCA = "POUPANCA",
+  RENDA_FIXA = "RENDA_FIXA",
   CDB = "CDB",
   TESOURO = "TESOURO",
   LCI = "LCI",
@@ -177,6 +179,8 @@ export enum AssetType {
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   [AssetType.BANK]: "Conta Bancária",
   [AssetType.CASH]: "Dinheiro",
+  [AssetType.POUPANCA]: "Poupança",
+  [AssetType.RENDA_FIXA]: "Renda Fixa (outros)",
   [AssetType.CDB]: "CDB",
   [AssetType.TESOURO]: "Tesouro Direto",
   [AssetType.LCI]: "LCI",
@@ -197,6 +201,35 @@ export const ASSET_TYPE_OPTIONS = Object.values(AssetType).map((v) => ({
   value: v,
   label: ASSET_TYPE_LABELS[v],
 }));
+
+/**
+ * Sprint 4.6 — características do tipo de ativo.
+ * Define quais campos fazem sentido no cadastro (nada é obrigatório à força).
+ */
+export interface AssetTypeTraits {
+  /** Quantidade e preço médio são relevantes (ativos negociados em cotas). */
+  hasQuantity: boolean;
+  /** Código de negociação (ticker) é relevante. */
+  hasTicker: boolean;
+}
+
+const QUOTED_TYPES: AssetType[] = [
+  AssetType.ACAO,
+  AssetType.FII,
+  AssetType.ETF,
+  AssetType.BDR,
+  AssetType.CRIPTO,
+  AssetType.FUNDO,
+];
+
+export function assetTypeTraits(t: AssetType): AssetTypeTraits {
+  const quoted = QUOTED_TYPES.includes(t);
+  return {
+    hasQuantity: quoted || t === AssetType.TESOURO,
+    hasTicker: quoted,
+  };
+}
+
 
 /** Classes que aparecem no dashboard de investimentos (exclui BANK/CASH/CAIXINHA/OUTRO). */
 export const INVESTMENT_ASSET_TYPES: AssetType[] = [
