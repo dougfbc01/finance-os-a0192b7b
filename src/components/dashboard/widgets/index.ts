@@ -3,6 +3,7 @@ export { BalanceEvolutionWidget } from "./BalanceEvolutionWidget";
 export { IncomeVsExpenseWidget } from "./IncomeVsExpenseWidget";
 export { ExpensesByCategoryWidget } from "./ExpensesByCategoryWidget";
 export { NetWorthWidget } from "./NetWorthWidget";
+export { PatrimonyCompositionWidget } from "./PatrimonyCompositionWidget";
 export { AssetsByClassWidget } from "./AssetsByClassWidget";
 export { AssetsByInstitutionWidget } from "./AssetsByInstitutionWidget";
 export { LiabilitiesWidget } from "./LiabilitiesWidget";

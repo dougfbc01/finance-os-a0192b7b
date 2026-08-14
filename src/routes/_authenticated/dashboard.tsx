@@ -18,6 +18,7 @@ import {
   BudgetWidget,
   GoalsWidget,
   BehavioralInsightsWidget,
+  PatrimonyCompositionWidget,
 
 } from "@/components/dashboard/widgets";
 import { useDashboardFilter } from "@/hooks/useDashboardFilter";
@@ -27,6 +28,8 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useMonthlyClosings } from "@/hooks/useMonthlyClosings";
 import { useFinancialGoals } from "@/hooks/useFinancialGoals";
 import { useMonthlyBudget } from "@/hooks/useMonthlyBudgets";
+import { useState } from "react";
+import { AssetDetailDialog } from "@/components/assets";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -153,6 +156,17 @@ function DashboardPage() {
             </div>
             <LiabilitiesWidget invoices={invoices} />
           </div>
+
+          <PatrimonyCompositionWidget
+            composition={composition}
+            onSelectAsset={setSelectedAssetId}
+          />
+          <AssetDetailDialog
+            open={!!selectedAssetId}
+            onOpenChange={(o) => !o && setSelectedAssetId(null)}
+            asset={assets.find((a) => a.id === selectedAssetId) ?? null}
+            movements={patrimonyMovements}
+          />
 
           <ExpensesByCategoryWidget
             data={expensesByCategory.map((d) => ({ categoryId: d.id, amount: d.amount }))}
