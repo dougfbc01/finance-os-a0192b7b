@@ -16,6 +16,7 @@ const asset = (over: Partial<Asset> = {}): Asset => ({
   name: "Poupança Santander",
   asset_type: AssetType.CDB,
   institution: "Santander",
+  ticker: null,
   currency: "BRL",
   quantity: 0,
   unit_price: 0,
