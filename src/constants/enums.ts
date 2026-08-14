@@ -233,10 +233,12 @@ export function assetTypeTraits(t: AssetType): AssetTypeTraits {
 
 /** Classes que aparecem no dashboard de investimentos (exclui BANK/CASH/CAIXINHA/OUTRO). */
 export const INVESTMENT_ASSET_TYPES: AssetType[] = [
+  AssetType.POUPANCA, AssetType.RENDA_FIXA,
   AssetType.CDB, AssetType.TESOURO, AssetType.LCI, AssetType.LCA, AssetType.DEBENTURE,
   AssetType.ACAO, AssetType.FII, AssetType.ETF, AssetType.BDR, AssetType.CRIPTO,
   AssetType.PREVIDENCIA, AssetType.FUNDO,
 ];
+
 
 export enum AssetClassGroup {
   CAIXA = "CAIXA",
