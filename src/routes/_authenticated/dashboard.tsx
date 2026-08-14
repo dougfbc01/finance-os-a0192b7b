@@ -58,7 +58,14 @@ function DashboardPage() {
     isLoading,
   } = useDashboardAnalytics(filter.resolved);
   const insightsState = useFinancialInsights(filter.resolved);
-  const { snapshot, invoices } = usePatrimony();
+  const {
+    snapshot,
+    invoices,
+    composition,
+    assets,
+    movements: patrimonyMovements,
+  } = usePatrimony();
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const { data: ws } = useWorkspace();
   const { data: closings = [] } = useMonthlyClosings(ws?.id as string | undefined);
   const lastClosing = closings[0] ?? null;
