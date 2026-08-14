@@ -90,6 +90,7 @@ export type Database = {
           notes: string | null
           opening_value: number
           quantity: number
+          ticker: string | null
           unit_price: number
           updated_at: string
           valuation_source: string
@@ -111,6 +112,7 @@ export type Database = {
           notes?: string | null
           opening_value?: number
           quantity?: number
+          ticker?: string | null
           unit_price?: number
           updated_at?: string
           valuation_source?: string
@@ -132,6 +134,7 @@ export type Database = {
           notes?: string | null
           opening_value?: number
           quantity?: number
+          ticker?: string | null
           unit_price?: number
           updated_at?: string
           valuation_source?: string
@@ -1379,6 +1382,8 @@ export type Database = {
         | "FUNDO"
         | "CAIXINHA"
         | "OUTRO"
+        | "POUPANCA"
+        | "RENDA_FIXA"
       card_invoice_status: "OPEN" | "CLOSED" | "PAID" | "OVERDUE"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
       financial_goal_status: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED"
@@ -1563,6 +1568,8 @@ export const Constants = {
         "FUNDO",
         "CAIXINHA",
         "OUTRO",
+        "POUPANCA",
+        "RENDA_FIXA",
       ],
       card_invoice_status: ["OPEN", "CLOSED", "PAID", "OVERDUE"],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],

@@ -1,0 +1,4 @@
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS ticker text;
+
+ALTER TYPE public.asset_type ADD VALUE IF NOT EXISTS 'POUPANCA';
+ALTER TYPE public.asset_type ADD VALUE IF NOT EXISTS 'RENDA_FIXA';
