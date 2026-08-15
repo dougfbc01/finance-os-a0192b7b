@@ -304,10 +304,14 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
 
   const activeAssets = useMemo(() => assets.filter((a) => a.is_active), [assets]);
 
+  /** Sprint 4.7 — operação anterior ao início do controle: não movimenta caixa. */
+  const historical = !!form.watch("is_historical") && showInvestmentStep;
+
   const onSubmit = form.handleSubmit(async (raw) => {
     const values = schema.parse(raw);
-    const isTransfer = values.type === MovementType.TRANSFER;
-    const usingCard = !isTransfer && !!values.card_id && canUseCard;
+    const isHistorical = showInvestmentStep && !!values.is_historical;
+    const isTransfer = !isHistorical && values.type === MovementType.TRANSFER;
+    const usingCard = !isHistorical && !isTransfer && !!values.card_id && canUseCard;
 
     if (showInvestmentStep && !values.asset_id) {
       toast.error("Selecione o destino do investimento (ativo).");
@@ -330,7 +334,13 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       transaction_date: values.transaction_date,
       competence_date: values.competence_date || null,
       due_date: values.due_date || null,
-      account_id: isTransfer ? values.account_id || null : usingCard ? null : values.account_id || null,
+      account_id: isHistorical
+        ? null
+        : isTransfer
+          ? values.account_id || null
+          : usingCard
+            ? null
+            : values.account_id || null,
       transfer_account_id: isTransfer ? values.transfer_account_id || null : null,
       card_id: usingCard ? values.card_id : null,
       category_id: isTransfer ? null : values.category_id || null,
@@ -541,10 +551,18 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                 <Select
                   value={form.watch("account_id") || undefined}
                   onValueChange={(v) => form.setValue("account_id", v, { shouldDirty: true })}
-                  disabled={canUseCard && !!cardId}
+                  disabled={historical || (canUseCard && !!cardId)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={canUseCard && cardId ? "— (compra no cartão)" : "Selecione…"} />
+                    <SelectValue
+                      placeholder={
+                        historical
+                          ? "— (operação histórica, sem conta)"
+                          : canUseCard && cardId
+                            ? "— (compra no cartão)"
+                            : "Selecione…"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {accounts.map((a) => (
@@ -621,6 +639,41 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <Wallet className="h-4 w-4 text-primary" />
                     Destino do investimento
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3 rounded-md border bg-background p-3">
+                    <div className="space-y-0.5">
+                      <Label className="flex items-center gap-2">
+                        <History className="h-4 w-4 text-muted-foreground" />
+                        Operação histórica
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        {historical
+                          ? "Anterior ao início do controle: atualiza a posição do ativo e NÃO altera o saldo de nenhuma conta."
+                          : "Operação financeira atual: sai da conta selecionada e entra no ativo."}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={historical}
+                      onCheckedChange={(v) => {
+                        form.setValue("is_historical", v, { shouldDirty: true });
+                        if (v) {
+                          form.setValue("account_id", "", { shouldDirty: true });
+                          form.setValue("card_id", "", { shouldDirty: true });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Quantidade (opcional)</Label>
+                      <Input type="number" step="0.00000001" {...form.register("quantity")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Preço unitário (opcional)</Label>
+                      <Input type="number" step="0.000001" {...form.register("unit_price")} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
