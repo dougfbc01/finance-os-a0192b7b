@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Sparkles, Wallet } from "lucide-react";
+import { History, Sparkles, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -81,6 +82,23 @@ const schema = z
     subcategory_id: z.string().optional().or(z.literal("")),
     asset_id: z.string().optional().or(z.literal("")),
     investment_operation: z.string().optional().or(z.literal("")),
+    is_historical: z.boolean().optional(),
+    quantity: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v === undefined || v === "" ? null : typeof v === "string" ? Number(v.replace(",", ".")) : v,
+      ),
+    unit_price: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v === undefined || v === "" ? null : typeof v === "string" ? Number(v.replace(",", ".")) : v,
+      ),
+  })
+  .refine((v) => !v.is_historical || !!v.asset_id, {
+    message: "Selecione o ativo da operação histórica",
+    path: ["asset_id"],
   })
   .refine((v) => v.type !== MovementType.TRANSFER || !!v.account_id, {
     message: "Origem obrigatória",
@@ -95,7 +113,7 @@ const schema = z
     { message: "Origem e destino devem ser diferentes", path: ["transfer_account_id"] },
   )
   .refine(
-    (v) => v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
+    (v) => v.is_historical || v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
     { message: "Selecione uma conta ou um cartão", path: ["account_id"] },
   );
 
@@ -160,6 +178,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       subcategory_id: "",
       asset_id: "",
       investment_operation: "APORTE",
+      is_historical: false,
+      quantity: "",
+      unit_price: "",
     },
   });
 
@@ -185,6 +206,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             subcategory_id: movement.subcategory_id ?? "",
             asset_id: movement.asset_id ?? "",
             investment_operation: opTag ? opTag.slice(3) : "APORTE",
+            is_historical: !!movement.is_historical,
+            quantity: movement.quantity ?? "",
+            unit_price: movement.unit_price ?? "",
           }
         : {
             type: MovementType.EXPENSE,
@@ -202,6 +226,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             subcategory_id: "",
             asset_id: "",
             investment_operation: "APORTE",
+            is_historical: false,
+            quantity: "",
+            unit_price: "",
           },
     );
     // Ao reabrir, o rastreio de edição manual recomeça:
@@ -309,6 +336,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       category_id: isTransfer ? null : values.category_id || null,
       subcategory_id: isTransfer ? null : values.subcategory_id || null,
       asset_id: showInvestmentStep ? values.asset_id || null : null,
+      is_historical: isHistorical,
+      quantity: values.quantity ?? null,
+      unit_price: values.unit_price ?? null,
       tags,
     };
 
