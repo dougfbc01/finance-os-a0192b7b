@@ -1104,10 +1104,13 @@ export type Database = {
           description: string
           due_date: string | null
           duplicate_hash: string | null
+          external_ref: string | null
           id: string
           import_id: string | null
           invoice_id: string | null
+          is_historical: boolean
           notes: string | null
+          quantity: number | null
           status: Database["public"]["Enums"]["movement_status"]
           subcategory_id: string | null
           tags: string[]
@@ -1115,6 +1118,7 @@ export type Database = {
           transfer_account_id: string | null
           transfer_group_id: string | null
           type: Database["public"]["Enums"]["movement_type"]
+          unit_price: number | null
           updated_at: string
           workspace_id: string
         }
@@ -1131,10 +1135,13 @@ export type Database = {
           description?: string
           due_date?: string | null
           duplicate_hash?: string | null
+          external_ref?: string | null
           id?: string
           import_id?: string | null
           invoice_id?: string | null
+          is_historical?: boolean
           notes?: string | null
+          quantity?: number | null
           status?: Database["public"]["Enums"]["movement_status"]
           subcategory_id?: string | null
           tags?: string[]
@@ -1142,6 +1149,7 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_group_id?: string | null
           type: Database["public"]["Enums"]["movement_type"]
+          unit_price?: number | null
           updated_at?: string
           workspace_id: string
         }
@@ -1158,10 +1166,13 @@ export type Database = {
           description?: string
           due_date?: string | null
           duplicate_hash?: string | null
+          external_ref?: string | null
           id?: string
           import_id?: string | null
           invoice_id?: string | null
+          is_historical?: boolean
           notes?: string | null
+          quantity?: number | null
           status?: Database["public"]["Enums"]["movement_status"]
           subcategory_id?: string | null
           tags?: string[]
@@ -1169,6 +1180,7 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_group_id?: string | null
           type?: Database["public"]["Enums"]["movement_type"]
+          unit_price?: number | null
           updated_at?: string
           workspace_id?: string
         }
