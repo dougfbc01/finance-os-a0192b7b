@@ -32,10 +32,22 @@ export interface Movement {
   attachments: MovementAttachment[];
   /** Impressão digital usada pela deduplicação inteligente. */
   duplicate_hash: string | null;
+  /**
+   * Sprint 4.7 — operação anterior ao início do controle financeiro.
+   * Afeta posição/patrimônio do ativo, NUNCA o saldo das contas.
+   */
+  is_historical: boolean;
+  /** Quantidade negociada do ativo (opcional). */
+  quantity: number | null;
+  /** Preço unitário da operação (opcional). */
+  unit_price: number | null;
+  /** Referência externa (futura conciliação B3/corretoras). */
+  external_ref: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
   deleted_at: ISODateString | null;
 }
+
 
 export interface CreateMovementInput {
   workspace_id: UUID;
