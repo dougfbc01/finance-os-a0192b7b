@@ -231,10 +231,20 @@ class MovementServiceImpl extends BaseService {
       amount: input.amount ?? existing!.amount,
       transaction_date: input.transaction_date ?? existing!.transaction_date,
       card_id: input.card_id ?? existing!.card_id,
+      asset_id: input.asset_id !== undefined ? input.asset_id : existing!.asset_id,
+      is_historical:
+        input.is_historical !== undefined ? input.is_historical : existing!.is_historical,
     };
     this.validateInput(merged);
 
     const payload: Row = { ...input };
+    // Sprint 4.7 — operação histórica não pode carregar conta/cartão/fatura.
+    if (merged.is_historical) {
+      payload.account_id = null;
+      payload.transfer_account_id = null;
+      payload.card_id = null;
+      payload.invoice_id = null;
+    }
     if (input.amount !== undefined) payload.amount = Math.abs(Number(input.amount));
     if (input.description !== undefined) payload.description = input.description.trim();
     if (nextType === MovementType.TRANSFER) {
@@ -252,7 +262,7 @@ class MovementServiceImpl extends BaseService {
     const cardChanged = input.card_id !== undefined && input.card_id !== existing!.card_id;
     const dateChanged =
       input.transaction_date !== undefined && input.transaction_date !== existing!.transaction_date;
-    if (nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
+    if (!merged.is_historical && nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
       payload.invoice_id = await this.resolveInvoiceId(nextCardId, nextDate, nextType);
     }
 
