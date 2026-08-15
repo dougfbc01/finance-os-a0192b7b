@@ -29,6 +29,18 @@ class MovementServiceImpl extends BaseService {
     return {
       ...(r as unknown as Movement),
       amount: Number((r as { amount: unknown }).amount),
+      is_historical: Boolean((r as { is_historical?: unknown }).is_historical ?? false),
+      quantity:
+        (r as { quantity?: unknown }).quantity === null ||
+        (r as { quantity?: unknown }).quantity === undefined
+          ? null
+          : Number((r as { quantity: unknown }).quantity),
+      unit_price:
+        (r as { unit_price?: unknown }).unit_price === null ||
+        (r as { unit_price?: unknown }).unit_price === undefined
+          ? null
+          : Number((r as { unit_price: unknown }).unit_price),
+      external_ref: ((r as { external_ref?: string | null }).external_ref ?? null) as string | null,
       tags: ((r as { tags?: unknown }).tags as string[] | null) ?? [],
       attachments:
         ((r as { attachments?: unknown }).attachments as Movement["attachments"] | null) ?? [],
@@ -118,28 +130,33 @@ class MovementServiceImpl extends BaseService {
   async create(input: CreateMovementInput): Promise<Movement> {
     this.validateInput(input);
 
-    const invoiceId = await this.resolveInvoiceId(
+    // Sprint 4.7 — operação histórica nunca toca caixa/cartão/fatura.
+    const historical = !!input.is_historical;
+    const invoiceId = historical
+      ? null
+      : await this.resolveInvoiceId(
       input.card_id ?? null,
       input.transaction_date,
       input.type,
-    );
+        );
 
     // Autopreenchimento de competência/vencimento (Sprint 3.1 - Parte 2)
     const { competence, dueDate, cardStatus } = await this.resolveDates(input, invoiceId);
 
     const isCardPurchase =
+      !historical &&
       !!input.card_id &&
       input.type !== MovementType.TRANSFER &&
       input.type !== MovementType.CARD_PAYMENT;
 
     const payload: Row = {
       workspace_id: input.workspace_id,
-      account_id: input.account_id ?? null,
+      account_id: historical ? null : (input.account_id ?? null),
       transfer_account_id:
         input.type === MovementType.TRANSFER ? (input.transfer_account_id ?? null) : null,
       category_id: input.type === MovementType.TRANSFER ? null : (input.category_id ?? null),
       subcategory_id: input.type === MovementType.TRANSFER ? null : (input.subcategory_id ?? null),
-      card_id: input.card_id ?? null,
+      card_id: historical ? null : (input.card_id ?? null),
       invoice_id: invoiceId,
       asset_id: input.asset_id ?? null,
       type: input.type,
@@ -152,6 +169,10 @@ class MovementServiceImpl extends BaseService {
       due_date: input.due_date ?? dueDate,
       tags: input.tags ?? [],
       attachments: input.attachments ?? [],
+      is_historical: historical,
+      quantity: input.quantity ?? null,
+      unit_price: input.unit_price ?? null,
+      external_ref: input.external_ref ?? null,
       transfer_group_id:
         input.type === MovementType.TRANSFER ? (globalThis.crypto?.randomUUID?.() ?? null) : null,
     };
@@ -371,6 +392,9 @@ class MovementServiceImpl extends BaseService {
    *  - TRANSFER debita da origem e credita no destino.
    */
   static impactOnAccount(m: Movement, accountId: UUID): number {
+    // Sprint 4.7 — operações históricas são anteriores ao início do controle:
+    // reconstroem posição/patrimônio do ativo e nunca alteram o caixa.
+    if (m.is_historical) return 0;
     if (m.type === MovementType.TRANSFER) {
       if (m.account_id === accountId) return -m.amount;
       if (m.transfer_account_id === accountId) return m.amount;
@@ -384,10 +408,10 @@ class MovementServiceImpl extends BaseService {
 
   /** Regra 002: transferências e pagamento de cartão nunca são receita nem despesa. */
   static isIncome(m: Movement): boolean {
-    return INCOME_TYPES.includes(m.type);
+    return !m.is_historical && INCOME_TYPES.includes(m.type);
   }
   static isExpense(m: Movement): boolean {
-    return EXPENSE_TYPES.includes(m.type);
+    return !m.is_historical && EXPENSE_TYPES.includes(m.type);
   }
 
   /**
@@ -428,6 +452,22 @@ class MovementServiceImpl extends BaseService {
       this.handleError(new Error("Valor deve ser maior que zero."), "validate");
     }
     if (!input.transaction_date) this.handleError(new Error("Data é obrigatória."), "validate");
+
+    if (input.is_historical) {
+      if (!input.asset_id) {
+        this.handleError(
+          new Error("Operação histórica exige um ativo de destino."),
+          "validate",
+        );
+      }
+      if (input.type === MovementType.TRANSFER) {
+        this.handleError(
+          new Error("Transferências não podem ser marcadas como históricas."),
+          "validate",
+        );
+      }
+      return;
+    }
 
     if (input.type === MovementType.TRANSFER) {
       if (!input.account_id || !input.transfer_account_id) {
