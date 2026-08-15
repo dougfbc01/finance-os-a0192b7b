@@ -42,6 +42,22 @@ export interface EffectiveAsset extends Asset {
   counts_in_total: boolean;
 }
 
+export interface AssetPosition {
+  /** Quantidade acumulada (0 quando as operações não informam quantidade). */
+  quantity: number;
+  /** Custo histórico total da posição em aberto. */
+  cost: number;
+  /** Preço médio (custo / quantidade). */
+  averagePrice: number;
+  /** Parte do custo originada de operações históricas. */
+  historicalCost: number;
+  /** Parte do custo originada de operações financeiras atuais. */
+  currentCost: number;
+  yields: number;
+  operations: number;
+  historicalOperations: number;
+}
+
 const EMPTY_IMPACT: AssetMovementImpact = { delta: 0, invested: 0, yields: 0, count: 0 };
 
 class AssetValuationServiceImpl extends BaseService {
@@ -112,6 +128,60 @@ class AssetValuationServiceImpl extends BaseService {
       map.set(m.asset_id, current);
     }
     return map;
+  }
+
+  /** Sprint 4.7 — a operação aconteceu antes do início do controle financeiro. */
+  static isHistorical(m: Movement): boolean {
+    return !!m.is_historical;
+  }
+
+  /**
+   * Sprint 4.7 — posição reconstruída do ativo a partir das movimentações
+   * (históricas e atuais tratadas da mesma forma para posição/custo).
+   * Quantidade e preço médio só existem quando as operações informam quantidade.
+   */
+  static positionOf(assetId: UUID, movements: Movement[]): AssetPosition {
+    let quantity = 0;
+    let cost = 0;
+    let historicalCost = 0;
+    let currentCost = 0;
+    let yieldsTotal = 0;
+    const ordered = movements
+      .filter((m) => m.asset_id === assetId && !m.deleted_at)
+      .sort((a, b) => (a.transaction_date < b.transaction_date ? -1 : 1));
+
+    for (const m of ordered) {
+      const op = AssetValuationServiceImpl.operationOf(m);
+      const amount = Math.abs(Number(m.amount) || 0);
+      const qty = m.quantity === null || m.quantity === undefined ? 0 : Math.abs(Number(m.quantity));
+      if (op === InvestmentOperation.APORTE) {
+        quantity += qty;
+        cost += amount;
+        if (m.is_historical) historicalCost += amount;
+        else currentCost += amount;
+      } else if (op === InvestmentOperation.RESGATE) {
+        const avg = quantity > 0 ? cost / quantity : 0;
+        const soldQty = Math.min(qty, quantity);
+        quantity -= soldQty;
+        cost -= soldQty > 0 ? avg * soldQty : Math.min(amount, cost);
+        if (cost < 0) cost = 0;
+        if (m.is_historical) historicalCost -= Math.min(amount, historicalCost);
+        else currentCost -= Math.min(amount, currentCost);
+      } else if (op === InvestmentOperation.RENDIMENTO) {
+        yieldsTotal += AssetValuationServiceImpl.deltaForAsset(m);
+      }
+    }
+
+    return {
+      quantity: Number(quantity.toFixed(8)),
+      cost: Number(cost.toFixed(2)),
+      averagePrice: quantity > 0 ? Number((cost / quantity).toFixed(6)) : 0,
+      historicalCost: Number(historicalCost.toFixed(2)),
+      currentCost: Number(currentCost.toFixed(2)),
+      yields: Number(yieldsTotal.toFixed(2)),
+      operations: ordered.length,
+      historicalOperations: ordered.filter((m) => m.is_historical).length,
+    };
   }
 
   /** Um ativo espelhado numa conta nunca soma no total (o caixa já o conta). */

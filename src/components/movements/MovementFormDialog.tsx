@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Sparkles, Wallet } from "lucide-react";
+import { History, Sparkles, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -81,6 +82,13 @@ const schema = z
     subcategory_id: z.string().optional().or(z.literal("")),
     asset_id: z.string().optional().or(z.literal("")),
     investment_operation: z.string().optional().or(z.literal("")),
+    is_historical: z.boolean().optional(),
+    quantity: z.string().optional().or(z.literal("")),
+    unit_price: z.string().optional().or(z.literal("")),
+  })
+  .refine((v) => !v.is_historical || !!v.asset_id, {
+    message: "Selecione o ativo da operação histórica",
+    path: ["asset_id"],
   })
   .refine((v) => v.type !== MovementType.TRANSFER || !!v.account_id, {
     message: "Origem obrigatória",
@@ -95,7 +103,7 @@ const schema = z
     { message: "Origem e destino devem ser diferentes", path: ["transfer_account_id"] },
   )
   .refine(
-    (v) => v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
+    (v) => v.is_historical || v.type === MovementType.TRANSFER || !!v.account_id || !!v.card_id,
     { message: "Selecione uma conta ou um cartão", path: ["account_id"] },
   );
 
@@ -109,6 +117,13 @@ interface Props {
 }
 
 const NONE = "__none__";
+
+/** Campos numéricos opcionais do formulário (quantidade / preço unitário). */
+function toNumberOrNull(v: string | undefined): number | null {
+  if (v === undefined || v.trim() === "") return null;
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
 
 export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }: Props) {
   const isEdit = !!movement;
@@ -160,6 +175,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       subcategory_id: "",
       asset_id: "",
       investment_operation: "APORTE",
+      is_historical: false,
+      quantity: "",
+      unit_price: "",
     },
   });
 
@@ -185,6 +203,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             subcategory_id: movement.subcategory_id ?? "",
             asset_id: movement.asset_id ?? "",
             investment_operation: opTag ? opTag.slice(3) : "APORTE",
+            is_historical: !!movement.is_historical,
+            quantity: movement.quantity !== null ? String(movement.quantity) : "",
+            unit_price: movement.unit_price !== null ? String(movement.unit_price) : "",
           }
         : {
             type: MovementType.EXPENSE,
@@ -202,6 +223,9 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             subcategory_id: "",
             asset_id: "",
             investment_operation: "APORTE",
+            is_historical: false,
+            quantity: "",
+            unit_price: "",
           },
     );
     // Ao reabrir, o rastreio de edição manual recomeça:
@@ -277,10 +301,14 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
 
   const activeAssets = useMemo(() => assets.filter((a) => a.is_active), [assets]);
 
+  /** Sprint 4.7 — operação anterior ao início do controle: não movimenta caixa. */
+  const historical = !!form.watch("is_historical") && showInvestmentStep;
+
   const onSubmit = form.handleSubmit(async (raw) => {
     const values = schema.parse(raw);
-    const isTransfer = values.type === MovementType.TRANSFER;
-    const usingCard = !isTransfer && !!values.card_id && canUseCard;
+    const isHistorical = showInvestmentStep && !!values.is_historical;
+    const isTransfer = !isHistorical && values.type === MovementType.TRANSFER;
+    const usingCard = !isHistorical && !isTransfer && !!values.card_id && canUseCard;
 
     if (showInvestmentStep && !values.asset_id) {
       toast.error("Selecione o destino do investimento (ativo).");
@@ -303,12 +331,21 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       transaction_date: values.transaction_date,
       competence_date: values.competence_date || null,
       due_date: values.due_date || null,
-      account_id: isTransfer ? values.account_id || null : usingCard ? null : values.account_id || null,
+      account_id: isHistorical
+        ? null
+        : isTransfer
+          ? values.account_id || null
+          : usingCard
+            ? null
+            : values.account_id || null,
       transfer_account_id: isTransfer ? values.transfer_account_id || null : null,
       card_id: usingCard ? values.card_id : null,
       category_id: isTransfer ? null : values.category_id || null,
       subcategory_id: isTransfer ? null : values.subcategory_id || null,
       asset_id: showInvestmentStep ? values.asset_id || null : null,
+      is_historical: isHistorical,
+      quantity: toNumberOrNull(values.quantity),
+      unit_price: toNumberOrNull(values.unit_price),
       tags,
     };
 
@@ -511,10 +548,18 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                 <Select
                   value={form.watch("account_id") || undefined}
                   onValueChange={(v) => form.setValue("account_id", v, { shouldDirty: true })}
-                  disabled={canUseCard && !!cardId}
+                  disabled={historical || (canUseCard && !!cardId)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={canUseCard && cardId ? "— (compra no cartão)" : "Selecione…"} />
+                    <SelectValue
+                      placeholder={
+                        historical
+                          ? "— (operação histórica, sem conta)"
+                          : canUseCard && cardId
+                            ? "— (compra no cartão)"
+                            : "Selecione…"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {accounts.map((a) => (
@@ -591,6 +636,41 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <Wallet className="h-4 w-4 text-primary" />
                     Destino do investimento
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3 rounded-md border bg-background p-3">
+                    <div className="space-y-0.5">
+                      <Label className="flex items-center gap-2">
+                        <History className="h-4 w-4 text-muted-foreground" />
+                        Operação histórica
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        {historical
+                          ? "Anterior ao início do controle: atualiza a posição do ativo e NÃO altera o saldo de nenhuma conta."
+                          : "Operação financeira atual: sai da conta selecionada e entra no ativo."}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={historical}
+                      onCheckedChange={(v) => {
+                        form.setValue("is_historical", v, { shouldDirty: true });
+                        if (v) {
+                          form.setValue("account_id", "", { shouldDirty: true });
+                          form.setValue("card_id", "", { shouldDirty: true });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Quantidade (opcional)</Label>
+                      <Input type="number" step="0.00000001" {...form.register("quantity")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Preço unitário (opcional)</Label>
+                      <Input type="number" step="0.000001" {...form.register("unit_price")} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1.5">

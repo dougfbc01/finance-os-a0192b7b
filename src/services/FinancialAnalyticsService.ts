@@ -51,12 +51,14 @@ class FinancialAnalyticsServiceImpl extends BaseService {
     return this.competenceIso(m).slice(0, 7);
   }
 
+  // Sprint 4.7 — operações históricas de investimento não são receita/despesa
+  // do período: elas apenas reconstroem a posição do ativo.
   private isExpense(m: Movement): boolean {
-    return EXPENSE_TYPES.includes(m.type);
+    return !m.is_historical && EXPENSE_TYPES.includes(m.type);
   }
 
   private isIncome(m: Movement): boolean {
-    return INCOME_TYPES.includes(m.type);
+    return !m.is_historical && INCOME_TYPES.includes(m.type);
   }
 
   private variation(current: number, base: number): number | null {

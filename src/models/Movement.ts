@@ -32,10 +32,22 @@ export interface Movement {
   attachments: MovementAttachment[];
   /** Impressão digital usada pela deduplicação inteligente. */
   duplicate_hash: string | null;
+  /**
+   * Sprint 4.7 — operação anterior ao início do controle financeiro.
+   * Afeta posição/patrimônio do ativo, NUNCA o saldo das contas.
+   */
+  is_historical: boolean;
+  /** Quantidade negociada do ativo (opcional). */
+  quantity: number | null;
+  /** Preço unitário da operação (opcional). */
+  unit_price: number | null;
+  /** Referência externa (futura conciliação B3/corretoras). */
+  external_ref: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
   deleted_at: ISODateString | null;
 }
+
 
 export interface CreateMovementInput {
   workspace_id: UUID;
@@ -55,6 +67,11 @@ export interface CreateMovementInput {
   due_date?: string | null;
   tags?: string[];
   attachments?: MovementAttachment[];
+  /** Sprint 4.7 — marca a operação como histórica (não movimenta caixa). */
+  is_historical?: boolean;
+  quantity?: number | null;
+  unit_price?: number | null;
+  external_ref?: string | null;
 }
 
 export interface UpdateMovementInput {
@@ -63,6 +80,7 @@ export interface UpdateMovementInput {
   category_id?: UUID | null;
   subcategory_id?: UUID | null;
   card_id?: UUID | null;
+  asset_id?: UUID | null;
   type?: MovementType;
   status?: MovementStatus;
   description?: string;
@@ -73,7 +91,12 @@ export interface UpdateMovementInput {
   due_date?: string | null;
   tags?: string[];
   attachments?: MovementAttachment[];
+  is_historical?: boolean;
+  quantity?: number | null;
+  unit_price?: number | null;
+  external_ref?: string | null;
 }
+
 
 /** Grupo lógico aplicado nas listagens (Todos, Conta, Cartão, etc.). */
 export type MovementGroup =
