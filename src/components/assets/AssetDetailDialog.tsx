@@ -78,7 +78,26 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
           </div>
 
           <div className="py-2">
+            {detail.position.quantity > 0 && (
+              <>
+                <Row
+                  label="Posição (quantidade)"
+                  value={detail.position.quantity.toLocaleString("pt-BR", {
+                    maximumFractionDigits: 8,
+                  })}
+                />
+                <Row
+                  label="Preço médio (operações)"
+                  value={formatCurrency(detail.position.averagePrice, asset.currency)}
+                />
+              </>
+            )}
+            <Row label="Custo histórico" value={formatCurrency(detail.position.cost, asset.currency)} />
             <Row label="Aportes" value={formatCurrency(detail.contributions, asset.currency)} />
+            <Row
+              label="— dos quais históricos"
+              value={formatCurrency(detail.historicalContributions, asset.currency)}
+            />
             <Row label="Resgates" value={formatCurrency(detail.redemptions, asset.currency)} />
             <Row label="Rendimentos" value={formatCurrency(detail.yields, asset.currency)} />
           </div>
@@ -99,6 +118,17 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
                       {m.transaction_date}
                     </span>
                     <span className="min-w-0 flex-1 truncate">{m.description}</span>
+                    {m.quantity ? (
+                      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                        {Number(m.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} un
+                      </span>
+                    ) : null}
+                    <Badge
+                      variant={m.is_historical ? "secondary" : "outline"}
+                      className="shrink-0 text-[10px]"
+                    >
+                      {m.is_historical ? "Histórica" : "Atual"}
+                    </Badge>
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       {
                         INVESTMENT_OPERATION_LABELS[
