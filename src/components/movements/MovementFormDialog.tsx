@@ -83,18 +83,8 @@ const schema = z
     asset_id: z.string().optional().or(z.literal("")),
     investment_operation: z.string().optional().or(z.literal("")),
     is_historical: z.boolean().optional(),
-    quantity: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v === undefined || v === "" ? null : typeof v === "string" ? Number(v.replace(",", ".")) : v,
-      ),
-    unit_price: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v === undefined || v === "" ? null : typeof v === "string" ? Number(v.replace(",", ".")) : v,
-      ),
+    quantity: z.string().optional().or(z.literal("")),
+    unit_price: z.string().optional().or(z.literal("")),
   })
   .refine((v) => !v.is_historical || !!v.asset_id, {
     message: "Selecione o ativo da operação histórica",
@@ -127,6 +117,13 @@ interface Props {
 }
 
 const NONE = "__none__";
+
+/** Campos numéricos opcionais do formulário (quantidade / preço unitário). */
+function toNumberOrNull(v: string | undefined): number | null {
+  if (v === undefined || v.trim() === "") return null;
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
 
 export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }: Props) {
   const isEdit = !!movement;
@@ -207,8 +204,8 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
             asset_id: movement.asset_id ?? "",
             investment_operation: opTag ? opTag.slice(3) : "APORTE",
             is_historical: !!movement.is_historical,
-            quantity: movement.quantity ?? "",
-            unit_price: movement.unit_price ?? "",
+            quantity: movement.quantity !== null ? String(movement.quantity) : "",
+            unit_price: movement.unit_price !== null ? String(movement.unit_price) : "",
           }
         : {
             type: MovementType.EXPENSE,
@@ -347,8 +344,8 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
       subcategory_id: isTransfer ? null : values.subcategory_id || null,
       asset_id: showInvestmentStep ? values.asset_id || null : null,
       is_historical: isHistorical,
-      quantity: values.quantity ?? null,
-      unit_price: values.unit_price ?? null,
+      quantity: toNumberOrNull(values.quantity),
+      unit_price: toNumberOrNull(values.unit_price),
       tags,
     };
 
