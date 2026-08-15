@@ -4,6 +4,7 @@
 import { BaseService } from "./BaseService";
 import { AssetServiceImpl } from "./AssetService";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
+import type { AssetPosition } from "./AssetValuationService";
 import { INVESTMENT_ASSET_TYPES, InvestmentOperation } from "@/constants/enums";
 import type { Asset, Movement } from "@/models";
 
@@ -25,6 +26,12 @@ export interface AssetDetail {
   redemptions: number;
   /** Rendimentos que aumentaram o valor patrimonial (sem entrada em conta). */
   yields: number;
+  /** Total aplicado por operações históricas (não passou pelo caixa). */
+  historicalContributions: number;
+  /** Total aplicado por operações financeiras atuais. */
+  currentContributions: number;
+  /** Posição reconstruída (quantidade, custo, preço médio). */
+  position: AssetPosition;
   invested: number;
   current: number;
   profit: number;
@@ -45,10 +52,16 @@ class InvestmentServiceImpl extends BaseService {
     let contributions = 0;
     let redemptions = 0;
     let yieldsTotal = 0;
+    let historicalContributions = 0;
+    let currentContributions = 0;
     for (const m of related) {
       const op = AssetValuationServiceImpl.operationOf(m);
       const delta = AssetValuationServiceImpl.deltaForAsset(m);
-      if (op === InvestmentOperation.APORTE) contributions += Math.abs(delta);
+      if (op === InvestmentOperation.APORTE) {
+        contributions += Math.abs(delta);
+        if (m.is_historical) historicalContributions += Math.abs(delta);
+        else currentContributions += Math.abs(delta);
+      }
       else if (op === InvestmentOperation.RESGATE) redemptions += Math.abs(delta);
       else if (op === InvestmentOperation.RENDIMENTO) yieldsTotal += delta;
     }
@@ -59,6 +72,9 @@ class InvestmentServiceImpl extends BaseService {
       asset,
       movements: related,
       contributions,
+      historicalContributions,
+      currentContributions,
+      position: AssetValuationServiceImpl.positionOf(asset.id, movements),
       redemptions,
       yields: yieldsTotal,
       invested,
