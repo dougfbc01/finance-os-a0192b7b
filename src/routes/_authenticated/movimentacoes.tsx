@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -10,6 +10,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   Sparkles,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCards } from "@/hooks/useCards";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
+import { useMovementFilters } from "@/hooks/useMovementFilters";
 import {
   useBulkDeleteMovements,
   useBulkUpdateMovements,
@@ -57,8 +59,8 @@ import {
   INCOME_TYPES,
   EXPENSE_TYPES,
 } from "@/constants/enums";
-import type { Movement, MovementFilters, MovementGroup } from "@/models";
-import { formatCurrency, formatDate, firstDayOfMonth, lastDayOfMonth, toISODate } from "@/lib/format";
+import type { Movement, MovementGroup } from "@/models";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type SortKey = "date" | "amount" | "account" | "category" | "subcategory" | "description";
 type SortDir = "asc" | "desc";
@@ -90,6 +92,7 @@ export const Route = createFileRoute("/_authenticated/movimentacoes")({
 
 const ALL = "all";
 const NO_CATEGORY = "none";
+const DEFAULT_GROUP: MovementGroup = "all";
 
 function MovimentacoesPage() {
   const { data: workspace } = useWorkspace();
@@ -101,58 +104,35 @@ function MovimentacoesPage() {
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
 
-  const [from, setFrom] = useState(searchParams.from ?? toISODate(firstDayOfMonth()));
-  const [to, setTo] = useState(searchParams.to ?? toISODate(lastDayOfMonth()));
-  const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
-  const [cardId, setCardId] = useState<string>(ALL);
-  const [categoryId, setCategoryId] = useState<string>(
-    searchParams.category === "null" ? NO_CATEGORY : (searchParams.category ?? ALL),
-  );
-  const [subcategoryId, setSubcategoryId] = useState<string>(searchParams.subcategory ?? ALL);
-  const [type, setType] = useState<string>(ALL);
-  const [status, setStatus] = useState<string>(ALL);
-  const [group, setGroup] = useState<MovementGroup>("all");
-  const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Preserva o filtro quando o usuário chega vindo de "Ver extrato" na Conta.
-  useEffect(() => {
-    if (searchParams.account) setAccountId(searchParams.account);
-  }, [searchParams.account]);
-
-  // Deep link vindo dos Financial Insights (ex.: category=null -> sem categoria).
-  useEffect(() => {
-    if (searchParams.category)
-      setCategoryId(searchParams.category === "null" ? NO_CATEGORY : searchParams.category);
-  }, [searchParams.category]);
-
-  // Drill down vindo do Planejamento Mensal (categoria/subcategoria + período).
-  useEffect(() => {
-    if (searchParams.subcategory) setSubcategoryId(searchParams.subcategory);
-  }, [searchParams.subcategory]);
-  useEffect(() => {
-    if (searchParams.from) setFrom(searchParams.from);
-    if (searchParams.to) setTo(searchParams.to);
-  }, [searchParams.from, searchParams.to]);
-
-  const filters: MovementFilters = useMemo(
-    () => ({
-      from,
-      to,
-      accountId: accountId === ALL ? undefined : accountId,
-      cardId: cardId === ALL ? undefined : cardId,
-      categoryId: categoryId === ALL ? undefined : categoryId,
-      subcategoryId: subcategoryId === ALL ? undefined : subcategoryId,
-      type: type === ALL ? undefined : (type as MovementType),
-      status: status === ALL ? undefined : (status as MovementStatus),
-      group: group === "all" ? undefined : group,
-      search: search.trim() || undefined,
-    }),
-    [from, to, accountId, cardId, categoryId, subcategoryId, type, status, group, search],
-  );
-
+  const {
+    from,
+    setFrom,
+    to,
+    setTo,
+    accountId,
+    setAccountId,
+    cardId,
+    setCardId,
+    categoryId,
+    setCategoryId,
+    subcategoryId,
+    setSubcategoryId,
+    type,
+    setType,
+    status,
+    setStatus,
+    group,
+    setGroup,
+    search,
+    setSearch,
+    filters,
+    hasActiveFilters,
+    clearFilters,
+  } = useMovementFilters(searchParams);
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
 
@@ -457,6 +437,19 @@ function MovimentacoesPage() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearFilters}
+          disabled={!hasActiveFilters}
+          aria-label="Limpar filtros"
+        >
+          <X className="mr-1 h-4 w-4" />
+          Limpar filtros
+        </Button>
       </div>
 
       {selected.size > 0 && (
