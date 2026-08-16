@@ -349,26 +349,27 @@ export function ImportDialog({
                 descartado(s) · {result.ignored} ignorado(s).
               </p>
             )}
+            {result && !hasNewMovements(result) && (
+              <p className="text-sm font-medium">Não há novos lançamentos para revisar.</p>
+            )}
             <DialogFooter className="justify-center gap-2">
               <Button variant="outline" onClick={reset}>
                 Importar outro arquivo
               </Button>
-              {result && result.inserted > 0 && (
-                <Button asChild onClick={() => onOpenChange(false)}>
-                  <Link
-                    to="/importacoes/revisao/$importId"
-                    params={{ importId: result.importRecord.id }}
-                  >
-                    Revisar lançamentos
-                  </Link>
+              {result && hasNewMovements(result) ? (
+                <Button onClick={() => goToReview(result)}>Revisar lançamentos</Button>
+              ) : (
+                <Button variant="outline" onClick={closeDialog}>
+                  Voltar para Importações
                 </Button>
               )}
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={goToMovements}>
                 Ir para Movimentações
               </Button>
             </DialogFooter>
           </div>
         )}
+
       </DialogContent>
     </Dialog>
   );
