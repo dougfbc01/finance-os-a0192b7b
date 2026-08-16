@@ -134,8 +134,6 @@ function MovimentacoesPage() {
     clearFilters,
   } = useMovementFilters(searchParams);
 
-
-
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
 
   // Destaque do totalizador conforme o filtro aplicado (receitas x despesas).
