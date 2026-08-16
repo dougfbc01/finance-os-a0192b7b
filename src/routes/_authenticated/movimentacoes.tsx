@@ -104,72 +104,35 @@ function MovimentacoesPage() {
   const { data: categories = [] } = useCategories(workspaceId);
   const { data: subcategories = [] } = useSubcategories(workspaceId);
 
-  const [from, setFrom] = useState(searchParams.from ?? toISODate(firstDayOfMonth()));
-  const [to, setTo] = useState(searchParams.to ?? toISODate(lastDayOfMonth()));
-  const [accountId, setAccountId] = useState<string>(searchParams.account ?? ALL);
-  const [cardId, setCardId] = useState<string>(ALL);
-  const [categoryId, setCategoryId] = useState<string>(
-    searchParams.category === "null" ? NO_CATEGORY : (searchParams.category ?? ALL),
-  );
-  const [subcategoryId, setSubcategoryId] = useState<string>(searchParams.subcategory ?? ALL);
-  const [type, setType] = useState<string>(ALL);
-  const [status, setStatus] = useState<string>(ALL);
-  const [group, setGroup] = useState<MovementGroup>("all");
-  const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Preserva o filtro quando o usuário chega vindo de "Ver extrato" na Conta.
-  useEffect(() => {
-    if (searchParams.account) setAccountId(searchParams.account);
-  }, [searchParams.account]);
-
-  // Deep link vindo dos Financial Insights (ex.: category=null -> sem categoria).
-  useEffect(() => {
-    if (searchParams.category)
-      setCategoryId(searchParams.category === "null" ? NO_CATEGORY : searchParams.category);
-  }, [searchParams.category]);
-
-  // Drill down vindo do Planejamento Mensal (categoria/subcategoria + período).
-  useEffect(() => {
-    if (searchParams.subcategory) setSubcategoryId(searchParams.subcategory);
-  }, [searchParams.subcategory]);
-  useEffect(() => {
-    if (searchParams.from) setFrom(searchParams.from);
-    if (searchParams.to) setTo(searchParams.to);
-  }, [searchParams.from, searchParams.to]);
-
-  const defaultFrom = toISODate(firstDayOfMonth());
-  const defaultTo = toISODate(lastDayOfMonth());
-
-  const hasActiveFilters = useMemo(
-    () =>
-      search.trim() !== "" ||
-      from !== defaultFrom ||
-      to !== defaultTo ||
-      accountId !== ALL ||
-      cardId !== ALL ||
-      categoryId !== ALL ||
-      subcategoryId !== ALL ||
-      type !== ALL ||
-      status !== ALL ||
-      group !== DEFAULT_GROUP,
-    [search, from, to, defaultFrom, defaultTo, accountId, cardId, categoryId, subcategoryId, type, status, group],
-  );
-
-  const handleClearFilters = () => {
-    setSearch("");
-    setFrom(defaultFrom);
-    setTo(defaultTo);
-    setAccountId(ALL);
-    setCardId(ALL);
-    setCategoryId(ALL);
-    setSubcategoryId(ALL);
-    setType(ALL);
-    setStatus(ALL);
-    setGroup(DEFAULT_GROUP);
-  };
+  const {
+    from,
+    setFrom,
+    to,
+    setTo,
+    accountId,
+    setAccountId,
+    cardId,
+    setCardId,
+    categoryId,
+    setCategoryId,
+    subcategoryId,
+    setSubcategoryId,
+    type,
+    setType,
+    status,
+    setStatus,
+    group,
+    setGroup,
+    search,
+    setSearch,
+    filters,
+    hasActiveFilters,
+    clearFilters,
+  } = useMovementFilters(searchParams);
 
   const filters: MovementFilters = useMemo(
     () => ({
