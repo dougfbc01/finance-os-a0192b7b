@@ -39,6 +39,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCards } from "@/hooks/useCards";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
+import { useMovementFilters } from "@/hooks/useMovementFilters";
 import {
   useBulkDeleteMovements,
   useBulkUpdateMovements,
