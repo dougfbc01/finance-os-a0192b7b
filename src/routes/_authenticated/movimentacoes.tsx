@@ -134,21 +134,6 @@ function MovimentacoesPage() {
     clearFilters,
   } = useMovementFilters(searchParams);
 
-  const filters: MovementFilters = useMemo(
-    () => ({
-      from,
-      to,
-      accountId: accountId === ALL ? undefined : accountId,
-      cardId: cardId === ALL ? undefined : cardId,
-      categoryId: categoryId === ALL ? undefined : categoryId,
-      subcategoryId: subcategoryId === ALL ? undefined : subcategoryId,
-      type: type === ALL ? undefined : (type as MovementType),
-      status: status === ALL ? undefined : (status as MovementStatus),
-      group: group === "all" ? undefined : group,
-      search: search.trim() || undefined,
-    }),
-    [from, to, accountId, cardId, categoryId, subcategoryId, type, status, group, search],
-  );
 
 
   const { data: movements = [], isLoading } = useMovements(workspaceId, filters);
