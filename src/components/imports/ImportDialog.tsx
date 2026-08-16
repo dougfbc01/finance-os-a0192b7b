@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import type { CommitResult } from "@/services/ImportService";
+import {
+  hasNewMovements,
+  IMPORT_REVIEW_ROUTE,
+  reviewImportId,
+} from "@/services/ImportNavigationService";
+
 import { Upload, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import {
   Dialog,
@@ -69,6 +75,8 @@ export function ImportDialog({
   const { data: cards = [] } = useCards(workspaceId);
   const isCardSource = source === "NUBANK_CREDIT_CARD";
 
+  const navigate = useNavigate();
+
   const reset = () => {
     setStep("select");
     setFileName("");
@@ -77,7 +85,31 @@ export function ImportDialog({
     setAccountId("");
     setCardId("");
     setReimport(false);
+    setResult(null);
   };
+
+  const closeDialog = () => onOpenChange(false);
+
+  /**
+   * Correção: navega ANTES de fechar o dialog, usando o import_id retornado
+   * pelo commit. Fechar primeiro desmontava o Link e cancelava a navegação.
+   */
+  const goToReview = async (res: CommitResult) => {
+    const importId = reviewImportId(res);
+    if (!importId) {
+      toast.error("Importação sem identificador para revisão.");
+      return;
+    }
+    await navigate({ to: IMPORT_REVIEW_ROUTE, params: { importId } });
+    closeDialog();
+  };
+
+  const goToMovements = async () => {
+    await navigate({ to: "/movimentacoes" });
+    closeDialog();
+  };
+
+
 
   const handleFile = async (f: File) => {
     const text = await f.text();
@@ -349,26 +381,27 @@ export function ImportDialog({
                 descartado(s) · {result.ignored} ignorado(s).
               </p>
             )}
+            {result && !hasNewMovements(result) && (
+              <p className="text-sm font-medium">Não há novos lançamentos para revisar.</p>
+            )}
             <DialogFooter className="justify-center gap-2">
               <Button variant="outline" onClick={reset}>
                 Importar outro arquivo
               </Button>
-              {result && result.inserted > 0 && (
-                <Button asChild onClick={() => onOpenChange(false)}>
-                  <Link
-                    to="/importacoes/revisao/$importId"
-                    params={{ importId: result.importRecord.id }}
-                  >
-                    Revisar lançamentos
-                  </Link>
+              {result && hasNewMovements(result) ? (
+                <Button onClick={() => goToReview(result)}>Revisar lançamentos</Button>
+              ) : (
+                <Button variant="outline" onClick={closeDialog}>
+                  Voltar para Importações
                 </Button>
               )}
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={goToMovements}>
                 Ir para Movimentações
               </Button>
             </DialogFooter>
           </div>
         )}
+
       </DialogContent>
     </Dialog>
   );
