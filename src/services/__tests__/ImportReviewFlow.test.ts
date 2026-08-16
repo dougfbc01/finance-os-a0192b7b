@@ -24,7 +24,7 @@ function mov(over: Partial<Movement>): Movement {
     category_id: null,
     subcategory_id: null,
     type: MovementType.EXPENSE,
-    status: MovementStatus.PAID,
+    status: MovementStatus.CLEARED,
     description: "Compra",
     amount: -100,
     transaction_date: "2026-08-01",
