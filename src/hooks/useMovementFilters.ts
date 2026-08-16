@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { MovementFilters, MovementGroup, MovementType, MovementStatus } from "@/models";
+import type { MovementFilters, MovementGroup } from "@/models";
+import type { MovementType, MovementStatus } from "@/constants/enums";
 import { firstDayOfMonth, lastDayOfMonth, toISODate } from "@/lib/format";
 
 const ALL = "all";
