@@ -445,7 +445,7 @@ function MovimentacoesPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleClearFilters}
+          onClick={clearFilters}
           disabled={!hasActiveFilters}
           aria-label="Limpar filtros"
         >
