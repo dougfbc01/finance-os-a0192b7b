@@ -139,6 +139,37 @@ function MovimentacoesPage() {
     if (searchParams.to) setTo(searchParams.to);
   }, [searchParams.from, searchParams.to]);
 
+  const defaultFrom = toISODate(firstDayOfMonth());
+  const defaultTo = toISODate(lastDayOfMonth());
+
+  const hasActiveFilters = useMemo(
+    () =>
+      search.trim() !== "" ||
+      from !== defaultFrom ||
+      to !== defaultTo ||
+      accountId !== ALL ||
+      cardId !== ALL ||
+      categoryId !== ALL ||
+      subcategoryId !== ALL ||
+      type !== ALL ||
+      status !== ALL ||
+      group !== DEFAULT_GROUP,
+    [search, from, to, defaultFrom, defaultTo, accountId, cardId, categoryId, subcategoryId, type, status, group],
+  );
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setFrom(defaultFrom);
+    setTo(defaultTo);
+    setAccountId(ALL);
+    setCardId(ALL);
+    setCategoryId(ALL);
+    setSubcategoryId(ALL);
+    setType(ALL);
+    setStatus(ALL);
+    setGroup(DEFAULT_GROUP);
+  };
+
   const filters: MovementFilters = useMemo(
     () => ({
       from,
