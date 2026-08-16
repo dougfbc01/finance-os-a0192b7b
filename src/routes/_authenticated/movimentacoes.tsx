@@ -91,8 +91,6 @@ export const Route = createFileRoute("/_authenticated/movimentacoes")({
 });
 
 const ALL = "all";
-const NO_CATEGORY = "none";
-const DEFAULT_GROUP: MovementGroup = "all";
 
 function MovimentacoesPage() {
   const { data: workspace } = useWorkspace();
