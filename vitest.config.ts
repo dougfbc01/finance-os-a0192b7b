@@ -1,5 +1,7 @@
-import { defineConfig, mergeConfig } from "vitest/config";
-import viteConfig from "./vite.config";
+import { defineConfig, mergeConfig, type ViteUserConfig } from "vitest/config";
+import viteConfigFactory from "./vite.config";
+
+const viteConfig = (viteConfigFactory as (() => ViteUserConfig))();
 
 export default mergeConfig(
   viteConfig,
