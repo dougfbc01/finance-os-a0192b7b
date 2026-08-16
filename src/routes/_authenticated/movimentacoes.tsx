@@ -492,6 +492,19 @@ function MovimentacoesPage() {
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleClearFilters}
+          disabled={!hasActiveFilters}
+          aria-label="Limpar filtros"
+        >
+          <X className="mr-1 h-4 w-4" />
+          Limpar filtros
+        </Button>
+      </div>
+
       {selected.size > 0 && (
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-md border bg-muted/40 p-3">
           <div className="text-sm">
