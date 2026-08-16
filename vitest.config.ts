@@ -1,15 +1,11 @@
-import { defineConfig, mergeConfig, type ViteUserConfig } from "vitest/config";
-import viteConfigFactory from "./vite.config";
+import { defineConfig } from "vitest/config";
+import tsConfigPaths from "vite-tsconfig-paths";
 
-const viteConfig = (viteConfigFactory as (() => ViteUserConfig))();
-
-export default mergeConfig(
-  viteConfig,
-  defineConfig({
-    test: {
-      environment: "jsdom",
-      globals: true,
-      setupFiles: ["./src/test/setup.ts"],
-    },
-  }),
-);
+export default defineConfig({
+  plugins: [tsConfigPaths()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+  },
+});
