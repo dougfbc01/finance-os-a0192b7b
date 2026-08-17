@@ -21,7 +21,7 @@ function asset(over: Partial<Asset> = {}): Asset {
     id: ASSET_ID,
     workspace_id: "ws",
     name: "WEGE3",
-    asset_type: AssetType.STOCK,
+    asset_type: AssetType.ACAO,
     institution: "B3",
     ticker: "WEGE3",
     currency: "BRL",
