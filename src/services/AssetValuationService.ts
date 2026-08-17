@@ -35,12 +35,19 @@ export interface EffectiveAsset extends Asset {
   effective_acquisition: number;
   /** Impacto agregado das movimentações vinculadas. */
   impact: AssetMovementImpact;
+  /** Sprint 4.8 — posição reconstruída pelas operações vinculadas. */
+  position: AssetPosition;
+  /** Quantidade efetiva exibida (posição quando a fonte é MOVEMENTS). */
+  effective_quantity: number;
+  /** Preço médio efetivo exibido (das operações quando a fonte é MOVEMENTS). */
+  effective_unit_price: number;
   /**
    * Se `false`, o valor NÃO deve ser somado ao total de ativos
    * (evita dupla contagem — caso das caixinhas modeladas como conta).
    */
   counts_in_total: boolean;
 }
+
 
 export interface AssetPosition {
   /** Quantidade acumulada (0 quando as operações não informam quantidade). */
