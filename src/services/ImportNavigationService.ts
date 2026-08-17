@@ -1,10 +1,11 @@
-// ImportNavigationService — Sprint 4.5.2 (correção)
+// ImportNavigationService — Sprint 4.5.2 / revisto na Sprint 4.8
 // Regras puras do fluxo pós-importação: quando existe revisão a fazer e qual
 // rota abrir. Isolado para ser testável sem router/UI.
 import type { CommitResult } from "./ImportService";
 import type { UUID } from "@/models";
 
 export const IMPORT_REVIEW_ROUTE = "/importacoes/revisao/$importId" as const;
+export const MOVEMENTS_ROUTE = "/movimentacoes" as const;
 
 /** Só há revisão quando a importação criou lançamentos novos de fato. */
 export function hasNewMovements(result: Pick<CommitResult, "inserted"> | null): boolean {
@@ -16,7 +17,20 @@ export function reviewImportId(result: CommitResult | null): UUID | null {
   return result?.importRecord?.id ?? null;
 }
 
-/** URL final da revisão (usada apenas por testes/logs; a UI usa params). */
+/** URL final da revisão (fallback de navegação dura e testes/logs). */
 export function buildReviewPath(importId: UUID): string {
   return `/importacoes/revisao/${importId}`;
+}
+
+/**
+ * Decisão única do fluxo pós-importação: navegar para a revisão ou não.
+ * Retorna `null` quando não há nada novo para revisar.
+ */
+export function resolveReviewTarget(
+  result: CommitResult | null,
+): { importId: UUID; path: string } | null {
+  if (!hasNewMovements(result)) return null;
+  const importId = reviewImportId(result);
+  if (!importId) return null;
+  return { importId, path: buildReviewPath(importId) };
 }
