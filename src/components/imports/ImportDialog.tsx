@@ -43,7 +43,14 @@ interface ImportDialogProps {
   /** @deprecated Sprint 3.4: importação não aplica categoria padrão. */
   defaultSubcategoryId?: UUID | null;
   userId: UUID | null;
+  /**
+   * Sprint 4.8 — a navegação acontece FORA do dialog (na página), que continua
+   * montada. Assim o roteamento nunca é cancelado pela desmontagem do dialog.
+   */
+  onReviewImport: (importId: UUID) => void;
+  onGoToMovements: () => void;
 }
+
 
 type Step = "select" | "preview" | "done";
 
