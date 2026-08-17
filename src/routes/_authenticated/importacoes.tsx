@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useDeleteImport, useImports } from "@/hooks/useImports";
 import { IMPORTER_LABELS } from "@/services/importers/ImporterFactory";
+import {
+  buildReviewPath,
+  IMPORT_REVIEW_ROUTE,
+  MOVEMENTS_ROUTE,
+} from "@/services/ImportNavigationService";
 import type { ImportRecord } from "@/models/Import";
+
 
 export const Route = createFileRoute("/_authenticated/importacoes")({
   head: () => ({
@@ -34,6 +40,26 @@ function ImportacoesPage() {
   const { data: imports = [], isLoading } = useImports(wsId);
   const del = useDeleteImport();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  /**
+   * Sprint 4.8 — a página (que não desmonta) executa a navegação: fecha o
+   * dialog e vai para a revisão. Fallback duro se o router falhar.
+   */
+  const goToReview = (importId: string) => {
+    setOpen(false);
+    navigate({ to: IMPORT_REVIEW_ROUTE, params: { importId } }).catch(() => {
+      window.location.assign(buildReviewPath(importId));
+    });
+  };
+
+  const goToMovements = () => {
+    setOpen(false);
+    navigate({ to: MOVEMENTS_ROUTE }).catch(() => {
+      window.location.assign(MOVEMENTS_ROUTE);
+    });
+  };
+
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este registro de importação? As movimentações permanecem.")) return;
@@ -144,6 +170,9 @@ function ImportacoesPage() {
           workspaceId={wsId}
           accounts={accounts}
           userId={user?.id ?? null}
+          onReviewImport={goToReview}
+          onGoToMovements={goToMovements}
+
         />
       )}
     </div>

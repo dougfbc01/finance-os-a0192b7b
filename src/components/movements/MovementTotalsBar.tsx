@@ -40,6 +40,14 @@ export function MovementTotalsBar({ movements, emphasis = "all" }: Props) {
           item("Despesas", formatCurrency(totals.expense), emphasis === "expense", "text-destructive")}
         {totals.transfers > 0 &&
           item("Transferências", formatCurrency(totals.transfers), false, "text-muted-foreground")}
+        {totals.historicalCount > 0 &&
+          item(
+            `Históricos (${totals.historicalCount})`,
+            formatCurrency(totals.historical),
+            false,
+            "text-muted-foreground",
+          )}
+
         {emphasis === "all" &&
           item(
             "Saldo líquido",

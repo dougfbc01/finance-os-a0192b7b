@@ -35,12 +35,19 @@ export interface EffectiveAsset extends Asset {
   effective_acquisition: number;
   /** Impacto agregado das movimentações vinculadas. */
   impact: AssetMovementImpact;
+  /** Sprint 4.8 — posição reconstruída pelas operações vinculadas. */
+  position: AssetPosition;
+  /** Quantidade efetiva exibida (posição quando a fonte é MOVEMENTS). */
+  effective_quantity: number;
+  /** Preço médio efetivo exibido (das operações quando a fonte é MOVEMENTS). */
+  effective_unit_price: number;
   /**
    * Se `false`, o valor NÃO deve ser somado ao total de ativos
    * (evita dupla contagem — caso das caixinhas modeladas como conta).
    */
   counts_in_total: boolean;
 }
+
 
 export interface AssetPosition {
   /** Quantidade acumulada (0 quando as operações não informam quantidade). */
@@ -234,16 +241,29 @@ class AssetValuationServiceImpl extends BaseService {
         impact,
         accountBalances,
       );
+      const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
+      // Sprint 4.8 — quando a fonte é MOVEMENTS a posição/PM vêm das operações;
+      // MANUAL e ACCOUNT preservam exatamente o comportamento anterior.
+      const derived =
+        asset.valuation_source === AssetValuationSource.MOVEMENTS && position.quantity > 0;
+      const quantity = derived ? position.quantity : Number(asset.quantity) || 0;
+      const unitPrice = derived ? position.averagePrice : Number(asset.unit_price) || 0;
       return {
         ...asset,
+        quantity,
+        unit_price: unitPrice,
         current_value: value,
         acquisition_value: acquisition,
         effective_value: value,
         effective_acquisition: acquisition,
+        effective_quantity: quantity,
+        effective_unit_price: unitPrice,
+        position,
         impact,
         counts_in_total: AssetValuationServiceImpl.countsInTotal(asset),
       };
     });
+
   }
 
   /** Subconjunto que pode ser somado no patrimônio sem dupla contagem. */

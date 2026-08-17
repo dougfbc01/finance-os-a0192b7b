@@ -24,3 +24,4 @@ export { FinancialAnalyticsService } from "./FinancialAnalyticsService";
 export { MonthlyClosingService } from "./MonthlyClosingService";
 export { MonthlyBudgetService } from "./MonthlyBudgetService";
 export { FinancialGoalService } from "./FinancialGoalService";
+export { CommitmentService } from "./CommitmentService";
