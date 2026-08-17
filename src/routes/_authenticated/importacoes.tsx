@@ -170,6 +170,9 @@ function ImportacoesPage() {
           workspaceId={wsId}
           accounts={accounts}
           userId={user?.id ?? null}
+          onReviewImport={goToReview}
+          onGoToMovements={goToMovements}
+
         />
       )}
     </div>
