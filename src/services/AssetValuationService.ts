@@ -241,16 +241,29 @@ class AssetValuationServiceImpl extends BaseService {
         impact,
         accountBalances,
       );
+      const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
+      // Sprint 4.8 — quando a fonte é MOVEMENTS a posição/PM vêm das operações;
+      // MANUAL e ACCOUNT preservam exatamente o comportamento anterior.
+      const derived =
+        asset.valuation_source === AssetValuationSource.MOVEMENTS && position.quantity > 0;
+      const quantity = derived ? position.quantity : Number(asset.quantity) || 0;
+      const unitPrice = derived ? position.averagePrice : Number(asset.unit_price) || 0;
       return {
         ...asset,
+        quantity,
+        unit_price: unitPrice,
         current_value: value,
         acquisition_value: acquisition,
         effective_value: value,
         effective_acquisition: acquisition,
+        effective_quantity: quantity,
+        effective_unit_price: unitPrice,
+        position,
         impact,
         counts_in_total: AssetValuationServiceImpl.countsInTotal(asset),
       };
     });
+
   }
 
   /** Subconjunto que pode ser somado no patrimônio sem dupla contagem. */
