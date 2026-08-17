@@ -464,6 +464,178 @@ export type Database = {
           },
         ]
       }
+      commitment_installments: {
+        Row: {
+          amount: number
+          commitment_id: string
+          competence_date: string
+          created_at: string
+          deleted_at: string | null
+          due_date: string
+          id: string
+          installment_number: number
+          movement_id: string | null
+          notes: string | null
+          status: Database["public"]["Enums"]["commitment_installment_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          amount?: number
+          commitment_id: string
+          competence_date: string
+          created_at?: string
+          deleted_at?: string | null
+          due_date: string
+          id?: string
+          installment_number: number
+          movement_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["commitment_installment_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          commitment_id?: string
+          competence_date?: string
+          created_at?: string
+          deleted_at?: string | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          movement_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["commitment_installment_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commitment_installments_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitment_installments_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitment_installments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commitments: {
+        Row: {
+          account_id: string | null
+          card_id: string | null
+          category_id: string | null
+          commitment_type: Database["public"]["Enums"]["commitment_type"]
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          due_day: number | null
+          id: string
+          installment_amount: number
+          installments_count: number
+          name: string
+          notes: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["commitment_status"]
+          subcategory_id: string | null
+          total_amount: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          card_id?: string | null
+          category_id?: string | null
+          commitment_type?: Database["public"]["Enums"]["commitment_type"]
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          due_day?: number | null
+          id?: string
+          installment_amount?: number
+          installments_count?: number
+          name: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["commitment_status"]
+          subcategory_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string | null
+          card_id?: string | null
+          category_id?: string | null
+          commitment_type?: Database["public"]["Enums"]["commitment_type"]
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          due_day?: number | null
+          id?: string
+          installment_amount?: number
+          installments_count?: number
+          name?: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["commitment_status"]
+          subcategory_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commitments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dedup_audits: {
         Row: {
           changed_fields: Json
@@ -1398,6 +1570,19 @@ export type Database = {
         | "RENDA_FIXA"
       card_invoice_status: "OPEN" | "CLOSED" | "PAID" | "OVERDUE"
       category_type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
+      commitment_installment_status:
+        | "FORECAST"
+        | "POSTED"
+        | "PAID"
+        | "CANCELLED"
+      commitment_status: "ACTIVE" | "SETTLED" | "CANCELLED" | "PAUSED"
+      commitment_type:
+        | "SUBSCRIPTION"
+        | "INSTALLMENT"
+        | "LOAN"
+        | "FINANCING"
+        | "FIXED_BILL"
+        | "OTHER"
       financial_goal_status: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED"
       financial_goal_type:
         | "EMERGENCY_RESERVE"
@@ -1585,6 +1770,21 @@ export const Constants = {
       ],
       card_invoice_status: ["OPEN", "CLOSED", "PAID", "OVERDUE"],
       category_type: ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"],
+      commitment_installment_status: [
+        "FORECAST",
+        "POSTED",
+        "PAID",
+        "CANCELLED",
+      ],
+      commitment_status: ["ACTIVE", "SETTLED", "CANCELLED", "PAUSED"],
+      commitment_type: [
+        "SUBSCRIPTION",
+        "INSTALLMENT",
+        "LOAN",
+        "FINANCING",
+        "FIXED_BILL",
+        "OTHER",
+      ],
       financial_goal_status: ["ACTIVE", "COMPLETED", "PAUSED", "CANCELLED"],
       financial_goal_type: [
         "EMERGENCY_RESERVE",
