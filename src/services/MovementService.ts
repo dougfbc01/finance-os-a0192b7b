@@ -428,6 +428,11 @@ class MovementServiceImpl extends BaseService {
    * Sprint 4.5.1 — totalizador do conjunto FILTRADO de movimentações.
    * Cálculo puro sobre a mesma lista exibida (nenhuma consulta extra).
    * Transferências e pagamentos de fatura não são receita nem despesa.
+   *
+   * Sprint 4.8 — operações históricas (is_historical) reconstroem posição de
+   * ativos e NÃO movimentam caixa: ficam fora de receitas, despesas,
+   * transferências e saldo líquido. Investimentos atuais (com impacto em
+   * conta/cartão) seguem contabilizados como antes.
    */
   static totals(movements: Movement[]): {
     count: number;
@@ -435,18 +440,36 @@ class MovementServiceImpl extends BaseService {
     expense: number;
     net: number;
     transfers: number;
+    historical: number;
+    historicalCount: number;
   } {
     let income = 0;
     let expense = 0;
     let transfers = 0;
+    let historical = 0;
+    let historicalCount = 0;
     for (const m of movements) {
       const value = Math.abs(Number(m.amount));
+      if (m.is_historical) {
+        historical += value;
+        historicalCount += 1;
+        continue;
+      }
       if (MovementServiceImpl.isIncome(m)) income += value;
       else if (MovementServiceImpl.isExpense(m)) expense += value;
       else transfers += value;
     }
-    return { count: movements.length, income, expense, net: income - expense, transfers };
+    return {
+      count: movements.length,
+      income,
+      expense,
+      net: income - expense,
+      transfers,
+      historical,
+      historicalCount,
+    };
   }
+
 
   // ---------------------------------------------------------------------------
   // Validações internas
