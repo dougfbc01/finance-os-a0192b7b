@@ -60,6 +60,8 @@ export function ImportDialog({
   workspaceId,
   accounts,
   userId,
+  onReviewImport,
+  onGoToMovements,
 }: ImportDialogProps) {
   const [step, setStep] = useState<Step>("select");
   const [result, setResult] = useState<CommitResult | null>(null);
@@ -78,8 +80,6 @@ export function ImportDialog({
   const { data: cards = [] } = useCards(workspaceId);
   const isCardSource = source === "NUBANK_CREDIT_CARD";
 
-  const navigate = useNavigate();
-
   const reset = () => {
     setStep("select");
     setFileName("");
@@ -94,23 +94,21 @@ export function ImportDialog({
   const closeDialog = () => onOpenChange(false);
 
   /**
-   * Correção: navega ANTES de fechar o dialog, usando o import_id retornado
-   * pelo commit. Fechar primeiro desmontava o Link e cancelava a navegação.
+   * Sprint 4.8 — o dialog apenas decide (regra pura) e delega a navegação
+   * para a página, que permanece montada durante a transição de rota.
    */
-  const goToReview = async (res: CommitResult) => {
-    const importId = reviewImportId(res);
-    if (!importId) {
-      toast.error("Importação sem identificador para revisão.");
+  const goToReview = (res: CommitResult) => {
+    const target = resolveReviewTarget(res);
+    if (!target) {
+      toast.info("Não há novos lançamentos para revisar.");
       return;
     }
-    await navigate({ to: IMPORT_REVIEW_ROUTE, params: { importId } });
-    closeDialog();
+    onReviewImport(target.importId);
   };
 
-  const goToMovements = async () => {
-    await navigate({ to: "/movimentacoes" });
-    closeDialog();
-  };
+  const goToMovements = () => onGoToMovements();
+
+
 
 
 
