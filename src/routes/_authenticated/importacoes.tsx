@@ -40,6 +40,26 @@ function ImportacoesPage() {
   const { data: imports = [], isLoading } = useImports(wsId);
   const del = useDeleteImport();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  /**
+   * Sprint 4.8 — a página (que não desmonta) executa a navegação: fecha o
+   * dialog e vai para a revisão. Fallback duro se o router falhar.
+   */
+  const goToReview = (importId: string) => {
+    setOpen(false);
+    navigate({ to: IMPORT_REVIEW_ROUTE, params: { importId } }).catch(() => {
+      window.location.assign(buildReviewPath(importId));
+    });
+  };
+
+  const goToMovements = () => {
+    setOpen(false);
+    navigate({ to: MOVEMENTS_ROUTE }).catch(() => {
+      window.location.assign(MOVEMENTS_ROUTE);
+    });
+  };
+
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este registro de importação? As movimentações permanecem.")) return;
