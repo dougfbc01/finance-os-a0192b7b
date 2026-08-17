@@ -1,12 +1,8 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useNavigate } from "@tanstack/react-router";
 import type { CommitResult } from "@/services/ImportService";
-import {
-  hasNewMovements,
-  IMPORT_REVIEW_ROUTE,
-  reviewImportId,
-} from "@/services/ImportNavigationService";
+import { hasNewMovements, resolveReviewTarget } from "@/services/ImportNavigationService";
+
 
 import { Upload, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import {
