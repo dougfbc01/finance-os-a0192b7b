@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useDeleteImport, useImports } from "@/hooks/useImports";
 import { IMPORTER_LABELS } from "@/services/importers/ImporterFactory";
+import {
+  buildReviewPath,
+  IMPORT_REVIEW_ROUTE,
+  MOVEMENTS_ROUTE,
+} from "@/services/ImportNavigationService";
 import type { ImportRecord } from "@/models/Import";
+
 
 export const Route = createFileRoute("/_authenticated/importacoes")({
   head: () => ({
