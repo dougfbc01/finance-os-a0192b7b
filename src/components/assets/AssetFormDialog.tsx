@@ -183,6 +183,7 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           opening_value:
             v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
         });
+        await persistHistory(created.id, v.name, v.valuation_source);
         toast.success("Ativo criado");
       }
       onOpenChange(false);
