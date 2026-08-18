@@ -350,6 +350,16 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               </div>
             )}
 
+            {source === AssetValuationSource.MOVEMENTS && (
+              <div className="md:col-span-2">
+                <AssetHistoryEditor
+                  entries={history}
+                  onChange={setHistory}
+                  currency={(form.watch("currency") as string) || "BRL"}
+                />
+              </div>
+            )}
+
             {isManual && (
               <>
                 <div className="space-y-1.5">
