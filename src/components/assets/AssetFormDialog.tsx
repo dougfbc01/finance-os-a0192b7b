@@ -133,6 +133,7 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           }
         : defaults,
     );
+    setHistory([]);
   }, [open, asset, form]);
 
   const onSubmit = form.handleSubmit(async (raw) => {
