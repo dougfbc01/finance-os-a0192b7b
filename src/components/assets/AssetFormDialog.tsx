@@ -161,9 +161,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
           },
         });
+        await persistHistory(asset.id, v.name, v.valuation_source);
         toast.success("Ativo atualizado");
       } else {
-        await createMut.mutateAsync({
+        const created = await createMut.mutateAsync({
           workspace_id: workspaceId,
           name: v.name,
           asset_type: v.asset_type,
