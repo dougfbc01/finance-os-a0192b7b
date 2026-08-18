@@ -136,6 +136,31 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
     setHistory([]);
   }, [open, asset, form]);
 
+  /**
+   * Grava as aquisições históricas informadas em lote como movimentações
+   * `is_historical` vinculadas ao ativo. Duplicadas são ignoradas.
+   */
+  const persistHistory = async (
+    assetId: string,
+    assetName: string,
+    valuationSource: AssetValuationSource,
+  ) => {
+    if (valuationSource !== AssetValuationSource.MOVEMENTS || history.length === 0) return;
+    const { inputs, duplicates, invalid } = AssetHistoryService.buildMovementInputs({
+      workspaceId,
+      assetId,
+      assetName,
+      entries: history,
+      existingMovements: allMovements,
+    });
+    for (const input of inputs) {
+      await createMovement.mutateAsync(input);
+    }
+    if (inputs.length > 0) toast.success(`${inputs.length} aquisição(ões) histórica(s) registrada(s)`);
+    if (duplicates.length > 0) toast.info(`${duplicates.length} linha(s) já existente(s) ignorada(s)`);
+    if (invalid.length > 0) toast.warning(`${invalid.length} linha(s) incompleta(s) ignorada(s)`);
+  };
+
   const onSubmit = form.handleSubmit(async (raw) => {
     const v = schema.parse(raw);
     try {
