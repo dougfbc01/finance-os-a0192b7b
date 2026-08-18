@@ -31,7 +31,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as ApiPublicHooksHealthCheckRouteImport } from './routes/api/public/hooks/health-check'
-import { Route as AuthenticatedImportacoesRevisaoImportIdRouteImport } from './routes/_authenticated/importacoes.revisao.$importId'
+import { Route as AuthenticatedImportacoesRevisaoImportIdRouteImport } from './routes/_authenticated/importacoes_.revisao.$importId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -153,9 +153,9 @@ const ApiPublicHooksHealthCheckRoute =
   } as any)
 const AuthenticatedImportacoesRevisaoImportIdRoute =
   AuthenticatedImportacoesRevisaoImportIdRouteImport.update({
-    id: '/revisao/$importId',
-    path: '/revisao/$importId',
-    getParentRoute: () => AuthenticatedImportacoesRoute,
+    id: '/importacoes_/revisao/$importId',
+    path: '/importacoes/revisao/$importId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -168,7 +168,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/fechamentos': typeof AuthenticatedFechamentosRoute
-  '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
+  '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -192,7 +192,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/fechamentos': typeof AuthenticatedFechamentosRoute
-  '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
+  '/importacoes': typeof AuthenticatedImportacoesRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -218,7 +218,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/duplicidades': typeof AuthenticatedDuplicidadesRoute
   '/_authenticated/fechamentos': typeof AuthenticatedFechamentosRoute
-  '/_authenticated/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
+  '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
   '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
@@ -229,7 +229,7 @@ export interface FileRoutesById {
   '/_authenticated/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/_authenticated/importacoes/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
+  '/_authenticated/importacoes_/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
 export interface FileRouteTypes {
@@ -304,7 +304,7 @@ export interface FileRouteTypes {
     | '/_authenticated/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
-    | '/_authenticated/importacoes/revisao/$importId'
+    | '/_authenticated/importacoes_/revisao/$importId'
     | '/api/public/hooks/health-check'
   fileRoutesById: FileRoutesById
 }
@@ -471,30 +471,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksHealthCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/importacoes/revisao/$importId': {
-      id: '/_authenticated/importacoes/revisao/$importId'
-      path: '/revisao/$importId'
+    '/_authenticated/importacoes_/revisao/$importId': {
+      id: '/_authenticated/importacoes_/revisao/$importId'
+      path: '/importacoes/revisao/$importId'
       fullPath: '/importacoes/revisao/$importId'
       preLoaderRoute: typeof AuthenticatedImportacoesRevisaoImportIdRouteImport
-      parentRoute: typeof AuthenticatedImportacoesRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
-
-interface AuthenticatedImportacoesRouteChildren {
-  AuthenticatedImportacoesRevisaoImportIdRoute: typeof AuthenticatedImportacoesRevisaoImportIdRoute
-}
-
-const AuthenticatedImportacoesRouteChildren: AuthenticatedImportacoesRouteChildren =
-  {
-    AuthenticatedImportacoesRevisaoImportIdRoute:
-      AuthenticatedImportacoesRevisaoImportIdRoute,
-  }
-
-const AuthenticatedImportacoesRouteWithChildren =
-  AuthenticatedImportacoesRoute._addFileChildren(
-    AuthenticatedImportacoesRouteChildren,
-  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
@@ -504,7 +489,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDuplicidadesRoute: typeof AuthenticatedDuplicidadesRoute
   AuthenticatedFechamentosRoute: typeof AuthenticatedFechamentosRoute
-  AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRouteWithChildren
+  AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRoute
   AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
@@ -513,6 +498,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRegrasRoute: typeof AuthenticatedRegrasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedTransferenciasPendentesRoute: typeof AuthenticatedTransferenciasPendentesRoute
+  AuthenticatedImportacoesRevisaoImportIdRoute: typeof AuthenticatedImportacoesRevisaoImportIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -523,7 +509,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDuplicidadesRoute: AuthenticatedDuplicidadesRoute,
   AuthenticatedFechamentosRoute: AuthenticatedFechamentosRoute,
-  AuthenticatedImportacoesRoute: AuthenticatedImportacoesRouteWithChildren,
+  AuthenticatedImportacoesRoute: AuthenticatedImportacoesRoute,
   AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,
@@ -533,6 +519,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedTransferenciasPendentesRoute:
     AuthenticatedTransferenciasPendentesRoute,
+  AuthenticatedImportacoesRevisaoImportIdRoute:
+    AuthenticatedImportacoesRevisaoImportIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

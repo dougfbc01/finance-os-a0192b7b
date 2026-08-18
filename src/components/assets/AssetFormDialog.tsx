@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +33,12 @@ import { CURRENCY_OPTIONS } from "@/constants";
 import type { Asset } from "@/models";
 import { useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useAllMovements, useCreateMovement } from "@/hooks/useMovements";
+import {
+  AssetHistoryService,
+  type AssetAcquisitionEntry,
+} from "@/services/AssetHistoryService";
+import { AssetHistoryEditor } from "./AssetHistoryEditor";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Informe um nome").max(80),
@@ -100,6 +106,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const isManual = source === AssetValuationSource.MANUAL;
   const assetType = form.watch("asset_type") as AssetType;
   const traits = assetTypeTraits(assetType);
+  // Sprint 4.8.1 — histórico de aquisições em lote (somente fonte MOVEMENTS).
+  const [history, setHistory] = useState<AssetAcquisitionEntry[]>([]);
+  const createMovement = useCreateMovement();
+  const { data: allMovements = [] } = useAllMovements(workspaceId);
 
   useEffect(() => {
     if (!open) return;
@@ -123,7 +133,33 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           }
         : defaults,
     );
+    setHistory([]);
   }, [open, asset, form]);
+
+  /**
+   * Grava as aquisições históricas informadas em lote como movimentações
+   * `is_historical` vinculadas ao ativo. Duplicadas são ignoradas.
+   */
+  const persistHistory = async (
+    assetId: string,
+    assetName: string,
+    valuationSource: AssetValuationSource,
+  ) => {
+    if (valuationSource !== AssetValuationSource.MOVEMENTS || history.length === 0) return;
+    const { inputs, duplicates, invalid } = AssetHistoryService.buildMovementInputs({
+      workspaceId,
+      assetId,
+      assetName,
+      entries: history,
+      existingMovements: allMovements,
+    });
+    for (const input of inputs) {
+      await createMovement.mutateAsync(input);
+    }
+    if (inputs.length > 0) toast.success(`${inputs.length} aquisição(ões) histórica(s) registrada(s)`);
+    if (duplicates.length > 0) toast.info(`${duplicates.length} linha(s) já existente(s) ignorada(s)`);
+    if (invalid.length > 0) toast.warning(`${invalid.length} linha(s) incompleta(s) ignorada(s)`);
+  };
 
   const onSubmit = form.handleSubmit(async (raw) => {
     const v = schema.parse(raw);
@@ -150,9 +186,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
           },
         });
+        await persistHistory(asset.id, v.name, v.valuation_source);
         toast.success("Ativo atualizado");
       } else {
-        await createMut.mutateAsync({
+        const created = await createMut.mutateAsync({
           workspace_id: workspaceId,
           name: v.name,
           asset_type: v.asset_type,
@@ -171,6 +208,7 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
           opening_value:
             v.valuation_source === AssetValuationSource.MOVEMENTS ? v.opening_value : 0,
         });
+        await persistHistory(created.id, v.name, v.valuation_source);
         toast.success("Ativo criado");
       }
       onOpenChange(false);
@@ -309,6 +347,16 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
                 <p className="text-xs text-muted-foreground">
                   Saldo que o ativo já possuía antes das movimentações registradas aqui.
                 </p>
+              </div>
+            )}
+
+            {source === AssetValuationSource.MOVEMENTS && (
+              <div className="md:col-span-2">
+                <AssetHistoryEditor
+                  entries={history}
+                  onChange={setHistory}
+                  currency={(form.watch("currency") as string) || "BRL"}
+                />
               </div>
             )}
 
