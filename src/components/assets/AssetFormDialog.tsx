@@ -33,6 +33,12 @@ import { CURRENCY_OPTIONS } from "@/constants";
 import type { Asset } from "@/models";
 import { useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useAllMovements, useCreateMovement } from "@/hooks/useMovements";
+import {
+  AssetHistoryService,
+  type AssetAcquisitionEntry,
+} from "@/services/AssetHistoryService";
+import { AssetHistoryEditor } from "./AssetHistoryEditor";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Informe um nome").max(80),
