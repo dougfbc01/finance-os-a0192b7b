@@ -106,6 +106,10 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const isManual = source === AssetValuationSource.MANUAL;
   const assetType = form.watch("asset_type") as AssetType;
   const traits = assetTypeTraits(assetType);
+  // Sprint 4.8.1 — histórico de aquisições em lote (somente fonte MOVEMENTS).
+  const [history, setHistory] = useState<AssetAcquisitionEntry[]>([]);
+  const createMovement = useCreateMovement();
+  const { data: allMovements = [] } = useAllMovements(workspaceId);
 
   useEffect(() => {
     if (!open) return;
