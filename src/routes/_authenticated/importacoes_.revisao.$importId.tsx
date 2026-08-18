@@ -38,7 +38,7 @@ import { MOVEMENT_STATUS_OPTIONS, MOVEMENT_TYPE_LABELS, MovementStatus } from "@
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Movement, UUID } from "@/models";
 
-export const Route = createFileRoute("/_authenticated/importacoes/revisao/$importId")({
+export const Route = createFileRoute("/_authenticated/importacoes_/revisao/$importId")({
   head: () => ({
     meta: [
       { title: "Revisão da Importação — Finance OS" },
