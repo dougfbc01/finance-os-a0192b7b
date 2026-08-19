@@ -11,6 +11,7 @@ export { ImportHistoryService } from "./ImportHistoryService";
 export { DashboardService } from "./DashboardService";
 export { AssetService } from "./AssetService";
 export { AssetValuationService } from "./AssetValuationService";
+export { AssetHistoryService } from "./AssetHistoryService";
 export { ImportReviewService } from "./ImportReviewService";
 export { PatrimonyService } from "./PatrimonyService";
 export { InvestmentService } from "./InvestmentService";
