@@ -73,6 +73,33 @@ export type Database = {
           },
         ]
       }
+      admin_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       assets: {
         Row: {
           account_id: string | null
@@ -1489,6 +1516,102 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          notes: string | null
+          plan: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          notes?: string | null
+          plan?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          notes?: string | null
+          plan?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_access: {
+        Row: {
+          blocked_at: string | null
+          created_at: string
+          granted_at: string | null
+          reason: string | null
+          status: Database["public"]["Enums"]["user_access_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocked_at?: string | null
+          created_at?: string
+          granted_at?: string | null
+          reason?: string | null
+          status?: Database["public"]["Enums"]["user_access_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocked_at?: string | null
+          created_at?: string
+          granted_at?: string | null
+          reason?: string | null
+          status?: Database["public"]["Enums"]["user_access_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspaces: {
         Row: {
           created_at: string
@@ -1522,6 +1645,13 @@ export type Database = {
     }
     Functions: {
       financial_health_check: { Args: { _workspace_id: string }; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       recompute_card_invoice: {
         Args: { _invoice_id: string }
         Returns: undefined
@@ -1549,6 +1679,7 @@ export type Database = {
         | "CASH"
         | "INTERNATIONAL"
         | "OTHER"
+      app_role: "admin" | "user"
       asset_type:
         | "BANK"
         | "CASH"
@@ -1611,6 +1742,13 @@ export type Database = {
         | "TAX"
         | "REFUND"
         | "ADJUSTMENT"
+      subscription_status:
+        | "TRIALING"
+        | "ACTIVE"
+        | "PAST_DUE"
+        | "CANCELED"
+        | "EXPIRED"
+      user_access_status: "PENDING" | "ACTIVE" | "BLOCKED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1748,6 +1886,7 @@ export const Constants = {
         "INTERNATIONAL",
         "OTHER",
       ],
+      app_role: ["admin", "user"],
       asset_type: [
         "BANK",
         "CASH",
@@ -1816,6 +1955,14 @@ export const Constants = {
         "REFUND",
         "ADJUSTMENT",
       ],
+      subscription_status: [
+        "TRIALING",
+        "ACTIVE",
+        "PAST_DUE",
+        "CANCELED",
+        "EXPIRED",
+      ],
+      user_access_status: ["PENDING", "ACTIVE", "BLOCKED"],
     },
   },
 } as const
