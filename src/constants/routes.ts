@@ -19,6 +19,8 @@ export const ROUTES = {
   DUPLICIDADES: "/duplicidades",
   FECHAMENTOS: "/fechamentos",
   METAS: "/metas",
+  ADMIN: "/admin",
+
 
 } as const;
 
