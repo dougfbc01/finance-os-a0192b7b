@@ -33,9 +33,12 @@ import {
   Sparkles,
   CopyCheck,
   CalendarCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
+import { useIsAdmin } from "@/hooks/useAdmin";
 import type { NavItem } from "@/types";
+
 
 const navItems: NavItem[] = [
   { title: "Dashboard", url: ROUTES.DASHBOARD, icon: LayoutDashboard },
