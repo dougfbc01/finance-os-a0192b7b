@@ -59,6 +59,7 @@ const navItems: NavItem[] = [
 function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const { isAdmin } = useIsAdmin();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -88,7 +89,25 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === ROUTES.ADMIN}>
+                    <Link to={ROUTES.ADMIN}>
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Administração</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
+
       <SidebarFooter>
         <Button variant="ghost" size="sm" onClick={handleSignOut} className="justify-start">
           <LogOut className="h-4 w-4" />
