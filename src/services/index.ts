@@ -26,3 +26,4 @@ export { MonthlyClosingService } from "./MonthlyClosingService";
 export { MonthlyBudgetService } from "./MonthlyBudgetService";
 export { FinancialGoalService } from "./FinancialGoalService";
 export { CommitmentService } from "./CommitmentService";
+export { AdminService } from "./AdminService";
