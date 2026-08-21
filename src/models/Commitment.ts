@@ -105,3 +105,80 @@ export interface CreateCommitmentInput {
   subcategory_id?: UUID | null;
   notes?: string | null;
 }
+
+export interface UpdateCommitmentInput {
+  name?: string;
+  description?: string | null;
+  commitment_type?: CommitmentType;
+  status?: CommitmentStatus;
+  total_amount?: number;
+  installment_amount?: number;
+  installments_count?: number;
+  due_day?: number | null;
+  start_date?: string;
+  account_id?: UUID | null;
+  card_id?: UUID | null;
+  category_id?: UUID | null;
+  subcategory_id?: UUID | null;
+  notes?: string | null;
+}
+
+/**
+ * Status exibido de uma parcela. ATRASADA é DERIVADO (parcela prevista com
+ * vencimento no passado) — nunca é persistido, para não exigir job noturno.
+ */
+export type InstallmentDisplayStatus =
+  | "FORECAST"
+  | "OVERDUE"
+  | "POSTED"
+  | "PAID"
+  | "CANCELLED";
+
+export const INSTALLMENT_DISPLAY_LABELS: Record<InstallmentDisplayStatus, string> = {
+  FORECAST: "Prevista",
+  OVERDUE: "Atrasada",
+  POSTED: "Lançada",
+  PAID: "Paga",
+  CANCELLED: "Cancelada",
+};
+
+export interface InstallmentView extends CommitmentInstallment {
+  display_status: InstallmentDisplayStatus;
+  /** Rótulo "3/48". */
+  label: string;
+}
+
+/** Visão consolidada de um compromisso e suas parcelas. */
+export interface CommitmentView {
+  commitment: Commitment;
+  installments: InstallmentView[];
+  paidCount: number;
+  openCount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  overdueCount: number;
+  overdueAmount: number;
+  next: InstallmentView | null;
+}
+
+/** Linha de obrigação prevista para uma competência (integração Planejamento). */
+export interface CommitmentForecastLine {
+  commitment_id: UUID;
+  installment_id: UUID;
+  name: string;
+  category_id: UUID | null;
+  subcategory_id: UUID | null;
+  due_date: string;
+  amount: number;
+  /** true quando a competência já possui item de orçamento para a mesma categoria. */
+  alreadyBudgeted: boolean;
+}
+
+export interface CommitmentForecast {
+  competence: string;
+  lines: CommitmentForecastLine[];
+  /** Soma apenas das linhas NÃO cobertas por orçamento — evita dupla contagem. */
+  uncoveredTotal: number;
+  /** Soma de todas as obrigações previstas na competência (informativo). */
+  forecastTotal: number;
+}
