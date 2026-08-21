@@ -239,7 +239,7 @@ describe("Sprint 4.9 — dados financeiros e filtros", () => {
     );
     expect(svc.filterUsers(rows, { status: "PENDING" })).toHaveLength(1);
     expect(svc.filterUsers(rows, { search: "maria@" })).toHaveLength(1);
-    expect(svc.filterUsers(rows, { search: "JOÃO" }).length).toBe(0);
+    expect(svc.filterUsers(rows, { search: "JOÃO" })).toHaveLength(1);
     expect(svc.filterUsers(rows, { search: "joão" })).toHaveLength(1);
     expect(svc.filterUsers(rows, { search: "  " })).toHaveLength(3);
   });
