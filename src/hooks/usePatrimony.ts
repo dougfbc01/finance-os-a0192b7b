@@ -3,9 +3,11 @@ import { useWorkspace } from "./useWorkspace";
 import { useAssets } from "./useAssets";
 import { useCardInvoices } from "./useCardInvoices";
 import { useDashboardData } from "./useDashboard";
+import { useMarketQuotes } from "./useMarketQuotes";
 import { PatrimonyServiceImpl } from "@/services/PatrimonyService";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
 import { AssetValuationServiceImpl } from "@/services/AssetValuationService";
+import { MarketQuotationServiceImpl } from "@/services/MarketQuotationService";
 
 export function usePatrimony() {
   const { data: ws } = useWorkspace();
@@ -20,9 +22,17 @@ export function usePatrimony() {
 
   // Sprint 4.5.2 — o valor do ativo é sempre derivado da sua fonte declarada
   // (manual, movimentações ou saldo de conta). Nada é persistido.
-  const assets = useMemo(
+  const valuedAssets = useMemo(
     () => AssetValuationServiceImpl.effectiveAssets(rawAssets, dash.movements, dash.balances),
     [rawAssets, dash.movements, dash.balances],
+  );
+
+  // Sprint 4.11 — cotação atual aplicada por cima da valoração existente.
+  // Ativos ACCOUNT e sem ticker seguem exatamente como antes.
+  const marketQuotes = useMarketQuotes(valuedAssets);
+  const assets = useMemo(
+    () => MarketQuotationServiceImpl.applyQuotes(valuedAssets, marketQuotes.quotes),
+    [valuedAssets, marketQuotes.quotes],
   );
 
   const snapshot = useMemo(
@@ -49,9 +59,15 @@ export function usePatrimony() {
   const investments = useMemo(() => InvestmentServiceImpl.rows(assets), [assets]);
   const investmentTotals = useMemo(() => InvestmentServiceImpl.totals(assets), [assets]);
 
+  const quotedById = useMemo(
+    () => new Map(assets.map((a) => [a.id, a] as const)),
+    [assets],
+  );
+
   return {
     workspace: ws,
     assets,
+    quotedById,
     invoices,
     snapshot,
     byClass,
@@ -62,6 +78,11 @@ export function usePatrimony() {
     investments,
     investmentTotals,
     cashflow: dash.cashflow,
+    quotes: marketQuotes.quotes,
+    hasQuotableAssets: marketQuotes.hasQuotableAssets,
+    isQuotesFetching: marketQuotes.isFetching,
+    quotesUpdatedAt: marketQuotes.updatedAt,
+    refreshQuotes: marketQuotes.refresh,
     isLoading: assetsQ.isLoading || invoicesQ.isLoading || dash.isLoading,
   };
 }
