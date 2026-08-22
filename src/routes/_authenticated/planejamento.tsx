@@ -12,6 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CommitmentForecastPanel } from "@/components/commitments";
+import { useCommitmentForecast } from "@/hooks/useCommitments";
+
 import {
   BudgetCategoryTable,
   BudgetGoalsTable,
@@ -103,6 +106,16 @@ function PlanejamentoPage() {
     const base = today.getFullYear();
     return [base + 1, base, base - 1, base - 2];
   }, [today]);
+
+  // Competência no formato YYYY-MM: parcelas previstas do mês, sem duplicar o que já foi orçado.
+  const competence = `${year}-${String(month).padStart(2, "0")}`;
+
+  const budgetedCategoryIds = useMemo(
+    () => items.map((i) => i.category_id).filter(Boolean),
+    [items],
+  );
+  const commitmentForecast = useCommitmentForecast(competence, budgetedCategoryIds);
+
 
   const lines = useMemo(
     () => (comparison ? MonthlyBudgetService.sortLines(comparison.lines, sort) : []),
@@ -287,6 +300,8 @@ function PlanejamentoPage() {
               <TabsTrigger value="summary">Resumo por categoria</TabsTrigger>
               <TabsTrigger value="income">Receitas</TabsTrigger>
               <TabsTrigger value="goals">Metas</TabsTrigger>
+              <TabsTrigger value="commitments">Compromissos</TabsTrigger>
+
               <TabsTrigger value="edit" disabled={!budget}>
                 Editar planejamento
               </TabsTrigger>
@@ -343,6 +358,12 @@ function PlanejamentoPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="commitments" className="pt-4">
+              <CommitmentForecastPanel forecast={commitmentForecast} />
+            </TabsContent>
+
+
 
             <TabsContent value="edit" className="pt-4">
               <Card>

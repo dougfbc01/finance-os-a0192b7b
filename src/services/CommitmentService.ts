@@ -7,12 +7,20 @@
 //  - a diferença de centavos vai integralmente para a ÚLTIMA parcela, de modo
 //    que a soma das parcelas seja sempre exatamente o valor total.
 import { BaseService } from "./BaseService";
+import type { UUID } from "@/models";
 import type {
   Commitment,
+  CommitmentForecast,
+  CommitmentForecastLine,
   CommitmentInstallment,
+  CommitmentView,
   CreateCommitmentInput,
+  InstallmentDisplayStatus,
+  InstallmentView,
   PlannedInstallment,
+  UpdateCommitmentInput,
 } from "@/models/Commitment";
+
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -34,6 +34,8 @@ import {
   CopyCheck,
   CalendarCheck,
   ShieldCheck,
+  Receipt,
+
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -55,6 +57,8 @@ const navItems: NavItem[] = [
   { title: "Fechamentos", url: ROUTES.FECHAMENTOS, icon: CalendarCheck },
   { title: "Planejamento", url: ROUTES.PLANEJAMENTO, icon: Target },
   { title: "Metas", url: ROUTES.METAS, icon: Goal },
+  { title: "Compromissos", url: ROUTES.COMPROMISSOS, icon: Receipt },
+
   { title: "Relatórios", url: ROUTES.RELATORIOS, icon: FileBarChart },
   { title: "Configurações", url: ROUTES.CONFIGURACOES, icon: Settings },
 ];
