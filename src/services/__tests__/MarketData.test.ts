@@ -23,7 +23,7 @@ function found(ticker: string, name: string, type: AssetType | null): MarketData
 }
 
 function mockProvider(impl: (t: string) => Promise<MarketDataLookupResult>): MarketDataProvider {
-  return { name: "mock", lookup: impl };
+  return { name: "mock", lookup: impl, getQuotes: async () => [] };
 }
 
 function asset(partial: Partial<Asset>): Asset {
@@ -171,7 +171,11 @@ describe("Sprint 4.10 — cadastro inteligente por ticker", () => {
   it("permite trocar o provider sem alterar os consumidores", async () => {
     const svc = new MarketDataServiceImpl(mockProvider(async (t) => found(t, "A", null)));
     expect(svc.providerName).toBe("mock");
-    svc.setProvider({ name: "outro", lookup: async (t) => found(t, "B", AssetType.ETF) });
+    svc.setProvider({
+      name: "outro",
+      lookup: async (t) => found(t, "B", AssetType.ETF),
+      getQuotes: async () => [],
+    });
     expect(svc.providerName).toBe("outro");
     const res = await svc.lookup("BOVA11");
     expect(res.data?.name).toBe("B");
