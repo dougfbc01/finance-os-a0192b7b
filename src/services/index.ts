@@ -1,4 +1,5 @@
 export { AccountService } from "./AccountService";
+export { AccountStatementService } from "./AccountStatementService";
 export { MovementService } from "./MovementService";
 export { CategoryService } from "./CategoryService";
 export { SubcategoryService } from "./SubcategoryService";
