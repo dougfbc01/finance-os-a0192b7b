@@ -230,6 +230,23 @@ export function assetTypeTraits(t: AssetType): AssetTypeTraits {
   };
 }
 
+/**
+ * Sprint 4.11 — tipos negociados em mercado com cotação pública por ticker.
+ * Renda fixa, tesouro, poupança e afins NÃO recebem cotação.
+ */
+export const MARKET_QUOTABLE_ASSET_TYPES: AssetType[] = [
+  AssetType.ACAO,
+  AssetType.FII,
+  AssetType.ETF,
+  AssetType.BDR,
+];
+
+export function isMarketQuotableType(t: AssetType): boolean {
+  return MARKET_QUOTABLE_ASSET_TYPES.includes(t);
+}
+
+
+
 
 /** Classes que aparecem no dashboard de investimentos (exclui BANK/CASH/CAIXINHA/OUTRO). */
 export const INVESTMENT_ASSET_TYPES: AssetType[] = [
