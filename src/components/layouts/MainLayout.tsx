@@ -34,6 +34,8 @@ import {
   CopyCheck,
   CalendarCheck,
   ShieldCheck,
+  Receipt,
+
 } from "lucide-react";
 import { APP_NAME, ROUTES } from "@/constants";
 import { useIsAdmin } from "@/hooks/useAdmin";
