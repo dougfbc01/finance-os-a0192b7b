@@ -107,8 +107,9 @@ function PlanejamentoPage() {
     return [base + 1, base, base - 1, base - 2];
   }, [today]);
 
-  // Competência YYYY-MM-01: parcelas previstas do mês, sem duplicar o que já foi orçado.
-  const competence = `${year}-${String(month).padStart(2, "0")}-01`;
+  // Competência no formato YYYY-MM: parcelas previstas do mês, sem duplicar o que já foi orçado.
+  const competence = `${year}-${String(month).padStart(2, "0")}`;
+
   const budgetedCategoryIds = useMemo(
     () => items.map((i) => i.category_id).filter(Boolean),
     [items],
