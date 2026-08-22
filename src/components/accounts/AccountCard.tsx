@@ -69,8 +69,8 @@ export function AccountCard({ account, balance, onEdit, onToggleActive, toggling
             <div className="mt-4 flex justify-between items-center gap-2">
               <Button asChild variant="outline" size="sm">
                 <Link
-                  to={ROUTES.MOVIMENTACOES}
-                  search={{ account: account.id } as never}
+                  to="/contas/$accountId"
+                  params={{ accountId: account.id }}
                 >
                   Ver extrato
                   <ArrowRight className="ml-1 h-3.5 w-3.5" />
