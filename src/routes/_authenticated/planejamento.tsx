@@ -107,6 +107,15 @@ function PlanejamentoPage() {
     return [base + 1, base, base - 1, base - 2];
   }, [today]);
 
+  // Competência YYYY-MM-01: parcelas previstas do mês, sem duplicar o que já foi orçado.
+  const competence = `${year}-${String(month).padStart(2, "0")}-01`;
+  const budgetedCategoryIds = useMemo(
+    () => items.map((i) => i.category_id).filter(Boolean),
+    [items],
+  );
+  const commitmentForecast = useCommitmentForecast(competence, budgetedCategoryIds);
+
+
   const lines = useMemo(
     () => (comparison ? MonthlyBudgetService.sortLines(comparison.lines, sort) : []),
     [comparison, sort],
