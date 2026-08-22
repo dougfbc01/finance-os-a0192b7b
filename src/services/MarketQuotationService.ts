@@ -84,7 +84,7 @@ class MarketQuotationServiceImpl extends BaseService {
           ? Number((Number(asset.effective_quantity) * quote.price).toFixed(2))
           : null;
 
-      const value = marketValue ?? Number(asset.effective_value) || 0;
+      const value = marketValue ?? (Number(asset.effective_value) || 0);
       const appreciation = marketValue !== null ? Number((value - costBasis).toFixed(2)) : null;
       const appreciationPercent =
         marketValue !== null && costBasis > 0
