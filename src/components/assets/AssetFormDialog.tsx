@@ -31,8 +31,10 @@ import {
 } from "@/constants/enums";
 import { CURRENCY_OPTIONS } from "@/constants";
 import type { Asset } from "@/models";
-import { useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
+import { useCreateAsset, useUpdateAsset, useAssets } from "@/hooks/useAssets";
 import { useAccounts } from "@/hooks/useAccounts";
+import { TickerLookupPanel } from "./TickerLookupPanel";
+
 import { useAllMovements, useCreateMovement } from "@/hooks/useMovements";
 import {
   AssetHistoryService,
@@ -102,6 +104,8 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const updateMut = useUpdateAsset();
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: defaults });
   const { data: accounts = [] } = useAccounts(workspaceId);
+  const { data: assets = [] } = useAssets(workspaceId);
+
   const source = form.watch("valuation_source") as AssetValuationSource;
   const isManual = source === AssetValuationSource.MANUAL;
   const assetType = form.watch("asset_type") as AssetType;
@@ -273,11 +277,27 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
             </div>
 
             {traits.hasTicker && (
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Código / Ticker</Label>
-                <Input placeholder="Ex.: PETR4, HGLG11" {...form.register("ticker")} maxLength={20} />
-              </div>
+              <TickerLookupPanel
+                workspaceId={workspaceId}
+                assets={isEdit ? assets.filter((a) => a.id !== asset?.id) : assets}
+                value={(form.watch("ticker") as string) || ""}
+                onTickerChange={(t) => form.setValue("ticker", t, { shouldDirty: true })}
+                onApply={(info) => {
+                  form.setValue("ticker", info.ticker, { shouldDirty: true });
+                  form.setValue("name", info.name.slice(0, 80), { shouldDirty: true });
+                  if (info.assetType) {
+                    form.setValue("asset_type", info.assetType, { shouldDirty: true });
+                  }
+                  if (info.currency) form.setValue("currency", info.currency, { shouldDirty: true });
+                  if (info.exchange) form.setValue("institution", info.exchange, { shouldDirty: true });
+                  if (info.description) {
+                    form.setValue("notes", info.description.slice(0, 500), { shouldDirty: true });
+                  }
+                  toast.success("Dados aplicados — revise antes de salvar");
+                }}
+              />
             )}
+
 
             {traits.hasQuantity && (
               <>
