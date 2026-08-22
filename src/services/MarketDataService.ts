@@ -5,6 +5,8 @@
 import type {
   MarketDataLookupResult,
   MarketDataProvider,
+  MarketQuoteMap,
+  MarketQuoteResult,
 } from "@/models/MarketData";
 import type { Asset } from "@/models";
 import { BrapiMarketDataProvider } from "./market/BrapiMarketDataProvider";
@@ -13,6 +15,8 @@ import { normalizeTicker } from "./market/tickerMapping";
 export class MarketDataServiceImpl {
   private cache = new Map<string, MarketDataLookupResult>();
   private inflight = new Map<string, Promise<MarketDataLookupResult>>();
+  private quoteCache = new Map<string, MarketQuoteResult>();
+  private quoteInflight = new Map<string, Promise<MarketQuoteResult>>();
 
   constructor(private provider: MarketDataProvider = new BrapiMarketDataProvider()) {}
 
@@ -29,6 +33,91 @@ export class MarketDataServiceImpl {
   clearCache() {
     this.cache.clear();
     this.inflight.clear();
+    this.clearQuoteCache();
+  }
+
+  /** Limpa apenas as cotações (usado pelo botão "Atualizar cotações"). */
+  clearQuoteCache() {
+    this.quoteCache.clear();
+  }
+
+  /**
+   * Sprint 4.11 — cotações atuais em lote.
+   * - Reutiliza o cache em memória da sessão;
+   * - deduplica tickers repetidos e chamadas concorrentes do mesmo ticker;
+   * - isola erros: um ticker com falha não impede os demais.
+   */
+  async getQuotes(rawTickers: string[]): Promise<MarketQuoteMap> {
+    const tickers = Array.from(
+      new Set((rawTickers ?? []).map((t) => normalizeTicker(t ?? "")).filter(Boolean)),
+    );
+    const out: MarketQuoteMap = {};
+    const pending: Promise<void>[] = [];
+    const missing: string[] = [];
+
+    for (const ticker of tickers) {
+      const cached = this.quoteCache.get(ticker);
+      if (cached) {
+        out[ticker] = { ...cached, cached: true };
+        continue;
+      }
+      const inflight = this.quoteInflight.get(ticker);
+      if (inflight) {
+        pending.push(
+          inflight.then((res) => {
+            out[ticker] = res;
+          }),
+        );
+        continue;
+      }
+      missing.push(ticker);
+    }
+
+    if (missing.length > 0) {
+      const batch = this.provider
+        .getQuotes(missing)
+        .catch((): MarketQuoteResult[] =>
+          missing.map((ticker) => ({
+            status: "ERROR" as const,
+            ticker,
+            quote: null,
+            message: "Falha ao consultar cotações no provider.",
+          })),
+        )
+        .then((results) => {
+          const byTicker = new Map(results.map((r) => [normalizeTicker(r.ticker), r]));
+          return missing.map<MarketQuoteResult>(
+            (ticker) =>
+              byTicker.get(ticker) ?? {
+                status: "NOT_FOUND",
+                ticker,
+                quote: null,
+                message: "Cotação indisponível para este ativo.",
+              },
+          );
+        });
+
+      missing.forEach((ticker, index) => {
+        const p = batch.then((results) => results[index] as MarketQuoteResult);
+        this.quoteInflight.set(ticker, p);
+        pending.push(
+          p
+            .then((res) => {
+              // Só cacheamos respostas conclusivas; erros podem ser reconsultados.
+              if (res.status === "FOUND" || res.status === "NO_QUOTE") {
+                this.quoteCache.set(ticker, res);
+              }
+              out[ticker] = res;
+            })
+            .finally(() => {
+              this.quoteInflight.delete(ticker);
+            }),
+        );
+      });
+    }
+
+    await Promise.all(pending);
+    return out;
   }
 
   async lookup(rawTicker: string): Promise<MarketDataLookupResult> {
