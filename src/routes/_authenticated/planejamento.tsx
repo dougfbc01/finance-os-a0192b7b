@@ -12,6 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CommitmentForecastPanel } from "@/components/commitments";
+import { useCommitmentForecast } from "@/hooks/useCommitments";
+
 import {
   BudgetCategoryTable,
   BudgetGoalsTable,
