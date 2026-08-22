@@ -104,6 +104,8 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
   const updateMut = useUpdateAsset();
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: defaults });
   const { data: accounts = [] } = useAccounts(workspaceId);
+  const { data: assets = [] } = useAssets(workspaceId);
+
   const source = form.watch("valuation_source") as AssetValuationSource;
   const isManual = source === AssetValuationSource.MANUAL;
   const assetType = form.watch("asset_type") as AssetType;
