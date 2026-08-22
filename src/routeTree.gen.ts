@@ -32,6 +32,7 @@ import { Route as AuthenticatedCompromissosRouteImport } from './routes/_authent
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedContasAccountIdRouteImport } from './routes/_authenticated/contas_.$accountId'
 import { Route as ApiPublicHooksHealthCheckRouteImport } from './routes/api/public/hooks/health-check'
 import { Route as AuthenticatedImportacoesRevisaoImportIdRouteImport } from './routes/_authenticated/importacoes_.revisao.$importId'
 
@@ -158,6 +159,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedContasAccountIdRoute =
+  AuthenticatedContasAccountIdRouteImport.update({
+    id: '/contas_/$accountId',
+    path: '/contas/$accountId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicHooksHealthCheckRoute =
   ApiPublicHooksHealthCheckRouteImport.update({
     id: '/api/public/hooks/health-check',
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/contas/$accountId': typeof AuthenticatedContasAccountIdRoute
   '/importacoes/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
@@ -220,6 +228,7 @@ export interface FileRoutesByTo {
   '/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/contas/$accountId': typeof AuthenticatedContasAccountIdRoute
   '/importacoes/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
@@ -248,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated/transferencias-pendentes': typeof AuthenticatedTransferenciasPendentesRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/_authenticated/contas_/$accountId': typeof AuthenticatedContasAccountIdRoute
   '/_authenticated/importacoes_/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
 }
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/contas/$accountId'
     | '/importacoes/revisao/$importId'
     | '/api/public/hooks/health-check'
   fileRoutesByTo: FileRoutesByTo
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/contas/$accountId'
     | '/importacoes/revisao/$importId'
     | '/api/public/hooks/health-check'
   id:
@@ -329,6 +341,7 @@ export interface FileRouteTypes {
     | '/_authenticated/transferencias-pendentes'
     | '/auth/forgot-password'
     | '/auth/reset-password'
+    | '/_authenticated/contas_/$accountId'
     | '/_authenticated/importacoes_/revisao/$importId'
     | '/api/public/hooks/health-check'
   fileRoutesById: FileRoutesById
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/contas_/$accountId': {
+      id: '/_authenticated/contas_/$accountId'
+      path: '/contas/$accountId'
+      fullPath: '/contas/$accountId'
+      preLoaderRoute: typeof AuthenticatedContasAccountIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/hooks/health-check': {
       id: '/api/public/hooks/health-check'
       path: '/api/public/hooks/health-check'
@@ -539,6 +559,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRegrasRoute: typeof AuthenticatedRegrasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedTransferenciasPendentesRoute: typeof AuthenticatedTransferenciasPendentesRoute
+  AuthenticatedContasAccountIdRoute: typeof AuthenticatedContasAccountIdRoute
   AuthenticatedImportacoesRevisaoImportIdRoute: typeof AuthenticatedImportacoesRevisaoImportIdRoute
 }
 
@@ -562,6 +583,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedTransferenciasPendentesRoute:
     AuthenticatedTransferenciasPendentesRoute,
+  AuthenticatedContasAccountIdRoute: AuthenticatedContasAccountIdRoute,
   AuthenticatedImportacoesRevisaoImportIdRoute:
     AuthenticatedImportacoesRevisaoImportIdRoute,
 }
