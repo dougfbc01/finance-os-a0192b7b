@@ -287,6 +287,8 @@ function PlanejamentoPage() {
               <TabsTrigger value="summary">Resumo por categoria</TabsTrigger>
               <TabsTrigger value="income">Receitas</TabsTrigger>
               <TabsTrigger value="goals">Metas</TabsTrigger>
+              <TabsTrigger value="commitments">Compromissos</TabsTrigger>
+
               <TabsTrigger value="edit" disabled={!budget}>
                 Editar planejamento
               </TabsTrigger>
