@@ -346,6 +346,12 @@ function PlanejamentoPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="commitments" className="pt-4">
+              <CommitmentForecastPanel forecast={commitmentForecast} />
+            </TabsContent>
+
+
+
             <TabsContent value="edit" className="pt-4">
               <Card>
                 <CardContent className="pt-6">
