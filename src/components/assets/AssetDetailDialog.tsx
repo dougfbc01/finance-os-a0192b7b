@@ -15,12 +15,14 @@ import {
 import { AssetValuationServiceImpl } from "@/services/AssetValuationService";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
 import { formatCurrency } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import type { QuotedAsset } from "@/services/MarketQuotationService";
 import type { Asset, Movement } from "@/models";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  asset: Asset | null;
+  asset: (Asset & Partial<QuotedAsset>) | null;
   movements: Movement[];
 }
 
@@ -37,6 +39,12 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
   if (!asset) return null;
   const detail = InvestmentServiceImpl.detail(asset, movements);
   const traits = assetTypeTraits(asset.asset_type);
+  const quote = asset.quote ?? null;
+  const quoteResult = asset.quoteResult ?? null;
+  const costBasis = asset.cost_basis ?? detail.position.cost;
+  const marketValue = asset.market_value ?? null;
+  const appreciation = asset.appreciation ?? null;
+  const appreciationPercent = asset.appreciation_percent ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,6 +109,49 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
             <Row label="Resgates" value={formatCurrency(detail.redemptions, asset.currency)} />
             <Row label="Rendimentos" value={formatCurrency(detail.yields, asset.currency)} />
           </div>
+
+          {(quote || quoteResult || asset.quotable) && (
+            <div className="py-2">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Valorização da posição (mercado)
+              </p>
+              {quote && marketValue !== null ? (
+                <>
+                  <Row label="Custo histórico" value={formatCurrency(costBasis, asset.currency)} />
+                  <Row
+                    label="Cotação atual"
+                    value={formatCurrency(quote.price, quote.currency || asset.currency)}
+                  />
+                  <Row label="Valor atual (mercado)" value={formatCurrency(marketValue, asset.currency)} />
+                  <div className="flex items-center justify-between py-1 text-sm">
+                    <span className="text-muted-foreground">Valorização</span>
+                    <span
+                      className={`tabular-nums font-medium ${
+                        (appreciation ?? 0) >= 0 ? "text-emerald-600" : "text-red-600"
+                      }`}
+                    >
+                      {(appreciation ?? 0) >= 0 ? "+" : ""}
+                      {formatCurrency(appreciation ?? 0, asset.currency)} (
+                      {(appreciationPercent ?? 0) >= 0 ? "+" : ""}
+                      {(appreciationPercent ?? 0).toFixed(2)}%)
+                    </span>
+                  </div>
+                  <p className="pt-1 text-[11px] text-muted-foreground">
+                    Cotação {quote.provider}
+                    {quote.quotedAt ? ` · ${formatDateTime(quote.quotedAt)}` : ""}
+                    {quote.marketState ? ` · mercado: ${quote.marketState}` : ""}. Valorização da
+                    posição (não é rentabilidade completa: sem dividendos, taxas ou impostos).
+                  </p>
+                </>
+              ) : (
+                <p className="py-2 text-sm text-muted-foreground">
+                  Cotação indisponível
+                  {quoteResult?.message ? ` — ${quoteResult.message}` : "."} O valor patrimonial
+                  segue a origem declarada do ativo.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="pt-2">
             <p className="mb-1 text-xs font-medium text-muted-foreground">
