@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
+import { Plus, RefreshCw, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -17,7 +17,7 @@ import { AssetFormDialog, AssetDetailDialog } from "@/components/assets";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Asset } from "@/models";
 
 export const Route = createFileRoute("/_authenticated/investimentos")({
@@ -37,7 +37,17 @@ export const Route = createFileRoute("/_authenticated/investimentos")({
 function InvestimentosPage() {
   const { data: ws } = useWorkspace();
   const wsId = ws?.id;
-  const { investments, investmentTotals, movements, isLoading } = usePatrimony();
+  const {
+    investments,
+    investmentTotals,
+    movements,
+    quotedById,
+    hasQuotableAssets,
+    isQuotesFetching,
+    quotesUpdatedAt,
+    refreshQuotes,
+    isLoading,
+  } = usePatrimony();
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -52,15 +62,36 @@ function InvestimentosPage() {
             Ativos classificados como investimentos (renda fixa, ações, fundos, cripto…).
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          disabled={!wsId}
-        >
-          <Plus className="mr-1 h-4 w-4" /> Novo investimento
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasQuotableAssets && (
+            <div className="flex items-center gap-2">
+              {quotesUpdatedAt ? (
+                <span className="text-xs text-muted-foreground">
+                  Cotações: {formatDateTime(new Date(quotesUpdatedAt))}
+                </span>
+              ) : null}
+              <Button
+                variant="outline"
+                onClick={() => void refreshQuotes()}
+                disabled={isQuotesFetching}
+              >
+                <RefreshCw
+                  className={`mr-1 h-4 w-4 ${isQuotesFetching ? "animate-spin" : ""}`}
+                />
+                Atualizar cotações
+              </Button>
+            </div>
+          )}
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            disabled={!wsId}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Novo investimento
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -107,6 +138,7 @@ function InvestimentosPage() {
                         <TableHead>Instituição</TableHead>
                         <TableHead className="text-right">Qtd.</TableHead>
                         <TableHead className="text-right">PM</TableHead>
+                        <TableHead className="text-right">Cotação</TableHead>
                         <TableHead className="text-right">Investido</TableHead>
                         <TableHead className="text-right">Atual</TableHead>
                         <TableHead className="text-right">Rentab.</TableHead>
@@ -116,6 +148,7 @@ function InvestimentosPage() {
                     <TableBody>
                       {investments.map((r) => {
                         const positive = r.profit >= 0;
+                        const quoted = quotedById.get(r.asset.id);
                         return (
                           <TableRow key={r.asset.id}>
                             <TableCell className="font-medium">
@@ -143,6 +176,20 @@ function InvestimentosPage() {
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {formatCurrency(r.asset.unit_price, r.asset.currency)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {quoted?.quote ? (
+                                formatCurrency(
+                                  quoted.quote.price,
+                                  quoted.quote.currency || r.asset.currency,
+                                )
+                              ) : quoted?.quotable ? (
+                                <span className="text-xs text-muted-foreground">
+                                  Cotação indisponível
+                                </span>
+                              ) : (
+                                "—"
+                              )}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {formatCurrency(r.invested, r.asset.currency)}
@@ -185,7 +232,7 @@ function InvestimentosPage() {
       <AssetDetailDialog
         open={!!detailId}
         onOpenChange={(o) => !o && setDetailId(null)}
-        asset={investments.find((r) => r.asset.id === detailId)?.asset ?? null}
+        asset={(detailId ? quotedById.get(detailId) : null) ?? null}
         movements={movements}
       />
 
