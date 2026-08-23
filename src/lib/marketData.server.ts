@@ -164,3 +164,125 @@ export async function fetchBrapiQuotes(tickers: string[]): Promise<BrapiQuotesRe
     clearTimeout(timer);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 4.11.1 — diagnóstico da integração (Configurações → Integrações).
+// Nunca retorna o token nem parte dele; apenas se está configurado.
+// ---------------------------------------------------------------------------
+export type MarketIntegrationStatus =
+  | "OK"
+  | "NOT_CONFIGURED"
+  | "INVALID_TOKEN"
+  | "NOT_FOUND"
+  | "TIMEOUT"
+  | "UNAVAILABLE";
+
+export interface MarketIntegrationDiagnosis {
+  provider: string;
+  tokenConfigured: boolean;
+  status: MarketIntegrationStatus;
+  httpStatus: number | null;
+  /** Código técnico devolvido pelo provider (ex.: MISSING_TOKEN). */
+  providerCode: string | null;
+  message: string;
+  ticker: string;
+  price: number | null;
+  currency: string | null;
+  checkedAt: string;
+}
+
+/** Executa uma consulta real e traduz a causa da falha (sem mascarar). */
+export async function diagnoseBrapi(rawTicker = "WEGE3"): Promise<MarketIntegrationDiagnosis> {
+  const ticker = rawTicker.trim().toUpperCase() || "WEGE3";
+  const token = process.env["BRAPI_TOKEN"];
+  const base: Omit<MarketIntegrationDiagnosis, "status" | "message"> = {
+    provider: "brapi.dev",
+    tokenConfigured: Boolean(token),
+    httpStatus: null,
+    providerCode: null,
+    ticker,
+    price: null,
+    currency: null,
+    checkedAt: new Date().toISOString(),
+  };
+
+  const url = new URL(`https://brapi.dev/api/quote/${encodeURIComponent(ticker)}`);
+  if (token) url.searchParams.set("token", token);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { accept: "application/json" },
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      results?: Array<Record<string, unknown>>;
+      code?: string;
+      message?: string;
+    };
+    const providerCode = typeof body.code === "string" ? body.code : null;
+
+    if (res.status === 401 || res.status === 403) {
+      const missing = providerCode === "MISSING_TOKEN" || !token;
+      return {
+        ...base,
+        httpStatus: res.status,
+        providerCode,
+        status: missing ? "NOT_CONFIGURED" : "INVALID_TOKEN",
+        message: missing
+          ? "BRAPI_TOKEN não configurado — o provider exige credencial para este ativo."
+          : "Token inválido ou não autorizado para este plano.",
+      };
+    }
+    if (res.status === 404) {
+      return {
+        ...base,
+        httpStatus: 404,
+        providerCode,
+        status: "NOT_FOUND",
+        message: "Ticker não encontrado no provider.",
+      };
+    }
+    if (!res.ok) {
+      return {
+        ...base,
+        httpStatus: res.status,
+        providerCode,
+        status: "UNAVAILABLE",
+        message: "BRAPI indisponível no momento.",
+      };
+    }
+    const r = body.results?.[0];
+    const price = r ? num(r["regularMarketPrice"]) : null;
+    if (!r || price === null) {
+      return {
+        ...base,
+        httpStatus: res.status,
+        providerCode,
+        status: "NOT_FOUND",
+        message: "Consulta respondida, mas sem cotação para este ticker.",
+      };
+    }
+    return {
+      ...base,
+      httpStatus: res.status,
+      providerCode,
+      status: "OK",
+      price,
+      currency: typeof r["currency"] === "string" ? (r["currency"] as string) : "BRL",
+      message: "Conexão funcionando — cotação recebida.",
+    };
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return {
+      ...base,
+      status: aborted ? "TIMEOUT" : "UNAVAILABLE",
+      message: aborted
+        ? "Tempo limite excedido ao consultar a BRAPI."
+        : "Falha de rede ao consultar a BRAPI.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
