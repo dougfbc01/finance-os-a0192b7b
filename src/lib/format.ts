@@ -30,3 +30,16 @@ export function lastDayOfMonth(ref = new Date()) {
 export function addMonths(ref: Date, delta: number) {
   return new Date(ref.getFullYear(), ref.getMonth() + delta, 1);
 }
+
+/** Sprint 4.11 — data e hora curtas (usado no timestamp de cotações). */
+export function formatDateTime(value: string | Date, locale = "pt-BR") {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

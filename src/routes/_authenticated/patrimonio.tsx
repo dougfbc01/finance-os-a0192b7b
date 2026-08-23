@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Wallet, Landmark, TrendingUp, ShieldAlert } from "lucide-react";
+import { Plus, RefreshCw, Wallet, Landmark, TrendingUp, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,6 +43,10 @@ function PatrimonioPage() {
     composition,
     movements,
     cashflow,
+    quotedById,
+    hasQuotableAssets,
+    isQuotesFetching,
+    refreshQuotes,
     isLoading,
   } = usePatrimony();
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -64,15 +68,28 @@ function PatrimonioPage() {
             Ativos + Caixa − Passivos. Ativos declarados nunca são despesa.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          disabled={!wsId}
-        >
-          <Plus className="mr-1 h-4 w-4" /> Novo ativo
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasQuotableAssets && (
+            <Button
+              variant="outline"
+              onClick={() => void refreshQuotes()}
+              disabled={isQuotesFetching}
+            >
+              <RefreshCw className={`mr-1 h-4 w-4 ${isQuotesFetching ? "animate-spin" : ""}`} />
+              Atualizar cotações
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            disabled={!wsId}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Novo ativo
+          </Button>
+        </div>
+
       </div>
 
       {isLoading ? (
@@ -153,7 +170,7 @@ function PatrimonioPage() {
       <AssetDetailDialog
         open={!!detailId}
         onOpenChange={(o) => !o && setDetailId(null)}
-        asset={assets.find((a) => a.id === detailId) ?? null}
+        asset={(detailId ? quotedById.get(detailId) : null) ?? null}
         movements={movements}
       />
 
