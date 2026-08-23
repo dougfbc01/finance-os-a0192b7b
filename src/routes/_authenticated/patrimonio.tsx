@@ -170,7 +170,7 @@ function PatrimonioPage() {
       <AssetDetailDialog
         open={!!detailId}
         onOpenChange={(o) => !o && setDetailId(null)}
-        asset={assets.find((a) => a.id === detailId) ?? null}
+        asset={(detailId ? quotedById.get(detailId) : null) ?? null}
         movements={movements}
       />
 
