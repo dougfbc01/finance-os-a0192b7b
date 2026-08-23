@@ -2,7 +2,7 @@
 // Ficam no servidor para que qualquer credencial (BRAPI_TOKEN) nunca vá ao browser.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { fetchBrapiQuote, fetchBrapiQuotes } from "./marketData.server";
+import { diagnoseBrapi, fetchBrapiQuote, fetchBrapiQuotes } from "./marketData.server";
 
 export const lookupTickerFn = createServerFn({ method: "GET" })
   .inputValidator(z.object({ ticker: z.string().min(1).max(20) }))
@@ -11,3 +11,8 @@ export const lookupTickerFn = createServerFn({ method: "GET" })
 export const quoteTickersFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ tickers: z.array(z.string().min(1).max(20)).max(50) }))
   .handler(async ({ data }) => fetchBrapiQuotes(data.tickers));
+
+// Sprint 4.11.1 — diagnóstico da integração de mercado (Configurações).
+export const diagnoseMarketFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ ticker: z.string().min(1).max(20).optional() }))
+  .handler(async ({ data }) => diagnoseBrapi(data.ticker ?? "WEGE3"));
