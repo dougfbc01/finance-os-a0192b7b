@@ -85,7 +85,7 @@ function buy(overrides: Partial<Movement>): Movement {
     description: "Compra",
     amount: 3000,
     type: MovementType.INVESTMENT,
-    status: MovementStatus.PAID,
+    status: MovementStatus.CLEARED,
     transaction_date: "2026-01-10",
     competence_date: "2026-01-10",
     quantity: 100,
