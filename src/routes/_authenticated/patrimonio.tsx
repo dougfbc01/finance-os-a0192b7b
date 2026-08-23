@@ -68,15 +68,28 @@ function PatrimonioPage() {
             Ativos + Caixa − Passivos. Ativos declarados nunca são despesa.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          disabled={!wsId}
-        >
-          <Plus className="mr-1 h-4 w-4" /> Novo ativo
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasQuotableAssets && (
+            <Button
+              variant="outline"
+              onClick={() => void refreshQuotes()}
+              disabled={isQuotesFetching}
+            >
+              <RefreshCw className={`mr-1 h-4 w-4 ${isQuotesFetching ? "animate-spin" : ""}`} />
+              Atualizar cotações
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            disabled={!wsId}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Novo ativo
+          </Button>
+        </div>
+
       </div>
 
       {isLoading ? (
