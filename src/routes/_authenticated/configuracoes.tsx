@@ -21,6 +21,7 @@ import { useRebuildInvoices, useRunHealthCheck } from "@/hooks/useHealthCheck";
 import { HealthCheckServiceImpl, type HealthCheckReport } from "@/services/HealthCheckService";
 import { HealthCheckSchedulePanel } from "@/components/configuracoes/HealthCheckSchedulePanel";
 import { HealthCheckHistoryPanel } from "@/components/configuracoes/HealthCheckHistoryPanel";
+import { MarketIntegrationPanel } from "@/components/configuracoes/MarketIntegrationPanel";
 import type { ReprocessReport } from "@/services/ClassificationRuleService";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -176,6 +177,8 @@ function ConfiguracoesPage() {
       <HealthCheckHistoryPanel workspaceId={ws?.id} />
 
       <HealthCheckSchedulePanel workspaceId={ws?.id} />
+
+      <MarketIntegrationPanel />
 
 
 
