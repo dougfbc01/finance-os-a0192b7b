@@ -30,24 +30,24 @@ describe("diagnoseBrapi", () => {
   });
 
   it("com token válido: cotação recebida", async () => {
-    process.env["BRAPI_TOKEN"] = "tok";
+    process.env["BRAPI_TOKEN"] = "s3cr3tvalue";
     vi.stubGlobal("fetch", mockFetch(200, priceBody("WEGE3", 42.5)));
     const d = await diagnoseBrapi("WEGE3");
     expect(d.status).toBe("OK");
     expect(d.price).toBe(42.5);
     expect(d.tokenConfigured).toBe(true);
-    expect(JSON.stringify(d)).not.toContain("tok");
+    expect(JSON.stringify(d)).not.toContain("s3cr3tvalue");
   });
 
   it("token inválido (401 com token configurado) vira INVALID_TOKEN", async () => {
-    process.env["BRAPI_TOKEN"] = "tok";
+    process.env["BRAPI_TOKEN"] = "s3cr3tvalue";
     vi.stubGlobal("fetch", mockFetch(401, { code: "INVALID_TOKEN" }));
     const d = await diagnoseBrapi("WEGE3");
     expect(d.status).toBe("INVALID_TOKEN");
   });
 
   it("403 com token configurado vira INVALID_TOKEN", async () => {
-    process.env["BRAPI_TOKEN"] = "tok";
+    process.env["BRAPI_TOKEN"] = "s3cr3tvalue";
     vi.stubGlobal("fetch", mockFetch(403, { code: "FORBIDDEN" }));
     const d = await diagnoseBrapi("WEGE3");
     expect(d.status).toBe("INVALID_TOKEN");
@@ -81,7 +81,7 @@ describe("diagnoseBrapi", () => {
 
 describe("fetchBrapiQuotes", () => {
   it("sucesso parcial: ticker ausente não derruba os demais", async () => {
-    process.env["BRAPI_TOKEN"] = "tok";
+    process.env["BRAPI_TOKEN"] = "s3cr3tvalue";
     vi.stubGlobal(
       "fetch",
       mockFetch(200, {
