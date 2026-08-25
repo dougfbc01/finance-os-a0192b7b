@@ -1058,6 +1058,69 @@ export type Database = {
           },
         ]
       }
+      market_price_history: {
+        Row: {
+          asset_id: string
+          close_price: number
+          created_at: string
+          fetched_at: string
+          high_price: number | null
+          id: string
+          low_price: number | null
+          open_price: number | null
+          price_date: string
+          provider: string
+          ticker: string
+          volume: number | null
+          workspace_id: string
+        }
+        Insert: {
+          asset_id: string
+          close_price: number
+          created_at?: string
+          fetched_at?: string
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          open_price?: number | null
+          price_date: string
+          provider: string
+          ticker: string
+          volume?: number | null
+          workspace_id: string
+        }
+        Update: {
+          asset_id?: string
+          close_price?: number
+          created_at?: string
+          fetched_at?: string
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          open_price?: number | null
+          price_date?: string
+          provider?: string
+          ticker?: string
+          volume?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_price_history_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_price_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_budget_items: {
         Row: {
           budget_id: string
