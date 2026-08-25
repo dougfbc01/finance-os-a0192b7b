@@ -22,6 +22,7 @@ afterEach(() => {
 
 describe("diagnoseBrapi", () => {
   it("sem token: 401 MISSING_TOKEN vira NOT_CONFIGURED", async () => {
+    delete process.env["BRAPI_TOKEN"];
     vi.stubGlobal("fetch", mockFetch(401, { code: "MISSING_TOKEN" }));
     const d = await diagnoseBrapi("WEGE3");
     expect(d.status).toBe("NOT_CONFIGURED");
