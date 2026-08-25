@@ -22,6 +22,7 @@ afterEach(() => {
 
 describe("diagnoseBrapi", () => {
   it("sem token: 401 MISSING_TOKEN vira NOT_CONFIGURED", async () => {
+    delete process.env["BRAPI_TOKEN"];
     vi.stubGlobal("fetch", mockFetch(401, { code: "MISSING_TOKEN" }));
     const d = await diagnoseBrapi("WEGE3");
     expect(d.status).toBe("NOT_CONFIGURED");
@@ -80,21 +81,27 @@ describe("diagnoseBrapi", () => {
 });
 
 describe("fetchBrapiQuotes", () => {
-  it("sucesso parcial: ticker ausente não derruba os demais", async () => {
+  it("consulta 1 ticker por requisição (limite do provider) e agrega os resultados", async () => {
     process.env["BRAPI_TOKEN"] = "s3cr3tvalue";
-    vi.stubGlobal(
-      "fetch",
-      mockFetch(200, {
-        results: [
-          { symbol: "WEGE3", regularMarketPrice: 40, currency: "BRL" },
-          { symbol: "PETR4", regularMarketPrice: 44.3, currency: "BRL" },
-        ],
-      }),
-    );
+    const prices: Record<string, number> = { WEGE3: 40, PETR4: 44.3 };
+    const f = vi.fn(async (input: string) => {
+      const symbol = decodeURIComponent(new URL(input).pathname.split("/").pop() ?? "");
+      expect(symbol).not.toContain(",");
+      const price = prices[symbol];
+      const body =
+        price === undefined ? { results: [] } : priceBody(symbol, price);
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", f);
     const res = await fetchBrapiQuotes(["WEGE3", "PETR4", "ABCB4"]);
     expect(res.status).toBe("OK");
-    expect(res.quotes.map((q) => q.symbol)).toEqual(["WEGE3", "PETR4"]);
+    expect(f).toHaveBeenCalledTimes(3);
+    expect(res.quotes.map((q) => q.symbol).sort()).toEqual(["PETR4", "WEGE3"]);
   });
+
 
   it("401 sem token vira NOT_CONFIGURED com mensagem tratada", async () => {
     vi.stubGlobal("fetch", mockFetch(401, { code: "MISSING_TOKEN" }));
