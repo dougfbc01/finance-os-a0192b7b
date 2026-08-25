@@ -99,15 +99,38 @@ export interface BrapiQuotesResponse {
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
-/** Consulta cotações em lote. Nunca lança: erros viram status tratado. */
-export async function fetchBrapiQuotes(tickers: string[]): Promise<BrapiQuotesResponse> {
-  const list = Array.from(
-    new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
-  );
-  if (list.length === 0) return { status: "OK", quotes: [], message: null };
+/** Tamanho do lote aceito pelo provider (plano gratuito: 1 ativo/requisição). */
+const QUOTES_PER_REQUEST = 1;
+/** Requisições simultâneas ao provider. */
+const QUOTES_CONCURRENCY = 4;
 
-  const token = process.env["BRAPI_TOKEN"];
-  const url = new URL(`https://brapi.dev/api/quote/${encodeURIComponent(list.join(","))}`);
+type ChunkOutcome =
+  | { kind: "OK"; quotes: RawQuotePrice[] }
+  | { kind: "NOT_CONFIGURED"; message: string }
+  | { kind: "ERROR"; message: string };
+
+function parseQuote(r: Record<string, unknown>): RawQuotePrice {
+  const str = (v: unknown): string | null =>
+    typeof v === "string" && v.trim() ? v.trim() : null;
+  const rawDate = str(r["regularMarketTime"]);
+  let quotedAt: string | null = null;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    quotedAt = Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  return {
+    symbol: str(r["symbol"]) ?? "",
+    price: num(r["regularMarketPrice"]),
+    currency: str(r["currency"]),
+    quotedAt,
+    change: num(r["regularMarketChange"]),
+    changePercent: num(r["regularMarketChangePercent"]),
+    marketState: str(r["marketState"]),
+  };
+}
+
+async function fetchQuoteChunk(chunk: string[], token?: string): Promise<ChunkOutcome> {
+  const url = new URL(`https://brapi.dev/api/quote/${encodeURIComponent(chunk.join(","))}`);
   if (token) url.searchParams.set("token", token);
 
   const controller = new AbortController();
@@ -119,43 +142,21 @@ export async function fetchBrapiQuotes(tickers: string[]): Promise<BrapiQuotesRe
     });
     if (res.status === 401 || res.status === 403) {
       return {
-        status: "NOT_CONFIGURED",
-        quotes: [],
+        kind: "NOT_CONFIGURED",
         message:
           "Cotação indisponível: o provider exige credencial (BRAPI_TOKEN) para estes ativos.",
       };
     }
-    if (res.status === 404) return { status: "OK", quotes: [], message: null };
+    if (res.status === 404) return { kind: "OK", quotes: [] };
     if (!res.ok) {
-      return { status: "ERROR", quotes: [], message: "Provider de mercado indisponível." };
+      return { kind: "ERROR", message: "Provider de mercado indisponível." };
     }
     const body = (await res.json()) as { results?: Array<Record<string, unknown>> };
-    const results = body.results ?? [];
-    const quotes: RawQuotePrice[] = results.map((r) => {
-      const str = (v: unknown): string | null =>
-        typeof v === "string" && v.trim() ? v.trim() : null;
-      const rawDate = str(r["regularMarketTime"]);
-      let quotedAt: string | null = null;
-      if (rawDate) {
-        const d = new Date(rawDate);
-        quotedAt = Number.isNaN(d.getTime()) ? null : d.toISOString();
-      }
-      return {
-        symbol: str(r["symbol"]) ?? "",
-        price: num(r["regularMarketPrice"]),
-        currency: str(r["currency"]),
-        quotedAt,
-        change: num(r["regularMarketChange"]),
-        changePercent: num(r["regularMarketChangePercent"]),
-        marketState: str(r["marketState"]),
-      };
-    });
-    return { status: "OK", quotes, message: null };
+    return { kind: "OK", quotes: (body.results ?? []).map(parseQuote) };
   } catch (e) {
     const aborted = e instanceof Error && e.name === "AbortError";
     return {
-      status: "ERROR",
-      quotes: [],
+      kind: "ERROR",
       message: aborted
         ? "Tempo esgotado ao consultar cotações."
         : "Falha ao consultar cotações no provider.",
@@ -163,6 +164,51 @@ export async function fetchBrapiQuotes(tickers: string[]): Promise<BrapiQuotesRe
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Consulta cotações em lote. Nunca lança: erros viram status tratado.
+ * O provider gratuito aceita apenas 1 ativo por requisição, então a lista é
+ * dividida em chunks e consultada com concorrência limitada.
+ */
+export async function fetchBrapiQuotes(tickers: string[]): Promise<BrapiQuotesResponse> {
+  const list = Array.from(
+    new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
+  );
+  if (list.length === 0) return { status: "OK", quotes: [], message: null };
+
+  const token = process.env["BRAPI_TOKEN"];
+  const chunks: string[][] = [];
+  for (let i = 0; i < list.length; i += QUOTES_PER_REQUEST) {
+    chunks.push(list.slice(i, i + QUOTES_PER_REQUEST));
+  }
+
+  const outcomes: ChunkOutcome[] = new Array(chunks.length);
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.min(QUOTES_CONCURRENCY, chunks.length) },
+    async () => {
+      while (cursor < chunks.length) {
+        const index = cursor++;
+        outcomes[index] = await fetchQuoteChunk(chunks[index] as string[], token);
+      }
+    },
+  );
+  await Promise.all(workers);
+
+  const quotes = outcomes.flatMap((o) => (o?.kind === "OK" ? o.quotes : []));
+  if (quotes.length > 0) return { status: "OK", quotes, message: null };
+
+  const notConfigured = outcomes.find((o) => o?.kind === "NOT_CONFIGURED");
+  if (notConfigured && notConfigured.kind === "NOT_CONFIGURED") {
+    return { status: "NOT_CONFIGURED", quotes: [], message: notConfigured.message };
+  }
+  const failed = outcomes.find((o) => o?.kind === "ERROR");
+  if (failed && failed.kind === "ERROR") {
+    return { status: "ERROR", quotes: [], message: failed.message };
+  }
+  return { status: "OK", quotes: [], message: null };
+
 }
 
 // ---------------------------------------------------------------------------
