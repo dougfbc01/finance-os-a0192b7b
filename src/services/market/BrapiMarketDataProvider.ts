@@ -3,9 +3,14 @@
 import type {
   MarketDataLookupResult,
   MarketDataProvider,
+  MarketHistoryResult,
   MarketQuoteResult,
 } from "@/models/MarketData";
-import { lookupTickerFn, quoteTickersFn } from "@/lib/marketData.functions";
+import {
+  historicalPricesFn,
+  lookupTickerFn,
+  quoteTickersFn,
+} from "@/lib/marketData.functions";
 import { inferAssetType, normalizeTicker } from "./tickerMapping";
 
 export const BRAPI_PROVIDER_NAME = "brapi.dev";
@@ -117,6 +122,47 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
       });
     } catch {
       return fail("ERROR", "Falha ao consultar cotações no provider.");
+    }
+  }
+
+  /**
+   * Sprint 4.12 — histórico diário de preços.
+   * A chamada HTTP acontece server-side; aqui só normalizamos o contrato.
+   */
+  async getHistoricalPrices(
+    rawTicker: string,
+    range: { from: string; to: string },
+  ): Promise<MarketHistoryResult> {
+    const ticker = normalizeTicker(rawTicker);
+    if (!ticker) {
+      return { status: "NOT_FOUND", ticker, points: [], message: "Informe um ticker." };
+    }
+    try {
+      const res = await historicalPricesFn({ data: { ticker, from: range.from, to: range.to } });
+      const fetchedAt = new Date().toISOString();
+      return {
+        status: res.status,
+        ticker,
+        message: res.message,
+        points: res.points.map((p) => ({
+          ticker,
+          date: p.date,
+          close: p.close,
+          open: p.open,
+          high: p.high,
+          low: p.low,
+          volume: p.volume,
+          provider: BRAPI_PROVIDER_NAME,
+          fetchedAt,
+        })),
+      };
+    } catch {
+      return {
+        status: "ERROR",
+        ticker,
+        points: [],
+        message: "Falha ao consultar o histórico no provider.",
+      };
     }
   }
 }

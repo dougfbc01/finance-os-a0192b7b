@@ -3,4 +3,6 @@ export { AssetFormDialog } from "./AssetFormDialog";
 export { AssetDetailDialog } from "./AssetDetailDialog";
 export { AssetHistoryEditor } from "./AssetHistoryEditor";
 export { TickerLookupPanel } from "./TickerLookupPanel";
+export { AssetMarketHistory } from "./AssetMarketHistory";
+export { QuoteRefreshButton } from "./QuoteRefreshButton";
 

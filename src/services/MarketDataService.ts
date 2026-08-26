@@ -5,6 +5,7 @@
 import type {
   MarketDataLookupResult,
   MarketDataProvider,
+  MarketHistoryResult,
   MarketQuoteMap,
   MarketQuoteResult,
 } from "@/models/MarketData";
@@ -17,6 +18,7 @@ export class MarketDataServiceImpl {
   private inflight = new Map<string, Promise<MarketDataLookupResult>>();
   private quoteCache = new Map<string, MarketQuoteResult>();
   private quoteInflight = new Map<string, Promise<MarketQuoteResult>>();
+  private historyCache = new Map<string, MarketHistoryResult>();
 
   constructor(private provider: MarketDataProvider = new BrapiMarketDataProvider()) {}
 
@@ -118,6 +120,46 @@ export class MarketDataServiceImpl {
 
     await Promise.all(pending);
     return out;
+  }
+
+  /**
+   * Sprint 4.12 — histórico de preços via provider (sem persistência aqui;
+   * o armazenamento/reuso fica no MarketHistoricalPriceService).
+   * Cache em memória por sessão para não repetir a mesma consulta.
+   */
+  async getHistoricalPrices(
+    rawTicker: string,
+    range: { from: string; to: string },
+  ): Promise<MarketHistoryResult> {
+    const ticker = normalizeTicker(rawTicker ?? "");
+    if (!ticker) {
+      return { status: "NOT_FOUND", ticker, points: [], message: "Informe um ticker." };
+    }
+    if (!this.provider.getHistoricalPrices) {
+      return {
+        status: "ERROR",
+        ticker,
+        points: [],
+        message: "Provider não suporta histórico de preços.",
+      };
+    }
+    const key = `${ticker}:${range.from}:${range.to}`;
+    const cached = this.historyCache.get(key);
+    if (cached) return cached;
+
+    const res = await this.provider.getHistoricalPrices(ticker, range).catch(
+      (): MarketHistoryResult => ({
+        status: "ERROR",
+        ticker,
+        points: [],
+        message: "Falha ao consultar o histórico no provider.",
+      }),
+    );
+    // Só cacheamos respostas conclusivas; erros podem ser reconsultados.
+    if (res.status === "OK" || res.status === "NO_DATA" || res.status === "NOT_FOUND") {
+      this.historyCache.set(key, res);
+    }
+    return res;
   }
 
   async lookup(rawTicker: string): Promise<MarketDataLookupResult> {
