@@ -2,7 +2,12 @@
 // Ficam no servidor para que qualquer credencial (BRAPI_TOKEN) nunca vá ao browser.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { diagnoseBrapi, fetchBrapiQuote, fetchBrapiQuotes } from "./marketData.server";
+import {
+  diagnoseBrapi,
+  fetchBrapiHistorical,
+  fetchBrapiQuote,
+  fetchBrapiQuotes,
+} from "./marketData.server";
 
 export const lookupTickerFn = createServerFn({ method: "GET" })
   .inputValidator(z.object({ ticker: z.string().min(1).max(20) }))
@@ -11,6 +16,17 @@ export const lookupTickerFn = createServerFn({ method: "GET" })
 export const quoteTickersFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ tickers: z.array(z.string().min(1).max(20)).max(50) }))
   .handler(async ({ data }) => fetchBrapiQuotes(data.tickers));
+
+// Sprint 4.12 — histórico de preços (server-side; token nunca vai ao browser).
+export const historicalPricesFn = createServerFn({ method: "GET" })
+  .inputValidator(
+    z.object({
+      ticker: z.string().min(1).max(20),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+  )
+  .handler(async ({ data }) => fetchBrapiHistorical(data.ticker, { from: data.from, to: data.to }));
 
 // Sprint 4.11.1 — diagnóstico da integração de mercado (Configurações).
 export const diagnoseMarketFn = createServerFn({ method: "POST" })
