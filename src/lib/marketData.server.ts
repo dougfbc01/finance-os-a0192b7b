@@ -332,3 +332,137 @@ export async function diagnoseBrapi(rawTicker = "WEGE3"): Promise<MarketIntegrat
     clearTimeout(timer);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 4.12 — histórico de preços (série diária). Server-only.
+// Endpoint BRAPI: GET /api/quote/{TICKER}?range=<r>&interval=1d
+// O token nunca sai do servidor.
+// ---------------------------------------------------------------------------
+export interface RawHistoricalPrice {
+  date: string; // YYYY-MM-DD
+  close: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+}
+
+export interface BrapiHistoricalResponse {
+  status: "OK" | "NOT_FOUND" | "NO_DATA" | "ERROR" | "NOT_CONFIGURED";
+  ticker: string;
+  points: RawHistoricalPrice[];
+  message: string | null;
+}
+
+/** Converte o intervalo pedido no parâmetro `range` aceito pela BRAPI. */
+function brapiRangeParam(from: string, to: string): string {
+  const fromMs = new Date(`${from}T00:00:00Z`).getTime();
+  const toMs = new Date(`${to}T00:00:00Z`).getTime();
+  if (Number.isNaN(fromMs) || Number.isNaN(toMs)) return "3mo";
+  const days = Math.max(1, Math.round((toMs - fromMs) / 86400000));
+  if (days <= 32) return "1mo";
+  if (days <= 95) return "3mo";
+  if (days <= 185) return "6mo";
+  if (days <= 370) return "1y";
+  if (days <= 740) return "2y";
+  if (days <= 1830) return "5y";
+  return "max";
+}
+
+/**
+ * Busca o histórico diário de um ticker na BRAPI e filtra para o intervalo
+ * [from, to] (YYYY-MM-DD). Nunca lança: erros viram status tratado.
+ */
+export async function fetchBrapiHistorical(
+  rawTicker: string,
+  range: { from: string; to: string },
+): Promise<BrapiHistoricalResponse> {
+  const ticker = rawTicker.trim().toUpperCase();
+  const token = process.env["BRAPI_TOKEN"];
+  const url = new URL(`https://brapi.dev/api/quote/${encodeURIComponent(ticker)}`);
+  url.searchParams.set("range", brapiRangeParam(range.from, range.to));
+  url.searchParams.set("interval", "1d");
+  if (token) url.searchParams.set("token", token);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { accept: "application/json" },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return {
+        status: "NOT_CONFIGURED",
+        ticker,
+        points: [],
+        message: "Histórico indisponível: o provider exige credencial (BRAPI_TOKEN).",
+      };
+    }
+    if (res.status === 404) {
+      return { status: "NOT_FOUND", ticker, points: [], message: "Ativo não encontrado." };
+    }
+    if (!res.ok) {
+      return {
+        status: "ERROR",
+        ticker,
+        points: [],
+        message: "Provider de mercado indisponível.",
+      };
+    }
+    const body = (await res.json()) as {
+      results?: Array<Record<string, unknown>>;
+    };
+    const r = body.results?.[0];
+    if (!r) {
+      return { status: "NOT_FOUND", ticker, points: [], message: "Ativo não encontrado." };
+    }
+    const raw = Array.isArray(r["historicalDataPrice"])
+      ? (r["historicalDataPrice"] as Array<Record<string, unknown>>)
+      : [];
+
+    const points: RawHistoricalPrice[] = [];
+    for (const p of raw) {
+      const ts = num(p["date"]);
+      const close = num(p["close"]);
+      if (ts === null || close === null) continue;
+      // BRAPI devolve `date` em segundos (unix).
+      const date = new Date(ts * 1000).toISOString().slice(0, 10);
+      if (date < range.from || date > range.to) continue;
+      points.push({
+        date,
+        close,
+        open: num(p["open"]),
+        high: num(p["high"]),
+        low: num(p["low"]),
+        volume: num(p["volume"]),
+      });
+    }
+    // Ordena e remove datas duplicadas (a última ocorrência prevalece).
+    const byDate = new Map(points.map((p) => [p.date, p] as const));
+    const series = Array.from(byDate.values()).sort((a, b) =>
+      a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+    );
+    if (series.length === 0) {
+      return {
+        status: "NO_DATA",
+        ticker,
+        points: [],
+        message: "Sem dados históricos para o período solicitado.",
+      };
+    }
+    return { status: "OK", ticker, points: series, message: null };
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return {
+      status: "ERROR",
+      ticker,
+      points: [],
+      message: aborted
+        ? "Tempo esgotado ao consultar o histórico."
+        : "Falha ao consultar o histórico no provider.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
