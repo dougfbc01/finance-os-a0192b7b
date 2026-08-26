@@ -70,6 +70,41 @@ export interface MarketQuoteResult {
 /** Mapa ticker normalizado → resultado da cotação. */
 export type MarketQuoteMap = Record<string, MarketQuoteResult>;
 
+// ---------------------------------------------------------------------------
+// Sprint 4.12 — histórico de preços de mercado
+// ---------------------------------------------------------------------------
+
+/** Ponto histórico normalizado (um pregão/dia). */
+export interface MarketPricePoint {
+  ticker: string;
+  /** Data do pregão no formato YYYY-MM-DD. */
+  date: string;
+  /** Preço de fechamento do dia. */
+  close: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+  provider: string;
+  /** ISO string do momento em que o dado foi obtido do provider. */
+  fetchedAt: string;
+}
+
+export type MarketHistoryStatus =
+  | "OK"
+  | "NOT_FOUND"
+  | "NO_DATA"
+  | "ERROR"
+  | "NOT_CONFIGURED";
+
+export interface MarketHistoryResult {
+  status: MarketHistoryStatus;
+  ticker: string;
+  /** Série cronológica ordenada por data (ascendente). */
+  points: MarketPricePoint[];
+  message: string | null;
+}
+
 /** Contrato de provider. Trocar de provider = trocar a implementação. */
 export interface MarketDataProvider {
   readonly name: string;
@@ -78,12 +113,13 @@ export interface MarketDataProvider {
   /** Cotação atual (Sprint 4.11). Sempre em lote para deduplicar chamadas. */
   getQuotes(tickers: string[]): Promise<MarketQuoteResult[]>;
   /**
-   * Reservado para a próxima sprint (histórico de preços).
+   * Sprint 4.12 — histórico de preços (série diária).
    * Opcional no contrato: providers que não suportam simplesmente não implementam.
+   * `range.from`/`range.to` no formato YYYY-MM-DD.
    */
   getHistoricalPrices?(
     ticker: string,
     range: { from: string; to: string },
-  ): Promise<never>;
+  ): Promise<MarketHistoryResult>;
 }
 
