@@ -16,6 +16,7 @@ import { AssetValuationServiceImpl } from "@/services/AssetValuationService";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
 import { formatCurrency } from "@/lib/format";
 import { formatDateTime } from "@/lib/format";
+import { AssetMarketHistory } from "./AssetMarketHistory";
 import type { QuotedAsset } from "@/services/MarketQuotationService";
 import type { Asset, Movement } from "@/models";
 
@@ -151,6 +152,10 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
                 </p>
               )}
             </div>
+          )}
+
+          {(quote || quoteResult || asset.quotable) && asset.ticker && (
+            <AssetMarketHistory asset={asset} currency={asset.currency} />
           )}
 
           <div className="pt-2">
