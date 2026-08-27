@@ -29,7 +29,7 @@ export function usePatrimony() {
 
   // Sprint 4.11 — cotação atual aplicada por cima da valoração existente.
   // Ativos ACCOUNT e sem ticker seguem exatamente como antes.
-  const marketQuotes = useMarketQuotes(valuedAssets);
+  const marketQuotes = useMarketQuotes(valuedAssets, wsId);
   const assets = useMemo(
     () => MarketQuotationServiceImpl.applyQuotes(valuedAssets, marketQuotes.quotes),
     [valuedAssets, marketQuotes.quotes],
@@ -82,6 +82,8 @@ export function usePatrimony() {
     hasQuotableAssets: marketQuotes.hasQuotableAssets,
     isQuotesFetching: marketQuotes.isFetching,
     quotesUpdatedAt: marketQuotes.updatedAt,
+    quotesCooldownUntil: marketQuotes.manualCooldownUntil,
+    quotesNextAutoUpdate: marketQuotes.nextAutoUpdate,
     refreshQuotes: marketQuotes.refresh,
     isLoading: assetsQ.isLoading || invoicesQ.isLoading || dash.isLoading,
   };
