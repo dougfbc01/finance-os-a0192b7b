@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, RefreshCw, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
+import { Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -21,7 +21,7 @@ import {
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import type { Asset } from "@/models";
 
 export const Route = createFileRoute("/_authenticated/investimentos")({

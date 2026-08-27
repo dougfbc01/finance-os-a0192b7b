@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, RefreshCw, Wallet, Landmark, TrendingUp, ShieldAlert } from "lucide-react";
+import { Plus, Wallet, Landmark, TrendingUp, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,7 +12,12 @@ import {
   BalanceEvolutionWidget,
   PatrimonyCompositionWidget,
 } from "@/components/dashboard/widgets";
-import { AssetCard, AssetFormDialog, AssetDetailDialog } from "@/components/assets";
+import {
+  AssetCard,
+  AssetFormDialog,
+  AssetDetailDialog,
+  QuoteRefreshButton,
+} from "@/components/assets";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import type { Asset } from "@/models";
@@ -46,6 +51,9 @@ function PatrimonioPage() {
     quotedById,
     hasQuotableAssets,
     isQuotesFetching,
+    quotesUpdatedAt,
+    quotesCooldownUntil,
+    quotesNextAutoUpdate,
     refreshQuotes,
     isLoading,
   } = usePatrimony();
@@ -70,14 +78,13 @@ function PatrimonioPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {hasQuotableAssets && (
-            <Button
-              variant="outline"
-              onClick={() => void refreshQuotes()}
-              disabled={isQuotesFetching}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${isQuotesFetching ? "animate-spin" : ""}`} />
-              Atualizar cotações
-            </Button>
+            <QuoteRefreshButton
+              isFetching={isQuotesFetching}
+              updatedAt={quotesUpdatedAt}
+              cooldownUntil={quotesCooldownUntil}
+              nextAutoUpdate={quotesNextAutoUpdate}
+              onRefresh={() => void refreshQuotes()}
+            />
           )}
           <Button
             onClick={() => {
