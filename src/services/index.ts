@@ -28,3 +28,5 @@ export { MonthlyBudgetService } from "./MonthlyBudgetService";
 export { FinancialGoalService } from "./FinancialGoalService";
 export { CommitmentService } from "./CommitmentService";
 export { AdminService } from "./AdminService";
+export { MarketHistoricalPriceService } from "./MarketHistoricalPriceService";
+export { MarketQuoteScheduleService } from "./MarketQuoteScheduleService";
