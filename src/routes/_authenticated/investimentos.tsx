@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, RefreshCw, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
+import { Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,11 +13,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiWidget } from "@/components/dashboard/widgets";
-import { AssetFormDialog, AssetDetailDialog } from "@/components/assets";
+import {
+  AssetFormDialog,
+  AssetDetailDialog,
+  QuoteRefreshButton,
+} from "@/components/assets";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePatrimony } from "@/hooks/usePatrimony";
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import type { Asset } from "@/models";
 
 export const Route = createFileRoute("/_authenticated/investimentos")({
@@ -45,6 +49,8 @@ function InvestimentosPage() {
     hasQuotableAssets,
     isQuotesFetching,
     quotesUpdatedAt,
+    quotesCooldownUntil,
+    quotesNextAutoUpdate,
     refreshQuotes,
     isLoading,
   } = usePatrimony();
@@ -64,23 +70,13 @@ function InvestimentosPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {hasQuotableAssets && (
-            <div className="flex items-center gap-2">
-              {quotesUpdatedAt ? (
-                <span className="text-xs text-muted-foreground">
-                  Cotações: {formatDateTime(new Date(quotesUpdatedAt))}
-                </span>
-              ) : null}
-              <Button
-                variant="outline"
-                onClick={() => void refreshQuotes()}
-                disabled={isQuotesFetching}
-              >
-                <RefreshCw
-                  className={`mr-1 h-4 w-4 ${isQuotesFetching ? "animate-spin" : ""}`}
-                />
-                Atualizar cotações
-              </Button>
-            </div>
+            <QuoteRefreshButton
+              isFetching={isQuotesFetching}
+              updatedAt={quotesUpdatedAt}
+              cooldownUntil={quotesCooldownUntil}
+              nextAutoUpdate={quotesNextAutoUpdate}
+              onRefresh={() => void refreshQuotes()}
+            />
           )}
           <Button
             onClick={() => {
