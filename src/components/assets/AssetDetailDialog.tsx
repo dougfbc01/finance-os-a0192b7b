@@ -206,8 +206,27 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               </ul>
             )}
           </div>
+
+          {canReconcileYield && (
+            <div className="flex items-center justify-between pt-3">
+              <p className="text-xs text-muted-foreground">
+                Confira o saldo real da instituição e registre o rendimento do período.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setYieldOpen(true)}>
+                Conferir rendimento
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
+
+      {canReconcileYield && (
+        <YieldReconciliationDialog
+          open={yieldOpen}
+          onOpenChange={setYieldOpen}
+          asset={asset}
+        />
+      )}
     </Dialog>
   );
 }
