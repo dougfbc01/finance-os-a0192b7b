@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +7,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { YieldReconciliationDialog } from "./YieldReconciliationDialog";
+import { YieldReconciliationServiceImpl } from "@/services/YieldReconciliationService";
 import {
   ASSET_TYPE_LABELS,
   ASSET_VALUATION_SOURCE_LABELS,
@@ -37,7 +41,9 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Props) {
+  const [yieldOpen, setYieldOpen] = useState(false);
   if (!asset) return null;
+  const canReconcileYield = YieldReconciliationServiceImpl.isEligible(asset);
   const detail = InvestmentServiceImpl.detail(asset, movements);
   const traits = assetTypeTraits(asset.asset_type);
   const quote = asset.quote ?? null;
@@ -200,8 +206,27 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               </ul>
             )}
           </div>
+
+          {canReconcileYield && (
+            <div className="flex items-center justify-between pt-3">
+              <p className="text-xs text-muted-foreground">
+                Confira o saldo real da instituição e registre o rendimento do período.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setYieldOpen(true)}>
+                Conferir rendimento
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
+
+      {canReconcileYield && (
+        <YieldReconciliationDialog
+          open={yieldOpen}
+          onOpenChange={setYieldOpen}
+          asset={asset}
+        />
+      )}
     </Dialog>
   );
 }

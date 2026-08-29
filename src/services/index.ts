@@ -30,3 +30,4 @@ export { CommitmentService } from "./CommitmentService";
 export { AdminService } from "./AdminService";
 export { MarketHistoricalPriceService } from "./MarketHistoricalPriceService";
 export { MarketQuoteScheduleService } from "./MarketQuoteScheduleService";
+export { YieldReconciliationService } from "./YieldReconciliationService";
