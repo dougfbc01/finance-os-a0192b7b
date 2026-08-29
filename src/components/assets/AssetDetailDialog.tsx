@@ -41,7 +41,9 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Props) {
+  const [yieldOpen, setYieldOpen] = useState(false);
   if (!asset) return null;
+  const canReconcileYield = YieldReconciliationServiceImpl.isEligible(asset);
   const detail = InvestmentServiceImpl.detail(asset, movements);
   const traits = assetTypeTraits(asset.asset_type);
   const quote = asset.quote ?? null;
