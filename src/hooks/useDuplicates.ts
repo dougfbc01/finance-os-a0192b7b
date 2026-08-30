@@ -1,10 +1,31 @@
 // Hooks de deduplicação inteligente. Nenhuma regra aqui — apenas orquestração.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SimilarityService, type DuplicatePair } from "@/services/SimilarityService";
+import { ReconciliationDecisionService } from "@/services/ReconciliationDecisionService";
 import { invalidateFinancialQueries } from "./invalidate";
 import type { Movement, UUID } from "@/models";
 
 const KEY = "duplicates";
+
+/** Decisões manuais persistentes ("não são a mesma movimentação"). */
+export function useReconciliationDecisions(workspaceId: UUID | undefined) {
+  return useQuery({
+    queryKey: [KEY, "decisions", workspaceId],
+    queryFn: () => ReconciliationDecisionService.list(workspaceId as UUID),
+    enabled: !!workspaceId,
+  });
+}
+
+export function useRejectDuplicatePair() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { workspaceId: UUID; movementAId: UUID; movementBId: UUID }) =>
+      ReconciliationDecisionService.reject(params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+    },
+  });
+}
 
 export function useDuplicatePairs(workspaceId: UUID | undefined) {
   return useQuery({

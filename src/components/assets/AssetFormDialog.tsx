@@ -5,10 +5,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -41,6 +38,12 @@ import {
   type AssetAcquisitionEntry,
 } from "@/services/AssetHistoryService";
 import { AssetHistoryEditor } from "./AssetHistoryEditor";
+import {
+  ScrollableDialogBody,
+  ScrollableDialogContent,
+  ScrollableDialogFooter,
+  ScrollableDialogHeader,
+} from "@/components/ui/scrollable-dialog";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Informe um nome").max(80),
@@ -223,15 +226,16 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <ScrollableDialogContent className="max-w-2xl">
+        <ScrollableDialogHeader>
           <DialogTitle>{isEdit ? "Editar ativo" : "Novo ativo"}</DialogTitle>
           <DialogDescription>
             Cadastre ativos declarados: investimentos, caixinhas, previdência, etc.
           </DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <ScrollableDialogBody className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5 md:col-span-2">
               <Label>Nome</Label>
@@ -403,15 +407,16 @@ export function AssetFormDialog({ open, onOpenChange, workspaceId, asset }: Prop
               <Textarea rows={2} {...form.register("notes")} maxLength={500} />
             </div>
           </div>
+          </ScrollableDialogBody>
 
-          <DialogFooter>
+          <ScrollableDialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {isEdit ? "Salvar alterações" : "Criar ativo"}
             </Button>
-          </DialogFooter>
+          </ScrollableDialogFooter>
         </form>
-      </DialogContent>
+      </ScrollableDialogContent>
     </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Merge, ShieldCheck } from "lucide-react";
+import { Merge, ShieldCheck, SplitSquareHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import {
   useDuplicatePairs,
   useDedupAudits,
   useConsolidateDuplicate,
+  useRejectDuplicatePair,
 } from "@/hooks/useDuplicates";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -41,6 +42,22 @@ function DuplicidadesPage() {
   const { data: pairs = [], isLoading } = useDuplicatePairs(wsId);
   const { data: audits = [] } = useDedupAudits(wsId);
   const consolidate = useConsolidateDuplicate();
+  const reject = useRejectDuplicatePair();
+
+  const handleReject = async (index: number) => {
+    const pair = pairs[index];
+    if (!wsId || !pair) return;
+    try {
+      await reject.mutateAsync({
+        workspaceId: wsId,
+        movementAId: pair.original.id,
+        movementBId: pair.duplicate.id,
+      });
+      toast.success("Decisão registrada: não são a mesma movimentação.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao registrar decisão");
+    }
+  };
 
   const handleConsolidate = async (index: number) => {
     const pair = pairs[index];
@@ -108,6 +125,14 @@ function DuplicidadesPage() {
                     disabled={consolidate.isPending}
                   >
                     <Merge className="mr-1 h-3.5 w-3.5" /> Consolidar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleReject(index)}
+                    disabled={reject.isPending}
+                  >
+                    <SplitSquareHorizontal className="mr-1 h-3.5 w-3.5" /> Não são a mesma
                   </Button>
                 </div>
               </CardHeader>

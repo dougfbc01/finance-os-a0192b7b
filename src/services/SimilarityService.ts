@@ -4,6 +4,7 @@
 // Toda a decisão de duplicidade do sistema nasce aqui.
 import { BaseService } from "./BaseService";
 import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
+import { ReconciliationDecisionServiceImpl as RD } from "./ReconciliationDecisionService";
 import type { Movement, UUID } from "@/models";
 
 /** Janela padrão de comparação (dias). */
@@ -147,6 +148,8 @@ class SimilarityServiceImpl extends BaseService {
   static findPairs(
     movements: Movement[],
     windowDays: number = SIMILARITY_WINDOW_DAYS,
+    /** Pares já decididos manualmente como "não são a mesma movimentação". */
+    rejectedPairKeys?: Set<string>,
   ): DuplicatePair[] {
     const list = [...movements]
       .filter((m) => !m.deleted_at)
@@ -161,6 +164,8 @@ class SimilarityServiceImpl extends BaseService {
         const b = list[j];
         if (consumed.has(b.id)) continue;
         if (daysBetween(a.transaction_date, b.transaction_date) > windowDays * 4) break;
+        // Decisão humana tem prioridade sobre qualquer heurística.
+        if (RD.isRejected(rejectedPairKeys, a.id, b.id)) continue;
         const score = SimilarityServiceImpl.score(
           a as ComparableTransaction,
           b as ComparableTransaction,
@@ -188,7 +193,19 @@ class SimilarityServiceImpl extends BaseService {
       ...m,
       amount: Number(m.amount),
     }));
-    return SimilarityServiceImpl.findPairs(list);
+    const decisions = await this.client
+      .from("reconciliation_decisions")
+      .select("movement_a_id, movement_b_id, decision")
+      .eq("workspace_id", workspaceId);
+    if (decisions.error) this.handleError(decisions.error, "listReviewPairs.decisions");
+    const rejected = RD.rejectedKeys(
+      (decisions.data ?? []) as unknown as Array<{
+        movement_a_id: string;
+        movement_b_id: string;
+        decision: "MATCH" | "REJECT";
+      }>,
+    );
+    return SimilarityServiceImpl.findPairs(list, SIMILARITY_WINDOW_DAYS, rejected);
   }
 
   /**

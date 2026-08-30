@@ -6,9 +6,6 @@ import { toast } from "sonner";
 import { History, Sparkles, Wallet } from "lucide-react";
 import {
   Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -22,6 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  ScrollableDialogBody,
+  ScrollableDialogContent,
+  ScrollableDialogFooter,
+  ScrollableDialogHeader,
+} from "@/components/ui/scrollable-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -427,15 +430,16 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <ScrollableDialogContent className="max-w-2xl">
+          <ScrollableDialogHeader>
             <DialogTitle>{isEdit ? "Editar movimentação" : "Nova movimentação"}</DialogTitle>
             <DialogDescription>
               Registre uma movimentação financeira do seu workspace.
             </DialogDescription>
-          </DialogHeader>
+          </ScrollableDialogHeader>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+            <ScrollableDialogBody className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
@@ -732,17 +736,18 @@ export function MovementFormDialog({ open, onOpenChange, workspaceId, movement }
                 <Textarea rows={3} {...form.register("notes")} maxLength={500} />
               </div>
             </div>
+            </ScrollableDialogBody>
 
-            <DialogFooter>
+            <ScrollableDialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
                 {isEdit ? "Salvar" : "Registrar"}
               </Button>
-            </DialogFooter>
+            </ScrollableDialogFooter>
           </form>
-        </DialogContent>
+        </ScrollableDialogContent>
       </Dialog>
 
       <AssetFormDialog
