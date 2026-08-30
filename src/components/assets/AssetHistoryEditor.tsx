@@ -48,7 +48,7 @@ export function AssetHistoryEditor({ entries, onChange, currency = "BRL" }: Prop
       {entries.length === 0 ? (
         <p className="text-xs text-muted-foreground">Nenhuma aquisição adicionada.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain pr-1">
           {entries.map((entry, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
               <Input
