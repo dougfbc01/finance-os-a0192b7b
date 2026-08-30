@@ -1525,6 +1525,64 @@ export type Database = {
         }
         Relationships: []
       }
+      reconciliation_decisions: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          movement_a_id: string
+          movement_b_id: string
+          notes: string | null
+          source: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          decision?: string
+          id?: string
+          movement_a_id: string
+          movement_b_id: string
+          notes?: string | null
+          source?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          movement_a_id?: string
+          movement_b_id?: string
+          notes?: string | null
+          source?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_decisions_movement_a_id_fkey"
+            columns: ["movement_a_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_decisions_movement_b_id_fkey"
+            columns: ["movement_b_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_decisions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcategories: {
         Row: {
           category_id: string
