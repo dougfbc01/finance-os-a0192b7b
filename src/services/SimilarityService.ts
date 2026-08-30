@@ -147,6 +147,8 @@ class SimilarityServiceImpl extends BaseService {
   static findPairs(
     movements: Movement[],
     windowDays: number = SIMILARITY_WINDOW_DAYS,
+    /** Pares já decididos manualmente como "não são a mesma movimentação". */
+    rejectedPairKeys?: Set<string>,
   ): DuplicatePair[] {
     const list = [...movements]
       .filter((m) => !m.deleted_at)
@@ -161,6 +163,8 @@ class SimilarityServiceImpl extends BaseService {
         const b = list[j];
         if (consumed.has(b.id)) continue;
         if (daysBetween(a.transaction_date, b.transaction_date) > windowDays * 4) break;
+        // Decisão humana tem prioridade sobre qualquer heurística.
+        if (RD.isRejected(rejectedPairKeys, a.id, b.id)) continue;
         const score = SimilarityServiceImpl.score(
           a as ComparableTransaction,
           b as ComparableTransaction,
