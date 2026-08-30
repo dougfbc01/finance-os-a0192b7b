@@ -6,9 +6,6 @@ import { toast } from "sonner";
 import { History, Sparkles, Wallet } from "lucide-react";
 import {
   Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
