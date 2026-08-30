@@ -4,6 +4,7 @@
 // Toda a decisão de duplicidade do sistema nasce aqui.
 import { BaseService } from "./BaseService";
 import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
+import { ReconciliationDecisionServiceImpl as RD } from "./ReconciliationDecisionService";
 import type { Movement, UUID } from "@/models";
 
 /** Janela padrão de comparação (dias). */
@@ -192,7 +193,19 @@ class SimilarityServiceImpl extends BaseService {
       ...m,
       amount: Number(m.amount),
     }));
-    return SimilarityServiceImpl.findPairs(list);
+    const decisions = await this.client
+      .from("reconciliation_decisions")
+      .select("movement_a_id, movement_b_id, decision")
+      .eq("workspace_id", workspaceId);
+    if (decisions.error) this.handleError(decisions.error, "listReviewPairs.decisions");
+    const rejected = RD.rejectedKeys(
+      (decisions.data ?? []) as unknown as Array<{
+        movement_a_id: string;
+        movement_b_id: string;
+        decision: "MATCH" | "REJECT";
+      }>,
+    );
+    return SimilarityServiceImpl.findPairs(list, SIMILARITY_WINDOW_DAYS, rejected);
   }
 
   /**
