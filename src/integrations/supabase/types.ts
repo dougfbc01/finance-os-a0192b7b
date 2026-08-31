@@ -1530,6 +1530,7 @@ export type Database = {
           created_at: string
           decision: string
           id: string
+          kind: string
           movement_a_id: string
           movement_b_id: string
           notes: string | null
@@ -1541,6 +1542,7 @@ export type Database = {
           created_at?: string
           decision?: string
           id?: string
+          kind?: string
           movement_a_id: string
           movement_b_id: string
           notes?: string | null
@@ -1552,6 +1554,7 @@ export type Database = {
           created_at?: string
           decision?: string
           id?: string
+          kind?: string
           movement_a_id?: string
           movement_b_id?: string
           notes?: string | null
