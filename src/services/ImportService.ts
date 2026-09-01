@@ -47,6 +47,8 @@ export interface CommitResult {
   duplicated: number;
   ignored: number;
   autoReconciled: number;
+  /** Sprint 4.14 — possíveis transferências detectadas (nunca confirmadas sozinhas). */
+  suggestedTransfers: number;
 }
 
 class ImportServiceImpl extends BaseService {
@@ -302,23 +304,18 @@ class ImportServiceImpl extends BaseService {
       }
     }
 
-    // Conciliação automática pós-importação (janela 2 dias, candidato único).
-    let autoReconciled = 0;
+    // Sprint 4.14 — a importação NUNCA confirma transferências automaticamente.
+    // Apenas sinaliza possíveis transferências para conciliação manual,
+    // respeitando as decisões MATCH/REJECT já persistidas.
+    let suggestedTransfers = 0;
     try {
-      const { data: mvs } = await this.client
-        .from("movements")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .is("deleted_at", null)
-        .is("transfer_group_id", null);
-      const list = ((mvs ?? []) as unknown as Movement[]).map((m) => ({ ...m, amount: Number(m.amount) }));
-      const highs = ReconciliationServiceImpl.findCandidates(list).filter((c) => c.confidence === "high");
-      autoReconciled = await ReconciliationService.applyMany(highs);
-      if (autoReconciled > 0) {
-        log.push({ level: "info", message: `${autoReconciled} transferência(s) conciliada(s) automaticamente.`, at: new Date().toISOString() });
+      const candidates = await ReconciliationService.listCandidates(workspaceId);
+      suggestedTransfers = candidates.length;
+      if (suggestedTransfers > 0) {
+        log.push({ level: "info", message: `${suggestedTransfers} possível(is) transferência(s) entre contas aguardando confirmação manual.`, at: new Date().toISOString() });
       }
     } catch (e) {
-      log.push({ level: "warn", message: `Falha na conciliação automática: ${String((e as Error).message ?? e)}`, at: new Date().toISOString() });
+      log.push({ level: "warn", message: `Falha ao detectar possíveis transferências: ${String((e as Error).message ?? e)}`, at: new Date().toISOString() });
     }
 
     const status = inserted === 0 && (duplicated > 0 || ignored > 0)
@@ -342,7 +339,7 @@ class ImportServiceImpl extends BaseService {
       log,
     });
 
-    return { importRecord: finalized, inserted, duplicated, ignored, autoReconciled };
+    return { importRecord: finalized, inserted, duplicated, ignored, autoReconciled: 0, suggestedTransfers };
   }
 }
 

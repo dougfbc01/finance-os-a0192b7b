@@ -543,13 +543,22 @@ function MovimentacoesPage() {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{formatDate(m.transaction_date)}</td>
                     <td className="px-3 py-2">
-                      <div className="font-medium">{m.description || <span className="text-muted-foreground">—</span>}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {m.description || <span className="text-muted-foreground">—</span>}
+                        {m.transfer_group_id && (
+                          <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                            <ArrowLeftRight className="h-3 w-3" />
+                            Transferência conciliada
+                          </Badge>
+                        )}
+                      </div>
                       {isTransfer && acc && accTo && (
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           {acc.name} <ArrowLeftRight className="h-3 w-3" /> {accTo.name}
                         </div>
                       )}
                     </td>
+
                     <td className="px-3 py-2 whitespace-nowrap">{acc?.name ?? "—"}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.card_id ? (

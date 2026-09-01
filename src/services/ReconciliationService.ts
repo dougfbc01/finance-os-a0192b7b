@@ -1,9 +1,28 @@
-// ReconciliationService — Conciliação automática de transferências entre contas.
-// Regra: mesma valor absoluto, uma entrada e uma saída, contas diferentes,
-// diferença máxima de 2 dias. Nunca altera patrimônio.
+// ReconciliationService — Conciliação de transferências entre contas próprias.
+//
+// Sprint 4.14 — a conciliação NÃO exclui lançamentos. Ao confirmar, os dois
+// lançamentos originais permanecem no histórico e passam a compartilhar um
+// transfer_group_id:
+//   - perna de saída  → type TRANSFER, account_id = origem, transfer_account_id = destino
+//   - perna espelho   → type TRANSFER, account_id = destino, transfer_account_id = null
+// O impacto financeiro continua sendo calculado por MovementService.impactOnAccount:
+// a perna de saída debita a origem e credita o destino; a perna espelho tem
+// impacto zero (evita contagem dupla). Nenhuma terceira movimentação é criada.
+//
+// Deduplicação técnica (duplicate_hash) e conciliação de transferência são
+// problemas diferentes e permanecem separados.
 import { BaseService } from "./BaseService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType, MovementStatus } from "@/constants/enums";
 import { logFinanceError } from "@/lib/logger";
+import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
+import { ReconciliationDecisionService, ReconciliationDecisionServiceImpl as RD } from "./ReconciliationDecisionService";
+import {
+  TRANSFER_AMOUNT_TOLERANCE,
+  TRANSFER_HIGH_DAY_DIFF,
+  TRANSFER_KEYWORDS,
+  TRANSFER_MAX_DAY_DIFF,
+  TRANSFER_TEXT_SIMILARITY,
+} from "@/constants/reconciliation";
 import type { Movement, UUID } from "@/models";
 
 export interface TransferCandidate {
@@ -11,9 +30,17 @@ export interface TransferCandidate {
   inflow: Movement;
   confidence: "high" | "medium" | "low";
   dayDiff: number;
+  /** Sinais que sustentaram a sugestão (auditável na UI). */
+  signals: string[];
 }
 
-const MAX_DAY_DIFF = 2;
+export interface CandidateOptions {
+  /** Pares rejeitados manualmente ("não são relacionados"). */
+  rejectedPairKeys?: Set<string>;
+  /** Pares já confirmados manualmente como a mesma transferência. */
+  matchedPairKeys?: Set<string>;
+  maxDayDiff?: number;
+}
 
 function daysBetween(a: string, b: string): number {
   const d1 = new Date(`${a}T00:00:00`).getTime();
@@ -21,18 +48,38 @@ function daysBetween(a: string, b: string): number {
   return Math.abs(Math.round((d1 - d2) / 86400000));
 }
 
+function hasTransferKeyword(text: string | null | undefined): boolean {
+  const t = (text ?? "").toLowerCase();
+  return TRANSFER_KEYWORDS.some((k) => t.includes(k));
+}
+
 class ReconciliationServiceImpl extends BaseService {
+  /** Perna espelho de uma transferência conciliada (impacto zero no caixa). */
+  static isMirrorLeg(m: Movement): boolean {
+    return (
+      m.type === MovementType.TRANSFER && !!m.transfer_group_id && !m.transfer_account_id
+    );
+  }
+
   /**
-   * Detecta pares de movimentações candidatas a transferência.
-   * Considera apenas movimentações não conciliadas (sem transfer_group_id)
-   * e que ainda não sejam do tipo TRANSFER.
+   * Detecta pares de movimentações candidatas a transferência entre contas.
+   * Critérios: mesmo valor absoluto, direções opostas, contas diferentes e
+   * datas dentro da janela central (TRANSFER_MAX_DAY_DIFF). Texto é apenas
+   * reforço — nunca obrigatório, pois bancos descrevem a operação de formas
+   * diferentes ("PIX ENVIADO" x "RECEBIMENTO PIX").
    */
-  static findCandidates(movements: Movement[]): TransferCandidate[] {
+  static findCandidates(
+    movements: Movement[],
+    options: CandidateOptions = {},
+  ): TransferCandidate[] {
+    const maxDayDiff = options.maxDayDiff ?? TRANSFER_MAX_DAY_DIFF;
     const candidates: TransferCandidate[] = [];
     const usable = movements.filter(
       (m) =>
         !m.deleted_at &&
+        !m.is_historical &&
         !m.transfer_group_id &&
+        !m.card_id &&
         m.type !== MovementType.TRANSFER &&
         m.type !== MovementType.CARD_PAYMENT,
     );
@@ -49,35 +96,77 @@ class ReconciliationServiceImpl extends BaseService {
           inc.account_id &&
           out.account_id &&
           inc.account_id !== out.account_id &&
-          Math.abs(inc.amount - out.amount) < 0.005 &&
-          daysBetween(inc.transaction_date, out.transaction_date) <= MAX_DAY_DIFF,
+          Math.abs(inc.amount - out.amount) < TRANSFER_AMOUNT_TOLERANCE &&
+          daysBetween(inc.transaction_date, out.transaction_date) <= maxDayDiff &&
+          // Decisão humana tem prioridade absoluta sobre a heurística.
+          !RD.isRejected(options.rejectedPairKeys, out.id, inc.id) &&
+          !RD.hasPair(options.matchedPairKeys, out.id, inc.id),
       );
       if (matches.length === 0) continue;
-      // Mais próximo em data ganha; empate → único candidato tem confiança alta.
-      const best = matches
-        .map((m) => ({ m, diff: daysBetween(m.transaction_date, out.transaction_date) }))
-        .sort((a, b) => a.diff - b.diff)[0];
-      const confidence: TransferCandidate["confidence"] =
-        matches.length === 1 && best.diff <= 2
-          ? "high"
-          : matches.length === 1
-            ? "medium"
-            : "low";
-      candidates.push({ outflow: out, inflow: best.m, confidence, dayDiff: best.diff });
+
+      // Melhor par: menor diferença de datas; empate resolvido pelo texto.
+      const scored = matches
+        .map((m) => ({
+          m,
+          diff: daysBetween(m.transaction_date, out.transaction_date),
+          text: FP.textSimilarity(out.description ?? "", m.description ?? ""),
+        }))
+        .sort((a, b) => a.diff - b.diff || b.text - a.text);
+      const best = scored[0];
+
+      const signals = ["Mesmo valor", "Direções opostas", "Contas diferentes"];
+      if (best.diff === 0) signals.push("Mesma data");
+      else signals.push(`${best.diff} dia(s) de diferença`);
+      const textual = best.text >= TRANSFER_TEXT_SIMILARITY;
+      if (textual) signals.push("Descrições semelhantes");
+      const keyword =
+        hasTransferKeyword(out.description) && hasTransferKeyword(best.m.description);
+      if (keyword) signals.push("Indício de PIX/TED/transferência");
+
+      const unique = matches.length === 1;
+      let confidence: TransferCandidate["confidence"];
+      if (unique && best.diff <= TRANSFER_HIGH_DAY_DIFF && (keyword || textual)) {
+        confidence = "high";
+      } else if (unique && best.diff <= TRANSFER_HIGH_DAY_DIFF) {
+        confidence = "high";
+      } else if (unique) {
+        confidence = "medium";
+      } else {
+        confidence = keyword || textual ? "medium" : "low";
+      }
+
+      candidates.push({ outflow: out, inflow: best.m, confidence, dayDiff: best.diff, signals });
       usedIn.add(best.m.id);
       usedOut.add(out.id);
     }
     return candidates;
   }
 
+  /** Candidatas do workspace já filtradas pelas decisões manuais persistidas. */
+  async listCandidates(workspaceId: UUID): Promise<TransferCandidate[]> {
+    const { data, error } = await this.client
+      .from("movements")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
+    if (error) this.handleError(error, "listCandidates");
+    const movements = ((data ?? []) as unknown as Movement[]).map((m) => ({
+      ...m,
+      amount: Number(m.amount),
+    }));
+    const decisions = await ReconciliationDecisionService.list(workspaceId, "TRANSFER_MATCH");
+    return ReconciliationServiceImpl.findCandidates(movements, {
+      rejectedPairKeys: RD.rejectedKeys(decisions, "TRANSFER_MATCH"),
+      matchedPairKeys: RD.matchedKeys(decisions, "TRANSFER_MATCH"),
+    });
+  }
+
   /**
-   * Aplica a conciliação: mescla o par em uma TRANSFER lógica.
-   * Mantém a movimentação de saída como âncora (account_id = origem),
-   * define transfer_account_id, marca status RECONCILED e apaga o par redundante.
+   * Aplica a conciliação: liga os dois lançamentos como uma única transferência.
+   * Nenhum lançamento é excluído; a decisão MATCH fica persistida.
    */
   async apply(candidate: TransferCandidate): Promise<void> {
     const groupId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
-    const now = new Date().toISOString();
 
     const { error: e1 } = await this.client
       .from("movements")
@@ -92,11 +181,36 @@ class ReconciliationServiceImpl extends BaseService {
       .eq("id", candidate.outflow.id);
     if (e1) this.handleError(e1, "apply.outflow");
 
+    // Perna espelho: permanece no histórico da conta de destino, sem impacto
+    // próprio no saldo (o crédito já vem da perna de saída).
     const { error: e2 } = await this.client
       .from("movements")
-      .update({ deleted_at: now } as never)
+      .update({
+        type: MovementType.TRANSFER,
+        transfer_account_id: null,
+        transfer_group_id: groupId,
+        category_id: null,
+        subcategory_id: null,
+        status: MovementStatus.RECONCILED,
+      } as never)
       .eq("id", candidate.inflow.id);
     if (e2) this.handleError(e2, "apply.inflow");
+
+    await ReconciliationDecisionService.confirmTransfer({
+      workspaceId: candidate.outflow.workspace_id,
+      movementAId: candidate.outflow.id,
+      movementBId: candidate.inflow.id,
+      notes: `Confiança ${candidate.confidence}`,
+    });
+  }
+
+  /** "Não são relacionados" — decisão persistente, nunca mais sugerido. */
+  async reject(candidate: TransferCandidate): Promise<void> {
+    await ReconciliationDecisionService.rejectTransfer({
+      workspaceId: candidate.outflow.workspace_id,
+      movementAId: candidate.outflow.id,
+      movementBId: candidate.inflow.id,
+    });
   }
 
   async applyMany(candidates: TransferCandidate[]): Promise<number> {
@@ -111,14 +225,6 @@ class ReconciliationServiceImpl extends BaseService {
       }
     }
     return count;
-  }
-
-  /** Conciliação automática das candidatas com alta confiança apenas. */
-  async autoReconcile(movements: Movement[]): Promise<number> {
-    const candidates = ReconciliationServiceImpl.findCandidates(movements).filter(
-      (c) => c.confidence === "high",
-    );
-    return this.applyMany(candidates);
   }
 }
 
