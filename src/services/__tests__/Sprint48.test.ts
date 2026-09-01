@@ -156,6 +156,7 @@ describe("Sprint 4.8 — Bloco 3: revisão pós-importação", () => {
     duplicated: 0,
     ignored: 0,
     autoReconciled: 0,
+    suggestedTransfers: 0,
   });
 
   it("F: alvo de revisão resolvido a partir do commit", () => {

@@ -55,6 +55,7 @@ function commit(inserted: number, importId: string): CommitResult {
     duplicated: 0,
     ignored: 0,
     autoReconciled: 0,
+    suggestedTransfers: 0,
   };
 }
 
