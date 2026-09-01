@@ -14,7 +14,7 @@
 import { BaseService } from "./BaseService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType, MovementStatus } from "@/constants/enums";
 import { logFinanceError } from "@/lib/logger";
-import { TransactionFingerprintServiceImpl as FP } from "./TransactionFingerprintService";
+import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
 import { ReconciliationDecisionService, ReconciliationDecisionServiceImpl as RD } from "./ReconciliationDecisionService";
 import {
   TRANSFER_AMOUNT_TOLERANCE,
