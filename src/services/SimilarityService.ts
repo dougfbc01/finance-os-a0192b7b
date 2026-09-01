@@ -195,7 +195,7 @@ class SimilarityServiceImpl extends BaseService {
     }));
     const decisions = await this.client
       .from("reconciliation_decisions")
-      .select("movement_a_id, movement_b_id, decision")
+      .select("movement_a_id, movement_b_id, decision, kind")
       .eq("workspace_id", workspaceId);
     if (decisions.error) this.handleError(decisions.error, "listReviewPairs.decisions");
     const rejected = RD.rejectedKeys(
@@ -203,7 +203,9 @@ class SimilarityServiceImpl extends BaseService {
         movement_a_id: string;
         movement_b_id: string;
         decision: "MATCH" | "REJECT";
+        kind?: "MOVEMENT_DUPLICATE" | "TRANSFER_MATCH";
       }>,
+      "MOVEMENT_DUPLICATE",
     );
     return SimilarityServiceImpl.findPairs(list, SIMILARITY_WINDOW_DAYS, rejected);
   }

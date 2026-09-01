@@ -165,8 +165,8 @@ export function ImportDialog({
         cardId: isCardSource ? cardId : null,
         importedBy: userId,
       });
-      const extra = res.autoReconciled
-        ? ` · ${res.autoReconciled} transferência(s) conciliada(s).`
+      const extra = res.suggestedTransfers
+        ? ` · ${res.suggestedTransfers} possível(is) transferência(s) para conciliar.`
         : "";
       toast.success(
         `Importação concluída — ${res.inserted} novas, ${res.duplicated} duplicadas, ${res.ignored} ignoradas.${extra}`,

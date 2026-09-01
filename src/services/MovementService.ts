@@ -401,11 +401,23 @@ class MovementServiceImpl extends BaseService {
    *  - Somente CARD_PAYMENT (quitação de fatura) altera a conta.
    *  - TRANSFER debita da origem e credita no destino.
    */
+  /**
+   * Perna espelho de uma transferência conciliada manualmente: pertence a um
+   * grupo de transferência, mas não carrega conta de destino própria.
+   */
+  static isMirrorTransferLeg(m: Movement): boolean {
+    return m.type === MovementType.TRANSFER && !!m.transfer_group_id && !m.transfer_account_id;
+  }
+
   static impactOnAccount(m: Movement, accountId: UUID): number {
     // Sprint 4.7 — operações históricas são anteriores ao início do controle:
     // reconstroem posição/patrimônio do ativo e nunca alteram o caixa.
     if (m.is_historical) return 0;
     if (m.type === MovementType.TRANSFER) {
+      // Sprint 4.14 — perna espelho de uma transferência conciliada: o lançamento
+      // original do banco de destino permanece no histórico, mas o crédito já é
+      // computado pela perna de saída (evita contagem dupla).
+      if (MovementServiceImpl.isMirrorTransferLeg(m)) return 0;
       if (m.account_id === accountId) return -m.amount;
       if (m.transfer_account_id === accountId) return m.amount;
       return 0;
@@ -457,7 +469,8 @@ class MovementServiceImpl extends BaseService {
       }
       if (MovementServiceImpl.isIncome(m)) income += value;
       else if (MovementServiceImpl.isExpense(m)) expense += value;
-      else transfers += value;
+      // A perna espelho não soma no total de transferências (mesmo dinheiro).
+      else if (!MovementServiceImpl.isMirrorTransferLeg(m)) transfers += value;
     }
     return {
       count: movements.length,
