@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   useApplyReconciliation,
   useApplyReconciliations,
+  useRejectTransferCandidate,
   useTransferCandidates,
 } from "@/hooks/useReconciliation";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { formatCurrency, formatDate } from "@/lib/format";
+import type { TransferCandidate } from "@/services/ReconciliationService";
 
 export const Route = createFileRoute("/_authenticated/transferencias-pendentes")({
   head: () => ({
@@ -21,8 +23,15 @@ export const Route = createFileRoute("/_authenticated/transferencias-pendentes")
       {
         name: "description",
         content:
-          "Concilie manualmente transferências entre contas que o sistema não conseguiu detectar automaticamente.",
+          "Confirme manualmente transferências entre suas contas identificadas pelo motor de conciliação do Finance OS.",
       },
+      { property: "og:title", content: "Transferências Pendentes — Finance OS" },
+      {
+        property: "og:description",
+        content: "Revise e confirme transferências entre contas próprias sem duplicar valores.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: TransferenciasPendentesPage,
@@ -34,6 +43,7 @@ function TransferenciasPendentesPage() {
   const { data: accounts = [] } = useAccounts(ws?.id);
   const applyOne = useApplyReconciliation();
   const applyAll = useApplyReconciliations();
+  const rejectOne = useRejectTransferCandidate();
 
   const accountMap = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a])),
@@ -52,12 +62,21 @@ function TransferenciasPendentesPage() {
     }
   };
 
-  const handleApply = async (idx: number) => {
+  const handleApply = async (c: TransferCandidate) => {
     try {
-      await applyOne.mutateAsync(candidates[idx]);
+      await applyOne.mutateAsync(c);
       toast.success("Transferência conciliada");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao conciliar");
+    }
+  };
+
+  const handleReject = async (c: TransferCandidate) => {
+    try {
+      await rejectOne.mutateAsync(c);
+      toast.success("Par marcado como não relacionado");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao registrar decisão");
     }
   };
 
@@ -67,8 +86,9 @@ function TransferenciasPendentesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Transferências Pendentes</h1>
           <p className="text-sm text-muted-foreground">
-            Pares de entrada + saída que parecem ser a mesma transferência entre contas.
-            Confirme para consolidar em uma única movimentação sem alterar o patrimônio.
+            Pares de entrada + saída que parecem ser a mesma transferência entre contas
+            próprias. Ao confirmar, os dois lançamentos permanecem no histórico e o valor
+            deixa de ser contado em dobro. Nada é excluído.
           </p>
         </div>
         {highConfidence.length > 0 && (
@@ -89,7 +109,7 @@ function TransferenciasPendentesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {[...highConfidence, ...rest].map((c, i) => {
+          {[...highConfidence, ...rest].map((c) => {
             const accOut = c.outflow.account_id ? accountMap[c.outflow.account_id] : null;
             const accIn = c.inflow.account_id ? accountMap[c.inflow.account_id] : null;
             return (
@@ -119,7 +139,7 @@ function TransferenciasPendentesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-start gap-2 md:items-end">
                       <Badge
                         variant={
                           c.confidence === "high"
@@ -135,15 +155,28 @@ function TransferenciasPendentesPage() {
                             ? "Média"
                             : "Revisar"}
                       </Badge>
-                      <Button
-                        size="sm"
-                        onClick={() => handleApply(candidates.indexOf(c) === -1 ? i : candidates.indexOf(c))}
-                        disabled={applyOne.isPending}
-                      >
-                        <Check className="mr-1 h-3.5 w-3.5" /> Conciliar
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReject(c)}
+                          disabled={rejectOne.isPending}
+                        >
+                          <X className="mr-1 h-3.5 w-3.5" /> Não são relacionadas
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApply(c)}
+                          disabled={applyOne.isPending}
+                        >
+                          <Check className="mr-1 h-3.5 w-3.5" /> Confirmar transferência
+                        </Button>
+                      </div>
                     </div>
                   </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Por que sugerimos: {c.signals.join(" · ")}
+                  </p>
                 </CardContent>
               </Card>
             );
