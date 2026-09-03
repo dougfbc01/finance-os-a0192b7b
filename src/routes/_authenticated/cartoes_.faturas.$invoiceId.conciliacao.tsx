@@ -26,6 +26,7 @@ import {
   type InvoiceReconciliationItem,
   type InvoiceReconciliationResult,
   type InvoiceReconciliationStatus,
+  type OfficialInvoiceLine,
 } from "@/models/CardInvoiceReconciliation";
 
 export const Route = createFileRoute("/_authenticated/cartoes_/faturas/$invoiceId/conciliacao")({
@@ -75,7 +76,7 @@ function ConciliacaoFaturaPage() {
     return statusFilter === "all" ? all : all.filter((i) => i.status === statusFilter);
   }, [result, statusFilter]);
 
-  async function execute(officialLines?: InvoiceReconciliationResult extends never ? never : Parameters<typeof run.mutateAsync>[0]["officialLines"]) {
+  async function execute(officialLines?: OfficialInvoiceLine[]) {
     const data = await run.mutateAsync({ invoiceId, officialLines });
     setResult(data);
     setSelected(null);
