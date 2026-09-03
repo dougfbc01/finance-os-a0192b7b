@@ -280,13 +280,22 @@ function InvoiceRow({
               ))}
             </ul>
           )}
-          {invoice.status !== "PAID" && (
-            <div className="flex justify-end pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
+            <Button size="sm" variant="outline" asChild>
+              <Link
+                to="/_authenticated/cartoes_/faturas/$invoiceId/conciliacao"
+                params={{ invoiceId: invoice.id }}
+              >
+                <Scale className="mr-1 h-3.5 w-3.5" /> Conciliar fatura
+              </Link>
+            </Button>
+            {invoice.status !== "PAID" && (
               <Button size="sm" onClick={onPay}>
                 <Check className="mr-1 h-3.5 w-3.5" /> Marcar como paga
               </Button>
-            </div>
-          )}
+            )}
+          </div>
+
         </div>
       )}
     </div>
