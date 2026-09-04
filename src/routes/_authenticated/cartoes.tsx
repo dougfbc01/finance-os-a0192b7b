@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, CreditCard as CreditCardIcon, Check } from "lucide-react";
+import { Plus, CreditCard as CreditCardIcon, Check, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -283,7 +283,7 @@ function InvoiceRow({
           <div className="flex flex-wrap justify-end gap-2 pt-2">
             <Button size="sm" variant="outline" asChild>
               <Link
-                to="/_authenticated/cartoes_/faturas/$invoiceId/conciliacao"
+                to="/cartoes/faturas/$invoiceId/conciliacao"
                 params={{ invoiceId: invoice.id }}
               >
                 <Scale className="mr-1 h-3.5 w-3.5" /> Conciliar fatura
