@@ -1058,6 +1058,95 @@ export type Database = {
           },
         ]
       }
+      invoice_reconciliation_actions: {
+        Row: {
+          action: string
+          after_state: Json
+          before_state: Json
+          created_at: string
+          id: string
+          idempotency_key: string
+          invoice_id: string
+          item_key: string
+          movement_id: string | null
+          performed_by: string | null
+          reason: string | null
+          related_movement_id: string | null
+          source: string
+          undone_at: string | null
+          undone_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          after_state?: Json
+          before_state?: Json
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          invoice_id: string
+          item_key: string
+          movement_id?: string | null
+          performed_by?: string | null
+          reason?: string | null
+          related_movement_id?: string | null
+          source?: string
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          after_state?: Json
+          before_state?: Json
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          invoice_id?: string
+          item_key?: string
+          movement_id?: string | null
+          performed_by?: string | null
+          reason?: string | null
+          related_movement_id?: string | null
+          source?: string
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_reconciliation_actions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_reconciliation_actions_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_reconciliation_actions_related_movement_id_fkey"
+            columns: ["related_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_reconciliation_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_price_history: {
         Row: {
           asset_id: string
