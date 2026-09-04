@@ -4,6 +4,7 @@ import {
   parseInstallment,
 } from "@/services/CardInvoiceReconciliationService";
 import type { Movement } from "@/models";
+import { MovementType } from "@/constants/enums";
 import type { OfficialInvoiceLine } from "@/models/CardInvoiceReconciliation";
 
 const INVOICE_ID = "inv-1";
@@ -32,7 +33,7 @@ function mov(p: Partial<Movement> & { id: string }): Movement {
     asset_id: null,
     import_id: null,
     transfer_group_id: null,
-    type: "EXPENSE",
+    type: MovementType.EXPENSE,
     status: "PENDING",
     description: "MERCADO LIVRE",
     notes: null,
@@ -123,7 +124,7 @@ describe("CardInvoiceReconciliationService", () => {
   it("estorno é classificado como REFUND_OR_REVERSAL", () => {
     const r = run(
       [line({ index: 0, description: "ESTORNO MERCADO LIVRE", amount: -100 })],
-      [mov({ id: "m1", type: "REFUND", description: "ESTORNO MERCADO LIVRE" })],
+      [mov({ id: "m1", type: MovementType.REFUND, description: "ESTORNO MERCADO LIVRE" })],
     );
     expect(r.items[0].status).toBe("REFUND_OR_REVERSAL");
   });
@@ -135,7 +136,7 @@ describe("CardInvoiceReconciliationService", () => {
   });
 
   it("pagamento de fatura não entra na conciliação", () => {
-    const r = run([], [mov({ id: "m1", type: "CARD_PAYMENT", description: "Pagamento fatura" })]);
+    const r = run([], [mov({ id: "m1", type: MovementType.CARD_PAYMENT, description: "Pagamento fatura" })]);
     expect(r.items).toHaveLength(0);
   });
 
