@@ -5,6 +5,7 @@ export { CategoryService } from "./CategoryService";
 export { SubcategoryService } from "./SubcategoryService";
 export { CardService } from "./CardService";
 export { CardInvoiceService } from "./CardInvoiceService";
+export { CardInvoiceReconciliationService } from "./CardInvoiceReconciliationService";
 export { ClassificationRuleService } from "./ClassificationRuleService";
 export { ReconciliationService } from "./ReconciliationService";
 export { ImportService } from "./ImportService";
