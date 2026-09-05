@@ -82,6 +82,8 @@ export interface InvoiceReconciliationItem {
   candidates: InvoiceMatchCandidate[];
   /** Explicação curta do diagnóstico, sempre preenchida. */
   diagnosis: string;
+  /** Sprint 4.15A — item já resolvido por decisão humana persistente. */
+  decided?: boolean;
 }
 
 export interface InvoiceReconciliationResult {
