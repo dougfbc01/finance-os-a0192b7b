@@ -80,6 +80,8 @@ export interface UpdateMovementInput {
   category_id?: UUID | null;
   subcategory_id?: UUID | null;
   card_id?: UUID | null;
+  /** Sprint 4.15A — vínculo explícito com a fatura, definido pelo usuário. */
+  invoice_id?: UUID | null;
   asset_id?: UUID | null;
   type?: MovementType;
   status?: MovementStatus;
