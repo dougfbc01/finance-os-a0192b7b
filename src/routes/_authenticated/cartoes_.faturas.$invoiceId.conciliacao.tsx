@@ -308,11 +308,27 @@ function ConciliacaoFaturaPage() {
                             : "—"}
                         </td>
                         <td className="p-3 text-right tabular-nums">{item.confidence}%</td>
+                        <td
+                          className="p-3 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {item.decided ? (
+                            <Badge variant="secondary">Decidido</Badge>
+                          ) : (
+                            <ItemActionsMenu
+                              item={item}
+                              onPick={(a) => {
+                                setActionItem(item);
+                                setActionType(a);
+                              }}
+                            />
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {items.length === 0 && (
                       <tr>
-                        <td className="p-6 text-center text-muted-foreground" colSpan={6}>
+                        <td className="p-6 text-center text-muted-foreground" colSpan={7}>
                           Nenhum item para esta situação.
                         </td>
                       </tr>
