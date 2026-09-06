@@ -260,6 +260,7 @@ function ConciliacaoFaturaPage() {
                       <th className="p-3 text-right">Valor</th>
                       <th className="p-3 text-right">Diferença</th>
                       <th className="p-3 text-right">Confiança</th>
+                      <th className="p-3 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
