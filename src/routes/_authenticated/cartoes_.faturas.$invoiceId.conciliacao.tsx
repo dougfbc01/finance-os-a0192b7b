@@ -13,6 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { InvoiceReconciliationDetailDialog } from "@/components/cards/InvoiceReconciliationDetailDialog";
 import {
@@ -82,10 +88,25 @@ function ConciliacaoFaturaPage() {
   const { invoiceId } = Route.useParams();
   const { data: invoice } = useCardInvoice(invoiceId);
   const run = useRunInvoiceReconciliation();
-  const [result, setResult] = useState<InvoiceReconciliationResult | null>(null);
+  const { data: actions = [] } = useInvoiceReconciliationActions(invoiceId);
+  const executeAction = useExecuteInvoiceAction(invoiceId);
+  const undoAction = useUndoInvoiceAction(invoiceId);
+  const [rawResult, setRawResult] = useState<InvoiceReconciliationResult | null>(null);
+  const [lastLines, setLastLines] = useState<OfficialInvoiceLine[] | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<InvoiceReconciliationStatus | "all">("all");
   const [selected, setSelected] = useState<InvoiceReconciliationItem | null>(null);
+  const [actionItem, setActionItem] = useState<InvoiceReconciliationItem | null>(null);
+  const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+
+  // Decisões humanas persistidas são reaplicadas sobre o diagnóstico puro.
+  const result = useMemo(
+    () =>
+      rawResult
+        ? CardInvoiceReconciliationActionServiceImpl.applyDecisions(rawResult, actions)
+        : null,
+    [rawResult, actions],
+  );
 
   const items = useMemo(() => {
     const all = result?.items ?? [];
@@ -94,7 +115,8 @@ function ConciliacaoFaturaPage() {
 
   async function execute(officialLines?: OfficialInvoiceLine[]) {
     const data = await run.mutateAsync({ invoiceId, officialLines });
-    setResult(data);
+    setLastLines(officialLines);
+    setRawResult(data);
     setSelected(null);
   }
 
@@ -106,6 +128,45 @@ function ConciliacaoFaturaPage() {
     const lines = CardInvoiceReconciliationServiceImpl.parseOfficialLines(text);
     await execute(lines);
     e.target.value = "";
+  }
+
+  async function confirmAction(payload: InvoiceActionPayload) {
+    if (!actionItem || !actionType || !invoice) return;
+    const movementId = payload.movementId ?? actionItem.movement?.id ?? null;
+    try {
+      await executeAction.mutateAsync({
+        workspaceId: invoice.workspace_id,
+        invoiceId,
+        itemKey: actionItem.key,
+        action: actionType,
+        movementId,
+        relatedMovementId: actionItem.candidates[0]?.movement_id ?? null,
+        expectedSignature: CardInvoiceReconciliationActionServiceImpl.signature(
+          actionItem.movement,
+        ),
+        newAmount: payload.newAmount,
+        newDate: payload.newDate,
+        newCompetence: payload.newCompetence,
+        reason: payload.reason,
+      });
+      toast.success(`${INVOICE_ACTION_LABELS[actionType]} aplicada.`);
+      setActionItem(null);
+      setActionType(null);
+      // Recalcula o diagnóstico sem recarregar a página.
+      await execute(lastLines);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível aplicar a ação.");
+    }
+  }
+
+  async function undo(id: string) {
+    try {
+      await undoAction.mutateAsync(id);
+      toast.success("Ação desfeita.");
+      await execute(lastLines);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível desfazer.");
+    }
   }
 
   return (
@@ -205,6 +266,7 @@ function ConciliacaoFaturaPage() {
                       <th className="p-3 text-right">Valor</th>
                       <th className="p-3 text-right">Diferença</th>
                       <th className="p-3 text-right">Confiança</th>
+                      <th className="p-3 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,11 +314,27 @@ function ConciliacaoFaturaPage() {
                             : "—"}
                         </td>
                         <td className="p-3 text-right tabular-nums">{item.confidence}%</td>
+                        <td
+                          className="p-3 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {item.decided ? (
+                            <Badge variant="secondary">Decidido</Badge>
+                          ) : (
+                            <ItemActionsMenu
+                              item={item}
+                              onPick={(a) => {
+                                setActionItem(item);
+                                setActionType(a);
+                              }}
+                            />
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {items.length === 0 && (
                       <tr>
-                        <td className="p-6 text-center text-muted-foreground" colSpan={6}>
+                        <td className="p-6 text-center text-muted-foreground" colSpan={7}>
                           Nenhum item para esta situação.
                         </td>
                       </tr>
@@ -278,8 +356,52 @@ function ConciliacaoFaturaPage() {
         </Card>
       )}
 
+      <InvoiceReconciliationHistory
+        actions={actions}
+        pending={undoAction.isPending}
+        onUndo={undo}
+      />
+
       <InvoiceReconciliationDetailDialog item={selected} onClose={() => setSelected(null)} />
+
+      <InvoiceReconciliationActionDialog
+        item={actionItem}
+        action={actionType}
+        pending={executeAction.isPending}
+        onClose={() => {
+          setActionItem(null);
+          setActionType(null);
+        }}
+        onConfirm={confirmAction}
+      />
     </div>
+  );
+}
+
+function ItemActionsMenu({
+  item,
+  onPick,
+}: {
+  item: InvoiceReconciliationItem;
+  onPick: (action: InvoiceReconciliationActionType) => void;
+}) {
+  const available = CardInvoiceReconciliationActionServiceImpl.availableActions(item);
+  if (available.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm">
+          Resolver
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {available.map((a) => (
+          <DropdownMenuItem key={a} onSelect={() => onPick(a)}>
+            {INVOICE_ACTION_LABELS[a]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
