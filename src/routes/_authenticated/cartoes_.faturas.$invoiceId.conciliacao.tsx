@@ -350,8 +350,52 @@ function ConciliacaoFaturaPage() {
         </Card>
       )}
 
+      <InvoiceReconciliationHistory
+        actions={actions}
+        pending={undoAction.isPending}
+        onUndo={undo}
+      />
+
       <InvoiceReconciliationDetailDialog item={selected} onClose={() => setSelected(null)} />
+
+      <InvoiceReconciliationActionDialog
+        item={actionItem}
+        action={actionType}
+        pending={executeAction.isPending}
+        onClose={() => {
+          setActionItem(null);
+          setActionType(null);
+        }}
+        onConfirm={confirmAction}
+      />
     </div>
+  );
+}
+
+function ItemActionsMenu({
+  item,
+  onPick,
+}: {
+  item: InvoiceReconciliationItem;
+  onPick: (action: InvoiceReconciliationActionType) => void;
+}) {
+  const available = CardInvoiceReconciliationActionServiceImpl.availableActions(item);
+  if (available.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm">
+          Resolver
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {available.map((a) => (
+          <DropdownMenuItem key={a} onSelect={() => onPick(a)}>
+            {INVOICE_ACTION_LABELS[a]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
