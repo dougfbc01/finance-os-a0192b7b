@@ -26,6 +26,9 @@ import {
   type InvoiceActionPayload,
 } from "@/components/cards/InvoiceReconciliationActionDialog";
 import { InvoiceReconciliationHistory } from "@/components/cards/InvoiceReconciliationHistory";
+import { CreateMissingMovementDialog } from "@/components/cards/CreateMissingMovementDialog";
+import { useCards } from "@/hooks/useCards";
+import type { CreateMissingMovementPayload } from "@/models/CardInvoiceReconciliationAction";
 import {
   useCardInvoice,
   useRunInvoiceReconciliation,
@@ -97,7 +100,10 @@ function ConciliacaoFaturaPage() {
   const [selected, setSelected] = useState<InvoiceReconciliationItem | null>(null);
   const [actionItem, setActionItem] = useState<InvoiceReconciliationItem | null>(null);
   const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
+  const [createItem, setCreateItem] = useState<InvoiceReconciliationItem | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const { data: cards = [] } = useCards(invoice?.workspace_id);
+  const card = cards.find((c) => c.id === invoice?.card_id) ?? null;
 
   // Decisões humanas persistidas são reaplicadas sobre o diagnóstico puro.
   const result = useMemo(
@@ -156,6 +162,31 @@ function ConciliacaoFaturaPage() {
       await execute(lastLines);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível aplicar a ação.");
+    }
+  }
+
+  // Sprint 4.15B — criação manual do lançamento faltante.
+  async function confirmCreate(
+    payload: CreateMissingMovementPayload,
+    reason: string | null,
+  ) {
+    if (!createItem || !invoice) return;
+    try {
+      await executeAction.mutateAsync({
+        workspaceId: invoice.workspace_id,
+        invoiceId,
+        itemKey: createItem.key,
+        action: "CREATE_MISSING_MOVEMENT",
+        createPayload: payload,
+        reason,
+      });
+      toast.success("Lançamento criado e vinculado à fatura.");
+      setCreateItem(null);
+      await execute(lastLines);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o lançamento.");
+      setCreateItem(null);
+      await execute(lastLines);
     }
   }
 
@@ -323,10 +354,14 @@ function ConciliacaoFaturaPage() {
                           ) : (
                             <ItemActionsMenu
                               item={item}
-                              onPick={(a) => {
-                                setActionItem(item);
-                                setActionType(a);
-                              }}
+                               onPick={(a) => {
+                                 if (a === "CREATE_MISSING_MOVEMENT") {
+                                   setCreateItem(item);
+                                   return;
+                                 }
+                                 setActionItem(item);
+                                 setActionType(a);
+                               }}
                             />
                           )}
                         </td>
@@ -373,6 +408,16 @@ function ConciliacaoFaturaPage() {
           setActionType(null);
         }}
         onConfirm={confirmAction}
+      />
+
+      <CreateMissingMovementDialog
+        item={createItem}
+        cardId={invoice?.card_id ?? null}
+        cardName={card?.name ?? "Cartão"}
+        competence={invoice?.competence ?? null}
+        pending={executeAction.isPending}
+        onClose={() => setCreateItem(null)}
+        onConfirm={confirmCreate}
       />
     </div>
   );

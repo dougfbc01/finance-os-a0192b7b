@@ -23,7 +23,12 @@ import {
   type InvoiceReconciliationActionRecord,
   type InvoiceReconciliationActionType,
 } from "@/models/CardInvoiceReconciliationAction";
-import { INVOICE_AMOUNT_TOLERANCE } from "@/constants/cardReconciliation";
+import {
+  INVOICE_AMOUNT_TOLERANCE,
+  INVOICE_DATE_TOLERANCE_DAYS,
+} from "@/constants/cardReconciliation";
+import { MovementType } from "@/constants/enums";
+import type { CreateMissingMovementPayload } from "@/models/CardInvoiceReconciliationAction";
 
 /** Situações que representam pendência ativa (contam contra a conciliação). */
 const PENDING_STATUSES: InvoiceReconciliationStatus[] = [
@@ -51,6 +56,14 @@ export class DuplicateActionError extends Error {
   }
 }
 
+/** Sprint 4.15B — o lançamento faltante já existe (criado em outra tela/importação). */
+export class AlreadyRegisteredError extends Error {
+  constructor() {
+    super("Este lançamento já foi registrado ou conciliado.");
+    this.name = "AlreadyRegisteredError";
+  }
+}
+
 class CardInvoiceReconciliationActionServiceImpl extends BaseService {
   // -------------------------------------------------------------------
   // Regras puras (sem I/O) — testáveis isoladamente.
@@ -71,9 +84,10 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
           ? ["SELECT_MATCH_CANDIDATE", "IGNORE_DIVERGENCE"]
           : ["IGNORE_DIVERGENCE"];
       case "MISSING_IN_SYSTEM":
+        // Sprint 4.15B — criar o lançamento faltante é uma ação manual explícita.
         return item.candidates.length > 0
-          ? ["LINK_EXISTING_MOVEMENT", "IGNORE_DIVERGENCE"]
-          : ["IGNORE_DIVERGENCE"];
+          ? ["LINK_EXISTING_MOVEMENT", "CREATE_MISSING_MOVEMENT", "IGNORE_DIVERGENCE"]
+          : ["CREATE_MISSING_MOVEMENT", "IGNORE_DIVERGENCE"];
       case "MISSING_IN_INVOICE":
         return ["MARK_NOT_SAME_MOVEMENT", "IGNORE_DIVERGENCE"];
       case "PARTIAL_MATCH":
@@ -99,6 +113,9 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
       input.newCompetence ? `c=${input.newCompetence}` : "",
       input.relatedMovementId ? `r=${input.relatedMovementId}` : "",
       input.movementId ? `m=${input.movementId}` : "",
+      input.createPayload
+        ? `n=${Number(input.createPayload.amount).toFixed(2)}@${input.createPayload.transactionDate}`
+        : "",
     ]
       .filter(Boolean)
       .join("&");
@@ -264,6 +281,44 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     }
   }
 
+  /** Regra pura: um lançamento existente já representa o item da fatura? */
+  static matchesPayload(
+    m: Pick<Movement, "card_id" | "amount" | "transaction_date" | "deleted_at">,
+    payload: CreateMissingMovementPayload,
+  ): boolean {
+    if (m.deleted_at) return false;
+    if (m.card_id !== payload.cardId) return false;
+    if (Math.abs(Math.abs(Number(m.amount)) - Math.abs(Number(payload.amount))) > INVOICE_AMOUNT_TOLERANCE)
+      return false;
+    const diff =
+      Math.abs(
+        new Date(`${m.transaction_date}T00:00:00Z`).getTime() -
+          new Date(`${payload.transactionDate}T00:00:00Z`).getTime(),
+      ) /
+      86_400_000;
+    return diff <= INVOICE_DATE_TOLERANCE_DAYS;
+  }
+
+  private static shiftDate(date: string, days: number): string {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Revalida, no momento do salvamento, se o lançamento já existe. */
+  private async findExistingMovement(
+    workspaceId: UUID,
+    payload: CreateMissingMovementPayload,
+  ): Promise<Movement | null> {
+    const Impl = CardInvoiceReconciliationActionServiceImpl;
+    const movements = await MovementService.list(workspaceId, {
+      cardId: payload.cardId,
+      from: Impl.shiftDate(payload.transactionDate, -INVOICE_DATE_TOLERANCE_DAYS),
+      to: Impl.shiftDate(payload.transactionDate, INVOICE_DATE_TOLERANCE_DAYS),
+    });
+    return movements.find((m) => Impl.matchesPayload(m, payload)) ?? null;
+  }
+
   private async applyEffect(
     input: ExecuteInvoiceActionInput,
     movement: Movement | null,
@@ -271,6 +326,41 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     const Impl = CardInvoiceReconciliationActionServiceImpl;
 
     switch (input.action) {
+      case "CREATE_MISSING_MOVEMENT": {
+        const payload = input.createPayload;
+        if (!payload) this.handleError(new Error("Dados do lançamento ausentes."), "applyEffect");
+        // Revalidação de duplicidade no momento do salvamento (a tela pode ter
+        // sido aberta antes de uma importação criar o mesmo lançamento).
+        const existing = await this.findExistingMovement(input.workspaceId, payload!);
+        if (existing) throw new AlreadyRegisteredError();
+
+        const created = await MovementService.create({
+          workspace_id: input.workspaceId,
+          card_id: payload!.cardId,
+          type: MovementType.EXPENSE,
+          description: payload!.description,
+          amount: Math.abs(Number(payload!.amount)),
+          transaction_date: payload!.transactionDate,
+          competence_date: payload!.competenceDate ?? null,
+          category_id: payload!.categoryId ?? null,
+          subcategory_id: payload!.subcategoryId ?? null,
+          notes: payload!.notes ?? null,
+        });
+
+        // Vínculo com ESTA fatura, usando o campo existente do modelo.
+        const linked =
+          created.invoice_id === input.invoiceId
+            ? created
+            : await MovementService.update(created.id, { invoice_id: input.invoiceId });
+
+        return {
+          movement_id: linked.id,
+          invoice_id: linked.invoice_id,
+          amount: Number(linked.amount),
+          transaction_date: linked.transaction_date,
+          signature: Impl.signature(linked),
+        };
+      }
       case "LINK_EXISTING_MOVEMENT":
       case "SELECT_MATCH_CANDIDATE": {
         if (!movement) this.handleError(new Error("Selecione um lançamento."), "applyEffect");
