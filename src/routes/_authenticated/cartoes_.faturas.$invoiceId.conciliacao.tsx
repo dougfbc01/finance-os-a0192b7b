@@ -409,6 +409,16 @@ function ConciliacaoFaturaPage() {
         }}
         onConfirm={confirmAction}
       />
+
+      <CreateMissingMovementDialog
+        item={createItem}
+        cardId={invoice?.card_id ?? null}
+        cardName={card?.name ?? "Cartão"}
+        competence={invoice?.competence ?? null}
+        pending={executeAction.isPending}
+        onClose={() => setCreateItem(null)}
+        onConfirm={confirmCreate}
+      />
     </div>
   );
 }
