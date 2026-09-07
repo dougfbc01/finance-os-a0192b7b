@@ -10,7 +10,9 @@ export type InvoiceReconciliationActionType =
   | "CORRECT_DATE"
   | "CORRECT_COMPETENCE"
   | "MARK_NOT_SAME_MOVEMENT"
-  | "IGNORE_DIVERGENCE";
+  | "IGNORE_DIVERGENCE"
+  /** Sprint 4.15B — criação manual do lançamento que consta na fatura. */
+  | "CREATE_MISSING_MOVEMENT";
 
 export const INVOICE_ACTION_LABELS: Record<InvoiceReconciliationActionType, string> = {
   LINK_EXISTING_MOVEMENT: "Vincular lançamento",
@@ -20,6 +22,7 @@ export const INVOICE_ACTION_LABELS: Record<InvoiceReconciliationActionType, stri
   CORRECT_COMPETENCE: "Corrigir competência",
   MARK_NOT_SAME_MOVEMENT: "Não são a mesma movimentação",
   IGNORE_DIVERGENCE: "Ignorar divergência",
+  CREATE_MISSING_MOVEMENT: "Criar lançamento",
 };
 
 /** Ações que alteram dados financeiros e, por isso, podem ser desfeitas. */
