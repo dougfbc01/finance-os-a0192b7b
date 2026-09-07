@@ -79,9 +79,10 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
           ? ["SELECT_MATCH_CANDIDATE", "IGNORE_DIVERGENCE"]
           : ["IGNORE_DIVERGENCE"];
       case "MISSING_IN_SYSTEM":
+        // Sprint 4.15B — criar o lançamento faltante é uma ação manual explícita.
         return item.candidates.length > 0
-          ? ["LINK_EXISTING_MOVEMENT", "IGNORE_DIVERGENCE"]
-          : ["IGNORE_DIVERGENCE"];
+          ? ["LINK_EXISTING_MOVEMENT", "CREATE_MISSING_MOVEMENT", "IGNORE_DIVERGENCE"]
+          : ["CREATE_MISSING_MOVEMENT", "IGNORE_DIVERGENCE"];
       case "MISSING_IN_INVOICE":
         return ["MARK_NOT_SAME_MOVEMENT", "IGNORE_DIVERGENCE"];
       case "PARTIAL_MATCH":
