@@ -100,7 +100,10 @@ function ConciliacaoFaturaPage() {
   const [selected, setSelected] = useState<InvoiceReconciliationItem | null>(null);
   const [actionItem, setActionItem] = useState<InvoiceReconciliationItem | null>(null);
   const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
+  const [createItem, setCreateItem] = useState<InvoiceReconciliationItem | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const { data: cards = [] } = useCards(invoice?.workspace_id);
+  const card = cards.find((c) => c.id === invoice?.card_id) ?? null;
 
   // Decisões humanas persistidas são reaplicadas sobre o diagnóstico puro.
   const result = useMemo(
