@@ -165,6 +165,31 @@ function ConciliacaoFaturaPage() {
     }
   }
 
+  // Sprint 4.15B — criação manual do lançamento faltante.
+  async function confirmCreate(
+    payload: CreateMissingMovementPayload,
+    reason: string | null,
+  ) {
+    if (!createItem || !invoice) return;
+    try {
+      await executeAction.mutateAsync({
+        workspaceId: invoice.workspace_id,
+        invoiceId,
+        itemKey: createItem.key,
+        action: "CREATE_MISSING_MOVEMENT",
+        createPayload: payload,
+        reason,
+      });
+      toast.success("Lançamento criado e vinculado à fatura.");
+      setCreateItem(null);
+      await execute(lastLines);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o lançamento.");
+      setCreateItem(null);
+      await execute(lastLines);
+    }
+  }
+
   async function undo(id: string) {
     try {
       await undoAction.mutateAsync(id);
