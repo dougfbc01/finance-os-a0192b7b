@@ -23,7 +23,12 @@ import {
   type InvoiceReconciliationActionRecord,
   type InvoiceReconciliationActionType,
 } from "@/models/CardInvoiceReconciliationAction";
-import { INVOICE_AMOUNT_TOLERANCE } from "@/constants/cardReconciliation";
+import {
+  INVOICE_AMOUNT_TOLERANCE,
+  INVOICE_DATE_TOLERANCE_DAYS,
+} from "@/constants/cardReconciliation";
+import { MovementType } from "@/constants/enums";
+import type { CreateMissingMovementPayload } from "@/models/CardInvoiceReconciliationAction";
 
 /** Situações que representam pendência ativa (contam contra a conciliação). */
 const PENDING_STATUSES: InvoiceReconciliationStatus[] = [
