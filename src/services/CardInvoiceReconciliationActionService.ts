@@ -283,6 +283,41 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     const Impl = CardInvoiceReconciliationActionServiceImpl;
 
     switch (input.action) {
+      case "CREATE_MISSING_MOVEMENT": {
+        const payload = input.createPayload;
+        if (!payload) this.handleError(new Error("Dados do lançamento ausentes."), "applyEffect");
+        // Revalidação de duplicidade no momento do salvamento (a tela pode ter
+        // sido aberta antes de uma importação criar o mesmo lançamento).
+        const existing = await this.findExistingMovement(input.workspaceId, payload!);
+        if (existing) throw new AlreadyRegisteredError();
+
+        const created = await MovementService.create({
+          workspace_id: input.workspaceId,
+          card_id: payload!.cardId,
+          type: MovementType.EXPENSE,
+          description: payload!.description,
+          amount: Math.abs(Number(payload!.amount)),
+          transaction_date: payload!.transactionDate,
+          competence_date: payload!.competenceDate ?? null,
+          category_id: payload!.categoryId ?? null,
+          subcategory_id: payload!.subcategoryId ?? null,
+          notes: payload!.notes ?? null,
+        });
+
+        // Vínculo com ESTA fatura, usando o campo existente do modelo.
+        const linked =
+          created.invoice_id === input.invoiceId
+            ? created
+            : await MovementService.update(created.id, { invoice_id: input.invoiceId });
+
+        return {
+          movement_id: linked.id,
+          invoice_id: linked.invoice_id,
+          amount: Number(linked.amount),
+          transaction_date: linked.transaction_date,
+          signature: Impl.signature(linked),
+        };
+      }
       case "LINK_EXISTING_MOVEMENT":
       case "SELECT_MATCH_CANDIDATE": {
         if (!movement) this.handleError(new Error("Selecione um lançamento."), "applyEffect");
