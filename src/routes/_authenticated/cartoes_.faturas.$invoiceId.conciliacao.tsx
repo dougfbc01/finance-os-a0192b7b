@@ -354,10 +354,14 @@ function ConciliacaoFaturaPage() {
                           ) : (
                             <ItemActionsMenu
                               item={item}
-                              onPick={(a) => {
-                                setActionItem(item);
-                                setActionType(a);
-                              }}
+                               onPick={(a) => {
+                                 if (a === "CREATE_MISSING_MOVEMENT") {
+                                   setCreateItem(item);
+                                   return;
+                                 }
+                                 setActionItem(item);
+                                 setActionType(a);
+                               }}
                             />
                           )}
                         </td>
