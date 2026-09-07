@@ -281,6 +281,44 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     }
   }
 
+  /** Regra pura: um lançamento existente já representa o item da fatura? */
+  static matchesPayload(
+    m: Pick<Movement, "card_id" | "amount" | "transaction_date" | "deleted_at">,
+    payload: CreateMissingMovementPayload,
+  ): boolean {
+    if (m.deleted_at) return false;
+    if (m.card_id !== payload.cardId) return false;
+    if (Math.abs(Math.abs(Number(m.amount)) - Math.abs(Number(payload.amount))) > INVOICE_AMOUNT_TOLERANCE)
+      return false;
+    const diff =
+      Math.abs(
+        new Date(`${m.transaction_date}T00:00:00Z`).getTime() -
+          new Date(`${payload.transactionDate}T00:00:00Z`).getTime(),
+      ) /
+      86_400_000;
+    return diff <= INVOICE_DATE_TOLERANCE_DAYS;
+  }
+
+  private static shiftDate(date: string, days: number): string {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Revalida, no momento do salvamento, se o lançamento já existe. */
+  private async findExistingMovement(
+    workspaceId: UUID,
+    payload: CreateMissingMovementPayload,
+  ): Promise<Movement | null> {
+    const Impl = CardInvoiceReconciliationActionServiceImpl;
+    const movements = await MovementService.list(workspaceId, {
+      cardId: payload.cardId,
+      from: Impl.shiftDate(payload.transactionDate, -INVOICE_DATE_TOLERANCE_DAYS),
+      to: Impl.shiftDate(payload.transactionDate, INVOICE_DATE_TOLERANCE_DAYS),
+    });
+    return movements.find((m) => Impl.matchesPayload(m, payload)) ?? null;
+  }
+
   private async applyEffect(
     input: ExecuteInvoiceActionInput,
     movement: Movement | null,
