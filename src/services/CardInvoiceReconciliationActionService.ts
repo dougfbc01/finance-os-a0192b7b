@@ -51,6 +51,14 @@ export class DuplicateActionError extends Error {
   }
 }
 
+/** Sprint 4.15B — o lançamento faltante já existe (criado em outra tela/importação). */
+export class AlreadyRegisteredError extends Error {
+  constructor() {
+    super("Este lançamento já foi registrado ou conciliado.");
+    this.name = "AlreadyRegisteredError";
+  }
+}
+
 class CardInvoiceReconciliationActionServiceImpl extends BaseService {
   // -------------------------------------------------------------------
   // Regras puras (sem I/O) — testáveis isoladamente.
