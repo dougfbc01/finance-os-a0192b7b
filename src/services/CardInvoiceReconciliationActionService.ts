@@ -108,6 +108,9 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
       input.newCompetence ? `c=${input.newCompetence}` : "",
       input.relatedMovementId ? `r=${input.relatedMovementId}` : "",
       input.movementId ? `m=${input.movementId}` : "",
+      input.createPayload
+        ? `n=${Number(input.createPayload.amount).toFixed(2)}@${input.createPayload.transactionDate}`
+        : "",
     ]
       .filter(Boolean)
       .join("&");
