@@ -61,6 +61,26 @@ class CardInvoiceServiceImpl extends BaseService {
   }
 
   /**
+   * Sprint 4.15C — consulta SOMENTE LEITURA: a qual fatura uma data de compra
+   * pertenceria, sem criar nada. Usada para avisar o usuário quando uma
+   * correção de data mudaria o lançamento de fatura.
+   */
+  async findInvoiceIdForDate(cardId: UUID, purchaseDate: string): Promise<UUID | null> {
+    const card = await CardService.getById(cardId);
+    if (!card) return null;
+    const period = CardServiceImpl.computeInvoicePeriod(card, purchaseDate);
+    const { data, error } = await this.client
+      .from(this.table)
+      .select("id")
+      .eq("card_id", cardId)
+      .eq("competence", period.competence)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) this.handleError(error, "findInvoiceIdForDate");
+    return data ? ((data as { id: UUID }).id as UUID) : null;
+  }
+
+  /**
    * Garante que exista fatura para a competência da compra.
    * Retorna o id da fatura correspondente.
    */
