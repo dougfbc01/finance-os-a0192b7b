@@ -68,6 +68,13 @@ export interface ExecuteInvoiceActionInput {
   relatedMovementId?: UUID | null;
   /** Assinatura de estado capturada quando o diagnóstico foi aberto. */
   expectedSignature?: string | null;
+  /**
+   * Sprint 4.15C — confirmação específica de que o usuário aceita que a
+   * correção mova o lançamento para outra fatura. Sem isso, o vínculo com a
+   * fatura em conciliação é sempre preservado.
+   */
+  allowInvoiceChange?: boolean;
+
   newAmount?: number;
   newDate?: string;
   newCompetence?: string;

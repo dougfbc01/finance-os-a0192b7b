@@ -257,14 +257,24 @@ class MovementServiceImpl extends BaseService {
     }
 
     // Se o vínculo com cartão/data mudou, reatribui a fatura correspondente.
+    // Sprint 4.15C — quando o chamador informa `invoice_id` explicitamente
+    // (conciliação de uma fatura específica), esse vínculo SEMPRE prevalece:
+    // a fatura em conciliação nunca pode ser trocada silenciosamente.
     const nextCardId = input.card_id !== undefined ? input.card_id : existing!.card_id;
     const nextDate = input.transaction_date ?? existing!.transaction_date;
     const cardChanged = input.card_id !== undefined && input.card_id !== existing!.card_id;
     const dateChanged =
       input.transaction_date !== undefined && input.transaction_date !== existing!.transaction_date;
-    if (!merged.is_historical && nextType !== MovementType.TRANSFER && (cardChanged || dateChanged)) {
+    const explicitInvoice = input.invoice_id !== undefined;
+    if (
+      !explicitInvoice &&
+      !merged.is_historical &&
+      nextType !== MovementType.TRANSFER &&
+      (cardChanged || dateChanged)
+    ) {
       payload.invoice_id = await this.resolveInvoiceId(nextCardId, nextDate, nextType);
     }
+
 
     // Sprint 4.0.1 — recalcula competência/vencimento apenas quando não vieram
     // explicitamente do formulário (edição manual sempre prevalece).
