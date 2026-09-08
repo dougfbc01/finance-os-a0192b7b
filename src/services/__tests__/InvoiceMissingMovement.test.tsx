@@ -4,12 +4,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-const movementApi = {
-  list: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  getById: vi.fn(),
-};
+const { movementApi } = vi.hoisted(() => ({
+  movementApi: {
+    list: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    getById: vi.fn(),
+  },
+}));
 
 vi.mock("@/services/MovementService", () => ({
   MovementService: movementApi,
