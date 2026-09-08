@@ -64,6 +64,30 @@ export class AlreadyRegisteredError extends Error {
   }
 }
 
+/**
+ * Sprint 4.15C — a nova data faria o lançamento pertencer a OUTRA fatura.
+ * Nunca movemos silenciosamente: o usuário precisa confirmar explicitamente.
+ */
+export class InvoiceChangeRequiresConfirmationError extends Error {
+  readonly targetInvoiceId: UUID | null;
+  constructor(targetInvoiceId: UUID | null) {
+    super(
+      "A nova data faz este lançamento pertencer a outra fatura. Confirme se deseja movê-lo.",
+    );
+    this.name = "InvoiceChangeRequiresConfirmationError";
+    this.targetInvoiceId = targetInvoiceId;
+  }
+}
+
+/** Sprint 4.15C — a alteração não chegou à tabela `movements`. */
+export class PersistenceVerificationError extends Error {
+  constructor() {
+    super("A alteração não foi confirmada no lançamento. Nada foi registrado.");
+    this.name = "PersistenceVerificationError";
+  }
+}
+
+
 class CardInvoiceReconciliationActionServiceImpl extends BaseService {
   // -------------------------------------------------------------------
   // Regras puras (sem I/O) — testáveis isoladamente.
