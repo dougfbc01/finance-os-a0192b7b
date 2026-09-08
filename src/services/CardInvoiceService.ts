@@ -3,7 +3,7 @@
 // recompute atualiza `amount` a partir dos movimentos vinculados.
 // markPaid gera UM único CARD_PAYMENT na conta bancária e sinaliza a fatura.
 import { BaseService } from "./BaseService";
-import { CardServiceImpl } from "./CardService";
+import { CardService, CardServiceImpl } from "./CardService";
 import { MovementService } from "./MovementService";
 import { MovementStatus, MovementType } from "@/constants/enums";
 import type { Card, Movement, UUID } from "@/models";
