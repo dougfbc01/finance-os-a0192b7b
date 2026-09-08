@@ -371,11 +371,12 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
           notes: payload!.notes ?? null,
         });
 
-        // Vínculo com ESTA fatura, usando o campo existente do modelo.
-        const linked =
-          created.invoice_id === input.invoiceId
-            ? created
-            : await MovementService.update(created.id, { invoice_id: input.invoiceId });
+        // Sprint 4.15C — o vínculo é SEMPRE a fatura em conciliação, nunca a
+        // fatura descoberta pela data.
+        if (created.invoice_id !== input.invoiceId) {
+          await MovementService.update(created.id, { invoice_id: input.invoiceId });
+        }
+        const linked = await this.verify(created.id, (m) => m.invoice_id === input.invoiceId);
 
         return {
           movement_id: linked.id,
@@ -389,30 +390,69 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
       case "SELECT_MATCH_CANDIDATE": {
         if (!movement) this.handleError(new Error("Selecione um lançamento."), "applyEffect");
         // Vincular NUNCA cria movimento: apenas ajusta a relação existente.
-        const next = await MovementService.update(movement!.id, {
-          invoice_id: input.invoiceId,
-        });
+        if (movement!.invoice_id !== input.invoiceId) {
+          await MovementService.update(movement!.id, { invoice_id: input.invoiceId });
+        }
+        const next = await this.verify(movement!.id, (m) => m.invoice_id === input.invoiceId);
         return { invoice_id: next.invoice_id, signature: Impl.signature(next) };
       }
       case "CORRECT_AMOUNT": {
         if (!movement || input.newAmount === undefined) {
           this.handleError(new Error("Valor inválido."), "applyEffect");
         }
-        const next = await MovementService.update(movement!.id, {
-          amount: Math.abs(Number(input.newAmount)),
-        });
-        return { amount: Number(next.amount), signature: Impl.signature(next) };
+        const amount = Math.abs(Number(input.newAmount));
+        const applied = Math.abs(Number(movement!.amount) - amount) <= 0.0001;
+        if (!applied) {
+          await MovementService.update(movement!.id, {
+            amount,
+            // preserva a fatura em conciliação
+            invoice_id: movement!.invoice_id ?? input.invoiceId,
+          });
+        }
+        const next = await this.verify(
+          movement!.id,
+          (m) => Math.abs(Number(m.amount) - amount) <= 0.0001,
+        );
+        return {
+          amount: Number(next.amount),
+          invoice_id: next.invoice_id,
+          signature: Impl.signature(next),
+        };
       }
       case "CORRECT_DATE": {
         if (!movement || !input.newDate) {
           this.handleError(new Error("Data inválida."), "applyEffect");
         }
-        // Competência não muda junto: é uma decisão separada.
-        const next = await MovementService.update(movement!.id, {
-          transaction_date: input.newDate!,
-        });
+        const newDate = input.newDate!;
+        // A nova data pertenceria a outra fatura? Nunca movemos em silêncio.
+        let targetInvoiceId: UUID | null = input.invoiceId;
+        if (movement!.card_id && newDate !== movement!.transaction_date) {
+          const found = await CardInvoiceService.findInvoiceIdForDate(
+            movement!.card_id,
+            newDate,
+          );
+          if (found && found !== input.invoiceId) {
+            if (!input.allowInvoiceChange) {
+              throw new InvoiceChangeRequiresConfirmationError(found);
+            }
+            targetInvoiceId = found;
+          }
+        }
+        if (movement!.transaction_date !== newDate || movement!.invoice_id !== targetInvoiceId) {
+          // Competência não muda junto: é uma decisão separada.
+          await MovementService.update(movement!.id, {
+            transaction_date: newDate,
+            invoice_id: targetInvoiceId,
+          });
+        }
+        const next = await this.verify(
+          movement!.id,
+          (m) => m.transaction_date === newDate && m.invoice_id === targetInvoiceId,
+        );
         return {
           transaction_date: next.transaction_date,
+          invoice_id: next.invoice_id,
+          moved_invoice: targetInvoiceId !== input.invoiceId,
           signature: Impl.signature(next),
         };
       }
@@ -420,14 +460,24 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
         if (!movement || !input.newCompetence) {
           this.handleError(new Error("Competência inválida."), "applyEffect");
         }
-        const next = await MovementService.update(movement!.id, {
-          competence_date: input.newCompetence!,
-        });
+        const competence = input.newCompetence!;
+        if (movement!.competence_date !== competence) {
+          await MovementService.update(movement!.id, {
+            competence_date: competence,
+            invoice_id: movement!.invoice_id ?? input.invoiceId,
+          });
+        }
+        const next = await this.verify(
+          movement!.id,
+          (m) => m.competence_date === competence,
+        );
         return {
           competence_date: next.competence_date,
+          invoice_id: next.invoice_id,
           signature: Impl.signature(next),
         };
       }
+
       case "MARK_NOT_SAME_MOVEMENT": {
         // Nada financeiro muda. Quando há um par de movimentos, a decisão
         // também é registrada na fundação de decisões persistentes.
