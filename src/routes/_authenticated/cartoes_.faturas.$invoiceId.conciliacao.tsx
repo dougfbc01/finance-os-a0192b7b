@@ -105,6 +105,9 @@ function ConciliacaoFaturaPage() {
   const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
   const [createItem, setCreateItem] = useState<InvoiceReconciliationItem | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  // Sprint 4.15C — correção de data que mudaria o lançamento de fatura.
+  const [movePending, setMovePending] = useState<InvoiceActionPayload | null>(null);
+
   const { data: cards = [] } = useCards(invoice?.workspace_id);
   const card = cards.find((c) => c.id === invoice?.card_id) ?? null;
 
