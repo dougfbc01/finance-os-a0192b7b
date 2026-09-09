@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -39,7 +50,11 @@ import {
   useUndoInvoiceAction,
 } from "@/hooks/useInvoiceReconciliationActions";
 import { CardInvoiceReconciliationServiceImpl } from "@/services/CardInvoiceReconciliationService";
-import { CardInvoiceReconciliationActionServiceImpl } from "@/services/CardInvoiceReconciliationActionService";
+import {
+  CardInvoiceReconciliationActionServiceImpl,
+  InvoiceChangeRequiresConfirmationError,
+} from "@/services/CardInvoiceReconciliationActionService";
+
 import {
   INVOICE_ACTION_LABELS,
   type InvoiceReconciliationActionType,
@@ -89,7 +104,10 @@ const STATUS_VARIANT: Record<InvoiceReconciliationStatus, string> = {
 
 function ConciliacaoFaturaPage() {
   const { invoiceId } = Route.useParams();
-  const { data: invoice } = useCardInvoice(invoiceId);
+  // Sprint 4.15C — a fatura da rota é o alvo fixo de toda a conciliação.
+  const selectedInvoiceId = invoiceId;
+  const { data: invoice } = useCardInvoice(selectedInvoiceId);
+
   const run = useRunInvoiceReconciliation();
   const { data: actions = [] } = useInvoiceReconciliationActions(invoiceId);
   const executeAction = useExecuteInvoiceAction(invoiceId);
@@ -102,6 +120,9 @@ function ConciliacaoFaturaPage() {
   const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
   const [createItem, setCreateItem] = useState<InvoiceReconciliationItem | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  // Sprint 4.15C — correção de data que mudaria o lançamento de fatura.
+  const [movePending, setMovePending] = useState<InvoiceActionPayload | null>(null);
+
   const { data: cards = [] } = useCards(invoice?.workspace_id);
   const card = cards.find((c) => c.id === invoice?.card_id) ?? null;
 
@@ -136,13 +157,14 @@ function ConciliacaoFaturaPage() {
     e.target.value = "";
   }
 
-  async function confirmAction(payload: InvoiceActionPayload) {
+  async function runAction(payload: InvoiceActionPayload, allowInvoiceChange = false) {
     if (!actionItem || !actionType || !invoice) return;
     const movementId = payload.movementId ?? actionItem.movement?.id ?? null;
     try {
       await executeAction.mutateAsync({
         workspaceId: invoice.workspace_id,
-        invoiceId,
+        // A fatura da rota é o alvo obrigatório durante todo o fluxo.
+        invoiceId: selectedInvoiceId,
         itemKey: actionItem.key,
         action: actionType,
         movementId,
@@ -154,16 +176,27 @@ function ConciliacaoFaturaPage() {
         newDate: payload.newDate,
         newCompetence: payload.newCompetence,
         reason: payload.reason,
+        allowInvoiceChange,
       });
       toast.success(`${INVOICE_ACTION_LABELS[actionType]} aplicada.`);
       setActionItem(null);
       setActionType(null);
-      // Recalcula o diagnóstico sem recarregar a página.
+      setMovePending(null);
+      // Recalcula o diagnóstico DESTA fatura, sem recarregar a página.
       await execute(lastLines);
     } catch (err) {
+      if (err instanceof InvoiceChangeRequiresConfirmationError) {
+        setMovePending(payload);
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Não foi possível aplicar a ação.");
     }
   }
+
+  async function confirmAction(payload: InvoiceActionPayload) {
+    await runAction(payload, false);
+  }
+
 
   // Sprint 4.15B — criação manual do lançamento faltante.
   async function confirmCreate(
@@ -174,7 +207,8 @@ function ConciliacaoFaturaPage() {
     try {
       await executeAction.mutateAsync({
         workspaceId: invoice.workspace_id,
-        invoiceId,
+        invoiceId: selectedInvoiceId,
+
         itemKey: createItem.key,
         action: "CREATE_MISSING_MOVEMENT",
         createPayload: payload,
@@ -419,6 +453,30 @@ function ConciliacaoFaturaPage() {
         onClose={() => setCreateItem(null)}
         onConfirm={confirmCreate}
       />
+
+      <AlertDialog open={!!movePending} onOpenChange={(o) => !o && setMovePending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mover para outra fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A nova data faz este lançamento pertencer a outra fatura. Se confirmar, ele
+              deixa de fazer parte da fatura que você está conciliando.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMovePending(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const p = movePending;
+                if (p) void runAction(p, true);
+              }}
+            >
+              Confirmar e mover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

@@ -10,6 +10,8 @@
 //  - decisões humanas (ignorar / não são a mesma) persistem entre execuções.
 import { BaseService } from "./BaseService";
 import { MovementService } from "./MovementService";
+import { CardInvoiceService } from "./CardInvoiceService";
+
 import { ReconciliationDecisionService } from "./ReconciliationDecisionService";
 import type { Movement, UUID } from "@/models";
 import type {
@@ -287,6 +289,11 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     // 2) Efeito da ação.
     try {
       const after = await this.applyEffect(input, movement);
+      // 3) Recalcula SEMPRE a fatura selecionada (id explícito da rota).
+      if (!CardInvoiceReconciliationActionServiceImpl.isDecision(input.action)) {
+        await CardInvoiceService.recompute(input.invoiceId);
+      }
+
       const { data: updated, error } = await this.client
         .from("invoice_reconciliation_actions")
         .update({ after_state: after } as never)
@@ -342,6 +349,20 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     });
     return movements.find((m) => Impl.matchesPayload(m, payload)) ?? null;
   }
+
+  /**
+   * Sprint 4.15C — relê o lançamento no banco e só considera a ação bem
+   * sucedida quando a alteração está realmente persistida em `movements`.
+   */
+  private async verify(
+    movementId: UUID,
+    predicate: (m: Movement) => boolean,
+  ): Promise<Movement> {
+    const fresh = await MovementService.getById(movementId);
+    if (!fresh || !predicate(fresh)) throw new PersistenceVerificationError();
+    return fresh;
+  }
+
 
   private async applyEffect(
     input: ExecuteInvoiceActionInput,

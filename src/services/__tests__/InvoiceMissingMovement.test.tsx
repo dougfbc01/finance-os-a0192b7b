@@ -18,6 +18,16 @@ vi.mock("@/services/MovementService", () => ({
   MovementServiceImpl: class {},
 }));
 
+// Sprint 4.15C — o recálculo usa sempre o id da fatura em conciliação.
+const { invoiceApi } = vi.hoisted(() => ({
+  invoiceApi: { recompute: vi.fn().mockResolvedValue(undefined) },
+}));
+vi.mock("@/services/CardInvoiceService", () => ({
+  CardInvoiceService: invoiceApi,
+  CardInvoiceServiceImpl: class {},
+}));
+
+
 import {
   AlreadyRegisteredError,
   CardInvoiceReconciliationActionServiceImpl as Svc,
@@ -169,7 +179,10 @@ describe("criação do lançamento faltante", () => {
     movementApi.list.mockReset();
     movementApi.create.mockReset();
     movementApi.update.mockReset();
+    movementApi.getById.mockReset();
+    invoiceApi.recompute.mockReset().mockResolvedValue(undefined);
   });
+
 
   const input = {
     workspaceId: "ws-1",
@@ -196,6 +209,15 @@ describe("criação do lançamento faltante", () => {
       transaction_date: "2026-08-10",
       updated_at: "t1",
     });
+    // Releitura de confirmação: a alteração precisa estar persistida.
+    movementApi.getById.mockResolvedValue({
+      id: "mv-1",
+      invoice_id: "inv-1",
+      amount: 350,
+      transaction_date: "2026-08-10",
+      updated_at: "t1",
+    });
+
 
     const { svc, state } = service({ id: "act-1" });
     await svc.execute(input);
