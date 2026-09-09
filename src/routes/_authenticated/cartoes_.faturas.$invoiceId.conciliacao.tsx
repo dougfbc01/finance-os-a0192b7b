@@ -196,7 +196,8 @@ function ConciliacaoFaturaPage() {
     try {
       await executeAction.mutateAsync({
         workspaceId: invoice.workspace_id,
-        invoiceId,
+        invoiceId: selectedInvoiceId,
+
         itemKey: createItem.key,
         action: "CREATE_MISSING_MOVEMENT",
         createPayload: payload,
