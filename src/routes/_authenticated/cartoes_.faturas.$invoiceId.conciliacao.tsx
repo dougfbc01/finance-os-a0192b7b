@@ -442,6 +442,30 @@ function ConciliacaoFaturaPage() {
         onClose={() => setCreateItem(null)}
         onConfirm={confirmCreate}
       />
+
+      <AlertDialog open={!!movePending} onOpenChange={(o) => !o && setMovePending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mover para outra fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A nova data faz este lançamento pertencer a outra fatura. Se confirmar, ele
+              deixa de fazer parte da fatura que você está conciliando.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMovePending(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const p = movePending;
+                if (p) void runAction(p, true);
+              }}
+            >
+              Confirmar e mover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
