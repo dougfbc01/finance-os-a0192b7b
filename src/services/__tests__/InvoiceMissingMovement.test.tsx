@@ -18,6 +18,16 @@ vi.mock("@/services/MovementService", () => ({
   MovementServiceImpl: class {},
 }));
 
+// Sprint 4.15C — o recálculo usa sempre o id da fatura em conciliação.
+const { invoiceApi } = vi.hoisted(() => ({
+  invoiceApi: { recompute: vi.fn().mockResolvedValue(undefined) },
+}));
+vi.mock("@/services/CardInvoiceService", () => ({
+  CardInvoiceService: invoiceApi,
+  CardInvoiceServiceImpl: class {},
+}));
+
+
 import {
   AlreadyRegisteredError,
   CardInvoiceReconciliationActionServiceImpl as Svc,
