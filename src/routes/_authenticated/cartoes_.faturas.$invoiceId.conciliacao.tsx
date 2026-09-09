@@ -39,7 +39,11 @@ import {
   useUndoInvoiceAction,
 } from "@/hooks/useInvoiceReconciliationActions";
 import { CardInvoiceReconciliationServiceImpl } from "@/services/CardInvoiceReconciliationService";
-import { CardInvoiceReconciliationActionServiceImpl } from "@/services/CardInvoiceReconciliationActionService";
+import {
+  CardInvoiceReconciliationActionServiceImpl,
+  InvoiceChangeRequiresConfirmationError,
+} from "@/services/CardInvoiceReconciliationActionService";
+
 import {
   INVOICE_ACTION_LABELS,
   type InvoiceReconciliationActionType,
