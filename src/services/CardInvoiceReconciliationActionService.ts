@@ -10,6 +10,8 @@
 //  - decisões humanas (ignorar / não são a mesma) persistem entre execuções.
 import { BaseService } from "./BaseService";
 import { MovementService } from "./MovementService";
+import { CardInvoiceService } from "./CardInvoiceService";
+
 import { ReconciliationDecisionService } from "./ReconciliationDecisionService";
 import type { Movement, UUID } from "@/models";
 import type {
