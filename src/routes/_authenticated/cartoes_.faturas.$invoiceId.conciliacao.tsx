@@ -89,7 +89,10 @@ const STATUS_VARIANT: Record<InvoiceReconciliationStatus, string> = {
 
 function ConciliacaoFaturaPage() {
   const { invoiceId } = Route.useParams();
-  const { data: invoice } = useCardInvoice(invoiceId);
+  // Sprint 4.15C — a fatura da rota é o alvo fixo de toda a conciliação.
+  const selectedInvoiceId = invoiceId;
+  const { data: invoice } = useCardInvoice(selectedInvoiceId);
+
   const run = useRunInvoiceReconciliation();
   const { data: actions = [] } = useInvoiceReconciliationActions(invoiceId);
   const executeAction = useExecuteInvoiceAction(invoiceId);
