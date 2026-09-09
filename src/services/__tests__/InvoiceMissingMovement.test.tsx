@@ -179,7 +179,10 @@ describe("criação do lançamento faltante", () => {
     movementApi.list.mockReset();
     movementApi.create.mockReset();
     movementApi.update.mockReset();
+    movementApi.getById.mockReset();
+    invoiceApi.recompute.mockReset().mockResolvedValue(undefined);
   });
+
 
   const input = {
     workspaceId: "ws-1",
