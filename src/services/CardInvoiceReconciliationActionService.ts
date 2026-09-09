@@ -343,6 +343,20 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     return movements.find((m) => Impl.matchesPayload(m, payload)) ?? null;
   }
 
+  /**
+   * Sprint 4.15C — relê o lançamento no banco e só considera a ação bem
+   * sucedida quando a alteração está realmente persistida em `movements`.
+   */
+  private async verify(
+    movementId: UUID,
+    predicate: (m: Movement) => boolean,
+  ): Promise<Movement> {
+    const fresh = await MovementService.getById(movementId);
+    if (!fresh || !predicate(fresh)) throw new PersistenceVerificationError();
+    return fresh;
+  }
+
+
   private async applyEffect(
     input: ExecuteInvoiceActionInput,
     movement: Movement | null,
