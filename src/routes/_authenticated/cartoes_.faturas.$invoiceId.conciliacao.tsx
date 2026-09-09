@@ -136,13 +136,14 @@ function ConciliacaoFaturaPage() {
     e.target.value = "";
   }
 
-  async function confirmAction(payload: InvoiceActionPayload) {
+  async function runAction(payload: InvoiceActionPayload, allowInvoiceChange = false) {
     if (!actionItem || !actionType || !invoice) return;
     const movementId = payload.movementId ?? actionItem.movement?.id ?? null;
     try {
       await executeAction.mutateAsync({
         workspaceId: invoice.workspace_id,
-        invoiceId,
+        // A fatura da rota é o alvo obrigatório durante todo o fluxo.
+        invoiceId: selectedInvoiceId,
         itemKey: actionItem.key,
         action: actionType,
         movementId,
@@ -154,16 +155,27 @@ function ConciliacaoFaturaPage() {
         newDate: payload.newDate,
         newCompetence: payload.newCompetence,
         reason: payload.reason,
+        allowInvoiceChange,
       });
       toast.success(`${INVOICE_ACTION_LABELS[actionType]} aplicada.`);
       setActionItem(null);
       setActionType(null);
-      // Recalcula o diagnóstico sem recarregar a página.
+      setMovePending(null);
+      // Recalcula o diagnóstico DESTA fatura, sem recarregar a página.
       await execute(lastLines);
     } catch (err) {
+      if (err instanceof InvoiceChangeRequiresConfirmationError) {
+        setMovePending(payload);
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Não foi possível aplicar a ação.");
     }
   }
+
+  async function confirmAction(payload: InvoiceActionPayload) {
+    await runAction(payload, false);
+  }
+
 
   // Sprint 4.15B — criação manual do lançamento faltante.
   async function confirmCreate(
