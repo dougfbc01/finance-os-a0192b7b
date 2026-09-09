@@ -206,6 +206,15 @@ describe("criação do lançamento faltante", () => {
       transaction_date: "2026-08-10",
       updated_at: "t1",
     });
+    // Releitura de confirmação: a alteração precisa estar persistida.
+    movementApi.getById.mockResolvedValue({
+      id: "mv-1",
+      invoice_id: "inv-1",
+      amount: 350,
+      transaction_date: "2026-08-10",
+      updated_at: "t1",
+    });
+
 
     const { svc, state } = service({ id: "act-1" });
     await svc.execute(input);
