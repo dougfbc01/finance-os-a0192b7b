@@ -289,6 +289,11 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
     // 2) Efeito da ação.
     try {
       const after = await this.applyEffect(input, movement);
+      // 3) Recalcula SEMPRE a fatura selecionada (id explícito da rota).
+      if (!CardInvoiceReconciliationActionServiceImpl.isDecision(input.action)) {
+        await CardInvoiceService.recompute(input.invoiceId);
+      }
+
       const { data: updated, error } = await this.client
         .from("invoice_reconciliation_actions")
         .update({ after_state: after } as never)
