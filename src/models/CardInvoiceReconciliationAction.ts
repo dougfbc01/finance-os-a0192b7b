@@ -12,7 +12,9 @@ export type InvoiceReconciliationActionType =
   | "MARK_NOT_SAME_MOVEMENT"
   | "IGNORE_DIVERGENCE"
   /** Sprint 4.15B — criação manual do lançamento que consta na fatura. */
-  | "CREATE_MISSING_MOVEMENT";
+  | "CREATE_MISSING_MOVEMENT"
+  /** Sprint 4.15D — movimentação explícita do lançamento entre faturas do mesmo cartão. */
+  | "MOVE_TO_ANOTHER_INVOICE";
 
 export const INVOICE_ACTION_LABELS: Record<InvoiceReconciliationActionType, string> = {
   LINK_EXISTING_MOVEMENT: "Vincular lançamento",
@@ -23,6 +25,7 @@ export const INVOICE_ACTION_LABELS: Record<InvoiceReconciliationActionType, stri
   MARK_NOT_SAME_MOVEMENT: "Não são a mesma movimentação",
   IGNORE_DIVERGENCE: "Ignorar divergência",
   CREATE_MISSING_MOVEMENT: "Criar lançamento",
+  MOVE_TO_ANOTHER_INVOICE: "Mover para outra fatura",
 };
 
 /** Ações que alteram dados financeiros e, por isso, podem ser desfeitas. */
@@ -74,6 +77,11 @@ export interface ExecuteInvoiceActionInput {
    * fatura em conciliação é sempre preservado.
    */
   allowInvoiceChange?: boolean;
+  /**
+   * Sprint 4.15D — fatura destino escolhida explicitamente pelo usuário na
+   * ação "Mover para outra fatura". Sempre do MESMO cartão da fatura atual.
+   */
+  targetInvoiceId?: UUID;
 
   newAmount?: number;
   newDate?: string;
