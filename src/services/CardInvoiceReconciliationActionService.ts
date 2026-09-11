@@ -89,6 +89,13 @@ export class PersistenceVerificationError extends Error {
   }
 }
 
+export class InvalidInvoiceMoveError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidInvoiceMoveError";
+  }
+}
+
 
 class CardInvoiceReconciliationActionServiceImpl extends BaseService {
   // -------------------------------------------------------------------
@@ -139,6 +146,7 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
       input.newCompetence ? `c=${input.newCompetence}` : "",
       input.relatedMovementId ? `r=${input.relatedMovementId}` : "",
       input.movementId ? `m=${input.movementId}` : "",
+      input.targetInvoiceId ? `i=${input.targetInvoiceId}` : "",
       input.createPayload
         ? `n=${Number(input.createPayload.amount).toFixed(2)}@${input.createPayload.transactionDate}`
         : "",
@@ -247,6 +255,10 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
       }
     }
 
+    if (input.action === "MOVE_TO_ANOTHER_INVOICE") {
+      return this.moveToAnotherInvoice(input, movement);
+    }
+
     const before: Record<string, unknown> = movement
       ? {
           amount: Number(movement.amount),
@@ -310,6 +322,100 @@ class CardInvoiceReconciliationActionServiceImpl extends BaseService {
         .eq("id", record.id);
       throw err;
     }
+  }
+
+  private async moveToAnotherInvoice(
+    input: ExecuteInvoiceActionInput,
+    movement: Movement | null,
+  ): Promise<InvoiceReconciliationActionRecord> {
+    const targetInvoiceId = input.targetInvoiceId;
+    if (!movement || !targetInvoiceId) {
+      throw new InvalidInvoiceMoveError("Selecione um lançamento e uma fatura destino.");
+    }
+    if (!input.reason?.trim()) {
+      throw new InvalidInvoiceMoveError("Informe o motivo da alteração.");
+    }
+    if (targetInvoiceId === input.invoiceId) {
+      throw new InvalidInvoiceMoveError("A fatura destino deve ser diferente da fatura atual.");
+    }
+    if (movement.invoice_id === targetInvoiceId) {
+      throw new InvalidInvoiceMoveError("Este lançamento já está na fatura selecionada.");
+    }
+    if (movement.invoice_id !== input.invoiceId) throw new ConcurrentChangeError();
+
+    const [origin, target] = await Promise.all([
+      CardInvoiceService.getById(input.invoiceId),
+      CardInvoiceService.getById(targetInvoiceId),
+    ]);
+    if (!origin || !target) throw new InvalidInvoiceMoveError("Fatura não encontrada.");
+    if (
+      origin.workspace_id !== input.workspaceId ||
+      target.workspace_id !== input.workspaceId ||
+      movement.workspace_id !== input.workspaceId
+    ) {
+      throw new InvalidInvoiceMoveError("A operação pertence a outro workspace.");
+    }
+    if (!movement.card_id || origin.card_id !== movement.card_id || target.card_id !== origin.card_id) {
+      throw new InvalidInvoiceMoveError("A fatura destino deve pertencer ao mesmo cartão.");
+    }
+
+    const moved = await MovementService.moveToInvoice(
+      movement.id,
+      input.invoiceId,
+      targetInvoiceId,
+    );
+    if (!moved) throw new ConcurrentChangeError();
+    const fresh = await this.verify(
+      movement.id,
+      (row) => row.invoice_id === targetInvoiceId,
+    );
+
+    const before = {
+      invoice_id: input.invoiceId,
+      target_invoice_id: targetInvoiceId,
+      amount: Number(movement.amount),
+      transaction_date: movement.transaction_date,
+      competence_date: movement.competence_date,
+      description: movement.description,
+      card_id: movement.card_id,
+      signature: CardInvoiceReconciliationActionServiceImpl.signature(movement),
+    };
+    const after = {
+      invoice_id: fresh.invoice_id,
+      origin_invoice_id: input.invoiceId,
+      target_invoice_id: targetInvoiceId,
+      amount: Number(fresh.amount),
+      signature: CardInvoiceReconciliationActionServiceImpl.signature(fresh),
+    };
+    const userId = await this.currentUserId();
+    const { data: inserted, error } = await this.client
+      .from("invoice_reconciliation_actions")
+      .insert({
+        workspace_id: input.workspaceId,
+        invoice_id: input.invoiceId,
+        item_key: input.itemKey,
+        movement_id: movement.id,
+        related_movement_id: null,
+        action: input.action,
+        before_state: before,
+        after_state: after,
+        reason: input.reason.trim(),
+        source: "MANUAL",
+        idempotency_key: CardInvoiceReconciliationActionServiceImpl.idempotencyKey(input),
+        performed_by: userId,
+      } as never)
+      .select()
+      .single();
+    if (error) this.handleError(error, "moveToAnotherInvoice.audit");
+
+    await CardInvoiceService.recompute(input.invoiceId);
+    await CardInvoiceService.recompute(targetInvoiceId);
+    const [freshOrigin, freshTarget] = await Promise.all([
+      CardInvoiceService.getById(input.invoiceId),
+      CardInvoiceService.getById(targetInvoiceId),
+    ]);
+    if (!freshOrigin || !freshTarget) throw new PersistenceVerificationError();
+    return inserted as unknown as InvoiceReconciliationActionRecord;
   }
 
   /** Regra pura: um lançamento existente já representa o item da fatura? */
