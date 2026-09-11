@@ -8,6 +8,7 @@ const { movementApi } = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
     getById: vi.fn(),
+    moveToInvoice: vi.fn(),
   },
 }));
 vi.mock("@/services/MovementService", () => ({
@@ -19,6 +20,7 @@ const { invoiceApi } = vi.hoisted(() => ({
   invoiceApi: {
     recompute: vi.fn(),
     findInvoiceIdForDate: vi.fn(),
+    getById: vi.fn(),
   },
 }));
 vi.mock("@/services/CardInvoiceService", () => ({
@@ -62,6 +64,25 @@ function fakeClient() {
   return { svc: new (Svc as any)(client), state };
 }
 
+function fakeMoveClient(insertError: Error | null = null) {
+  const state: { inserts: Row[] } = { inserts: [] };
+  const client = {
+    auth: { getUser: async () => ({ data: { user: { id: "user-1" } } }) },
+    from: () => ({
+      insert: (value: Row) => {
+        state.inserts.push(value);
+        return {
+          select: () => ({
+            single: async () => ({ data: insertError ? null : { id: "act-move", ...value }, error: insertError }),
+          }),
+        };
+      },
+    }),
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { svc: new (Svc as any)(client), state };
+}
+
 const MOVEMENT = {
   id: "mv-1",
   workspace_id: "ws-1",
@@ -84,8 +105,10 @@ beforeEach(() => {
   movementApi.getById.mockReset();
   movementApi.update.mockReset();
   movementApi.create.mockReset();
+  movementApi.moveToInvoice.mockReset();
   invoiceApi.recompute.mockReset().mockResolvedValue(undefined);
   invoiceApi.findInvoiceIdForDate.mockReset().mockResolvedValue("inv-1");
+  invoiceApi.getById.mockReset();
 });
 
 describe("correção de valor", () => {
@@ -180,5 +203,114 @@ describe("vínculo de lançamento existente", () => {
     await svc.execute({ ...base, action: "LINK_EXISTING_MOVEMENT" });
 
     expect(movementApi.update).toHaveBeenCalledWith("mv-1", { invoice_id: "inv-1" });
+  });
+});
+
+describe("movimentação explícita entre faturas", () => {
+  const origin = { id: "inv-1", workspace_id: "ws-1", card_id: "card-1" };
+  const target = { id: "inv-2", workspace_id: "ws-1", card_id: "card-1" };
+  const moved = { ...MOVEMENT, invoice_id: "inv-2", updated_at: "t1" };
+  const input = {
+    ...base,
+    action: "MOVE_TO_ANOTHER_INVOICE" as const,
+    targetInvoiceId: "inv-2",
+    reason: "Compra pertence à fatura seguinte",
+    expectedSignature: "mv-1:t0",
+  };
+
+  function successfulMove() {
+    movementApi.getById.mockResolvedValueOnce(MOVEMENT).mockResolvedValueOnce(moved);
+    movementApi.moveToInvoice.mockResolvedValue(moved);
+    invoiceApi.getById
+      .mockResolvedValueOnce(origin)
+      .mockResolvedValueOnce(target)
+      .mockResolvedValueOnce(origin)
+      .mockResolvedValueOnce(target);
+  }
+
+  it("altera somente o vínculo e recalcula origem e destino depois da persistência", async () => {
+    successfulMove();
+    const { svc, state } = fakeMoveClient();
+
+    await svc.execute(input);
+
+    expect(movementApi.moveToInvoice).toHaveBeenCalledWith("mv-1", "inv-1", "inv-2");
+    expect(movementApi.update).not.toHaveBeenCalled();
+    expect(movementApi.create).not.toHaveBeenCalled();
+    expect(invoiceApi.recompute.mock.calls).toEqual([["inv-1"], ["inv-2"]]);
+    expect(state.inserts[0]).toMatchObject({
+      invoice_id: "inv-1",
+      movement_id: "mv-1",
+      action: "MOVE_TO_ANOTHER_INVOICE",
+      reason: input.reason,
+    });
+  });
+
+  it("aceita faturas CLOSED porque valida identidade, não status", async () => {
+    successfulMove();
+    invoiceApi.getById
+      .mockReset()
+      .mockResolvedValueOnce({ ...origin, status: "CLOSED" })
+      .mockResolvedValueOnce({ ...target, status: "CLOSED" })
+      .mockResolvedValueOnce(origin)
+      .mockResolvedValueOnce(target);
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute(input)).resolves.toBeTruthy();
+  });
+
+  it("exige motivo", async () => {
+    movementApi.getById.mockResolvedValue(MOVEMENT);
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute({ ...input, reason: " " })).rejects.toThrow("Informe o motivo");
+    expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
+  });
+
+  it("rejeita a própria fatura como destino", async () => {
+    movementApi.getById.mockResolvedValue(MOVEMENT);
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute({ ...input, targetInvoiceId: "inv-1" })).rejects.toThrow("diferente");
+  });
+
+  it("rejeita destino de outro cartão", async () => {
+    movementApi.getById.mockResolvedValue(MOVEMENT);
+    invoiceApi.getById
+      .mockResolvedValueOnce(origin)
+      .mockResolvedValueOnce({ ...target, card_id: "card-2" });
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute(input)).rejects.toThrow("mesmo cartão");
+    expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
+  });
+
+  it("rejeita destino de outro workspace", async () => {
+    movementApi.getById.mockResolvedValue(MOVEMENT);
+    invoiceApi.getById
+      .mockResolvedValueOnce(origin)
+      .mockResolvedValueOnce({ ...target, workspace_id: "ws-2" });
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute(input)).rejects.toThrow("outro workspace");
+  });
+
+  it("bloqueia alteração concorrente antes de mover", async () => {
+    movementApi.getById.mockResolvedValue({ ...MOVEMENT, updated_at: "t-other" });
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute(input)).rejects.toBeInstanceOf(Error);
+    expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia segunda tentativa quando o movimento já saiu da origem", async () => {
+    movementApi.getById.mockResolvedValue(moved);
+    const { svc } = fakeMoveClient();
+    await expect(svc.execute({ ...input, expectedSignature: "mv-1:t1" })).rejects.toThrow("alterado");
+    expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
+  });
+
+  it("não registra auditoria quando a persistência concorrente não altera uma linha", async () => {
+    movementApi.getById.mockResolvedValue(MOVEMENT);
+    movementApi.moveToInvoice.mockResolvedValue(null);
+    invoiceApi.getById.mockResolvedValueOnce(origin).mockResolvedValueOnce(target);
+    const { svc, state } = fakeMoveClient();
+    await expect(svc.execute(input)).rejects.toThrow("alterado");
+    expect(state.inserts).toHaveLength(0);
+    expect(invoiceApi.recompute).not.toHaveBeenCalled();
   });
 });
