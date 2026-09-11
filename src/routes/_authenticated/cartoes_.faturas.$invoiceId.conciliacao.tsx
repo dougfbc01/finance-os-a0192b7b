@@ -38,7 +38,9 @@ import {
 } from "@/components/cards/InvoiceReconciliationActionDialog";
 import { InvoiceReconciliationHistory } from "@/components/cards/InvoiceReconciliationHistory";
 import { CreateMissingMovementDialog } from "@/components/cards/CreateMissingMovementDialog";
+import { MoveInvoiceDialog } from "@/components/cards/MoveInvoiceDialog";
 import { useCards } from "@/hooks/useCards";
+import { useCardInvoicesByCard } from "@/hooks/useCardInvoices";
 import type { CreateMissingMovementPayload } from "@/models/CardInvoiceReconciliationAction";
 import {
   useCardInvoice,
@@ -119,12 +121,14 @@ function ConciliacaoFaturaPage() {
   const [actionItem, setActionItem] = useState<InvoiceReconciliationItem | null>(null);
   const [actionType, setActionType] = useState<InvoiceReconciliationActionType | null>(null);
   const [createItem, setCreateItem] = useState<InvoiceReconciliationItem | null>(null);
+  const [moveItem, setMoveItem] = useState<InvoiceReconciliationItem | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   // Sprint 4.15C — correção de data que mudaria o lançamento de fatura.
   const [movePending, setMovePending] = useState<InvoiceActionPayload | null>(null);
 
   const { data: cards = [] } = useCards(invoice?.workspace_id);
   const card = cards.find((c) => c.id === invoice?.card_id) ?? null;
+  const { data: cardInvoices = [] } = useCardInvoicesByCard(invoice?.card_id);
 
   // Decisões humanas persistidas são reaplicadas sobre o diagnóstico puro.
   const result = useMemo(
@@ -231,6 +235,27 @@ function ConciliacaoFaturaPage() {
       await execute(lastLines);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível desfazer.");
+    }
+  }
+
+  async function confirmMove(targetInvoiceId: string, reason: string) {
+    if (!moveItem?.movement || !invoice) return;
+    try {
+      await executeAction.mutateAsync({
+        workspaceId: invoice.workspace_id,
+        invoiceId: selectedInvoiceId,
+        targetInvoiceId,
+        itemKey: moveItem.key,
+        action: "MOVE_TO_ANOTHER_INVOICE",
+        movementId: moveItem.movement.id,
+        expectedSignature: CardInvoiceReconciliationActionServiceImpl.signature(moveItem.movement),
+        reason,
+      });
+      toast.success("Lançamento movido para a fatura selecionada.");
+      setMoveItem(null);
+      await execute(lastLines);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível mover o lançamento.");
     }
   }
 
@@ -393,6 +418,10 @@ function ConciliacaoFaturaPage() {
                                    setCreateItem(item);
                                    return;
                                  }
+                                  if (a === "MOVE_TO_ANOTHER_INVOICE") {
+                                    setMoveItem(item);
+                                    return;
+                                  }
                                  setActionItem(item);
                                  setActionType(a);
                                }}
@@ -454,6 +483,16 @@ function ConciliacaoFaturaPage() {
         onConfirm={confirmCreate}
       />
 
+      <MoveInvoiceDialog
+        item={moveItem}
+        currentInvoice={invoice ?? null}
+        invoices={cardInvoices}
+        cardName={card?.name ?? "Cartão"}
+        pending={executeAction.isPending}
+        onClose={() => setMoveItem(null)}
+        onConfirm={confirmMove}
+      />
+
       <AlertDialog open={!!movePending} onOpenChange={(o) => !o && setMovePending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -489,6 +528,9 @@ function ItemActionsMenu({
   onPick: (action: InvoiceReconciliationActionType) => void;
 }) {
   const available = CardInvoiceReconciliationActionServiceImpl.availableActions(item);
+  if (item.movement?.invoice_id && !available.includes("MOVE_TO_ANOTHER_INVOICE")) {
+    available.push("MOVE_TO_ANOTHER_INVOICE");
+  }
   if (available.length === 0) return <span className="text-muted-foreground">—</span>;
   return (
     <DropdownMenu>
