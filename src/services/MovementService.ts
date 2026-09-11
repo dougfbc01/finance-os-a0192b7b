@@ -306,6 +306,27 @@ class MovementServiceImpl extends BaseService {
   }
 
   /**
+   * Sprint 4.15D — troca exclusivamente o vínculo da fatura, com proteção
+   * otimista contra outra tela ter movido o lançamento no intervalo.
+   */
+  async moveToInvoice(
+    id: UUID,
+    expectedInvoiceId: UUID,
+    targetInvoiceId: UUID,
+  ): Promise<Movement | null> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .update({ invoice_id: targetInvoiceId } as never)
+      .eq("id", id)
+      .eq("invoice_id", expectedInvoiceId)
+      .is("deleted_at", null)
+      .select("*")
+      .maybeSingle();
+    if (error) this.handleError(error, "moveToInvoice");
+    return data ? this.mapRow(data as Row) : null;
+  }
+
+  /**
    * Garante que exista uma fatura para o par (cartão, data de compra) e retorna
    * seu id. Nunca chamado para transferências ou pagamentos de fatura.
    */
