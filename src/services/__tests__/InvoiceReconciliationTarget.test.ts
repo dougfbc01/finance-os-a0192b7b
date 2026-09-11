@@ -297,10 +297,10 @@ describe("movimentação explícita entre faturas", () => {
     expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
   });
 
-  it("bloqueia segunda tentativa quando o movimento já saiu da origem", async () => {
+  it("bloqueia segunda tentativa quando o movimento já está no destino", async () => {
     movementApi.getById.mockResolvedValue(moved);
     const { svc } = fakeMoveClient();
-    await expect(svc.execute({ ...input, expectedSignature: "mv-1:t1" })).rejects.toThrow("alterado");
+    await expect(svc.execute({ ...input, expectedSignature: "mv-1:t1" })).rejects.toThrow("já está");
     expect(movementApi.moveToInvoice).not.toHaveBeenCalled();
   });
 
