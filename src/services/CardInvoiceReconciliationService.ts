@@ -70,6 +70,20 @@ function hasKeyword(description: string, keywords: string[]): boolean {
   return keywords.some((k) => s.includes(normalizeText(k)));
 }
 
+/**
+ * Identifica somente pagamentos da obrigação do cartão. A palavra "pagamento"
+ * isolada não basta, evitando excluir compras comuns com esse termo.
+ */
+export function isInvoicePaymentLine(description: string): boolean {
+  const s = normalizeText(description).replace(/[^a-z0-9]+/g, " ").trim();
+  if (s === "pagamento recebido") return true;
+  return (
+    /\bpagamento\s+(?:de\s+|da\s+|do\s+)?(?:fatura|cartao)\b/.test(s) ||
+    /\bpagamento\s+recebido\b.*\b(?:fatura|cartao)\b/.test(s) ||
+    /\b(?:fatura|cartao)\s+pag[ao]\b/.test(s)
+  );
+}
+
 export function isFeeLike(description: string): boolean {
   return hasKeyword(description, INVOICE_FEE_KEYWORDS);
 }
@@ -236,9 +250,11 @@ class CardInvoiceReconciliationServiceImpl extends BaseService {
     officialTotal?: number | null;
     executedAt?: string;
   }): InvoiceReconciliationResult {
-    const lines = [...params.officialLines].sort(
+    const allLines = [...params.officialLines].sort(
       (a, b) => a.date.localeCompare(b.date) || a.index - b.index,
     );
+    const paymentLines = allLines.filter((line) => isInvoicePaymentLine(line.description));
+    const lines = allLines.filter((line) => !isInvoicePaymentLine(line.description));
     // Pagamento de fatura nunca compõe a fatura (regra existente da Sprint 3.6).
     const movements = [...params.movements]
       .filter((m) => m.type !== "CARD_PAYMENT")
@@ -417,9 +433,14 @@ class CardInvoiceReconciliationServiceImpl extends BaseService {
       params.officialTotal ??
       (lines.length ? lines.reduce((acc, l) => acc + l.amount, 0) : 0);
 
-    const matchedTotal = items
-      .filter((i) => i.movement && i.official)
-      .reduce((acc, i) => acc + (i.official!.amount < 0 ? -1 : 1) * Math.abs(i.system_amount ?? 0), 0);
+    // O total do sistema representa a composição líquida efetivamente vinculada
+    // à fatura selecionada, não apenas os itens que o matching conseguiu parear.
+    const matchedTotal = movements
+      .filter((m) => m.invoice_id === params.invoiceId)
+      .reduce(
+        (acc, m) => acc + (movementDirection(m) === "CREDIT" ? -1 : 1) * Math.abs(Number(m.amount)),
+        0,
+      );
 
     const missingInSystem = count("MISSING_IN_SYSTEM");
     const missingInInvoice = count("MISSING_IN_INVOICE");
@@ -436,6 +457,10 @@ class CardInvoiceReconciliationServiceImpl extends BaseService {
       official_invoice_total: Number(officialTotal.toFixed(2)),
       matched_total: Number(matchedTotal.toFixed(2)),
       difference,
+      payment_count: paymentLines.length,
+      payment_total: Number(
+        paymentLines.reduce((acc, line) => acc + Math.abs(line.amount), 0).toFixed(2),
+      ),
       matched_count: count("MATCHED") + count("PARTIAL_MATCH"),
       missing_in_system_count: missingInSystem,
       missing_in_invoice_count: missingInInvoice,

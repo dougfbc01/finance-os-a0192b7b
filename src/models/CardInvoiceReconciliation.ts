@@ -93,6 +93,10 @@ export interface InvoiceReconciliationResult {
   official_invoice_total: number;
   matched_total: number;
   difference: number;
+  /** Linhas de pagamento da fatura identificadas e excluídas da composição. */
+  payment_count: number;
+  /** Soma absoluta dos pagamentos identificados no arquivo oficial. */
+  payment_total: number;
   matched_count: number;
   missing_in_system_count: number;
   missing_in_invoice_count: number;
