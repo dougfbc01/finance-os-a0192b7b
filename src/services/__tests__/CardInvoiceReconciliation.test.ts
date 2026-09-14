@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CardInvoiceReconciliationServiceImpl as Svc,
+  isInvoicePaymentLine,
   parseInstallment,
 } from "@/services/CardInvoiceReconciliationService";
 import type { Movement } from "@/models";
@@ -138,6 +139,60 @@ describe("CardInvoiceReconciliationService", () => {
   it("pagamento de fatura não entra na conciliação", () => {
     const r = run([], [mov({ id: "m1", type: MovementType.CARD_PAYMENT, description: "Pagamento fatura" })]);
     expect(r.items).toHaveLength(0);
+  });
+
+  it("calcula o cenário real sem deixar o pagamento inverter o valor oficial", () => {
+    const official = [
+      line({ index: 0, description: "Compras conciliadas", amount: 3160.31 }),
+      line({ index: 1, description: "Mercado*Mercadolivre - Parcela 2/3", amount: 25.3 }),
+      line({ index: 2, description: "Pagamento de fatura", amount: -5136.01 }),
+    ];
+    const r = run(official, [mov({ id: "m1", description: "Compras conciliadas", amount: 3160.31 })]);
+
+    expect(r.official_invoice_total).toBe(3185.61);
+    expect(r.matched_total).toBe(3160.31);
+    expect(r.difference).toBe(25.3);
+    expect(r.payment_count).toBe(1);
+    expect(r.payment_total).toBe(5136.01);
+    expect(r.missing_in_system_count).toBe(1);
+    expect(r.items.some((item) => item.official?.description.includes("Mercadolivre"))).toBe(true);
+    expect(r.items.some((item) => item.official?.description === "Pagamento de fatura")).toBe(false);
+  });
+
+  it("reconhece somente descrições específicas de pagamento de fatura ou cartão", () => {
+    expect(isInvoicePaymentLine("Pagamento de fatura")).toBe(true);
+    expect(isInvoicePaymentLine("PAGAMENTO RECEBIDO")).toBe(true);
+    expect(isInvoicePaymentLine("Pagamento recebido da fatura Nubank")).toBe(true);
+    expect(isInvoicePaymentLine("Fatura paga")).toBe(true);
+    expect(isInvoicePaymentLine("Pagamento cartão")).toBe(true);
+    expect(isInvoicePaymentLine("Pagamento Mercado Livre")).toBe(false);
+    expect(isInvoicePaymentLine("Aplicativo de pagamento mensal")).toBe(false);
+  });
+
+  it("mantém crédito e estorno legítimos na composição com sinal negativo", () => {
+    const r = run(
+      [
+        line({ index: 0, description: "COMPRA", amount: 200 }),
+        line({ index: 1, description: "ESTORNO COMPRA", amount: -20 }),
+      ],
+      [
+        mov({ id: "m1", description: "COMPRA", amount: 200 }),
+        mov({ id: "m2", type: MovementType.REFUND, description: "ESTORNO COMPRA", amount: 20 }),
+      ],
+    );
+    expect(r.official_invoice_total).toBe(180);
+    expect(r.matched_total).toBe(180);
+    expect(r.difference).toBe(0);
+    expect(r.refund_count).toBe(1);
+  });
+
+  it("não soma candidato do período que pertence a outra fatura", () => {
+    const r = run(
+      [line({ index: 0, amount: 100 })],
+      [mov({ id: "m1", invoice_id: "inv-current", amount: 100 })],
+    );
+    expect(r.matched_total).toBe(0);
+    expect(r.difference).toBe(100);
   });
 
   it("fatura e movimentos vazios não quebram", () => {

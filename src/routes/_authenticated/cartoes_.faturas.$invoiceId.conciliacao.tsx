@@ -322,6 +322,11 @@ function ConciliacaoFaturaPage() {
             <span>· Possíveis duplicidades: {result.possible_duplicate_count}</span>
             <span>· Estornos: {result.refund_count}</span>
             <span>· Encargos: {result.fee_count}</span>
+            {result.payment_count > 0 && (
+              <span>
+                · Pagamentos identificados: {result.payment_count} ({formatCurrency(result.payment_total)})
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
