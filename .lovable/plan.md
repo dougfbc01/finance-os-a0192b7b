@@ -5,11 +5,11 @@
 - O CSV é convertido integralmente em linhas oficiais, inclusive pagamentos.
 - O valor oficial é a soma bruta dessas linhas. Assim, uma linha negativa de pagamento abate compras e produz `-R$ 1.950,40`.
 - O total do sistema soma apenas movimentos que conseguiram correspondência; por isso um lançamento faltante não entra nos `R$ 3.160,31`.
-- O importador já reconhece qualquer descrição com “pagamento”, mas o diagnóstico não reutiliza essa classificação.
+- O importador usa hoje uma regra ampla (“contém pagamento”), inadequada para o diagnóstico porque pode gerar falsos positivos.
 
 ## Implementação
 
-1. Centralizar a identificação de pagamento de fatura nas regras da conciliação, cobrindo “pagamento de fatura”, “pagamento recebido”, “fatura paga” e variações normalizadas.
+1. Criar uma identificação específica de pagamento de fatura/cartão, após normalização, cobrindo “pagamento de fatura”, “pagamento recebido” quando relacionado à fatura/cartão, “fatura paga” e equivalentes. A palavra “pagamento” isolada não será suficiente.
 2. Separar pagamentos durante o diagnóstico: eles não participam do matching nem do valor oficial, enquanto créditos e estornos legítimos permanecem com sinal negativo.
 3. Normalizar os totais: valor oficial líquido das linhas financeiras e total líquido de todos os movimentos pertencentes à fatura selecionada, sem depender apenas dos itens já correspondidos.
 4. Expor a quantidade e o valor de pagamentos identificados no arquivo, sem tratá-los como compras ou como o total da fatura.
