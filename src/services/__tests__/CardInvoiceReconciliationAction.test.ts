@@ -74,6 +74,8 @@ function result(items: InvoiceReconciliationItem[]): InvoiceReconciliationResult
     official_invoice_total: 100,
     matched_total: 100,
     difference: 0,
+    payment_count: 0,
+    payment_total: 0,
     matched_count: 0,
     missing_in_system_count: items.filter((i) => i.status === "MISSING_IN_SYSTEM").length,
     missing_in_invoice_count: items.filter((i) => i.status === "MISSING_IN_INVOICE").length,
