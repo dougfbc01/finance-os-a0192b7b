@@ -70,6 +70,7 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
   const marketValue = asset.market_value ?? null;
   const appreciation = asset.appreciation ?? null;
   const appreciationPercent = asset.appreciation_percent ?? null;
+  const positionSummary = InvestmentServiceImpl.positionSummary(asset, movements);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -120,6 +121,51 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               value={`${formatCurrency(detail.profit, asset.currency)} (${detail.profitPercent.toFixed(2)}%)`}
             />
           </DialogSection>
+
+          {positionSummary && (
+            <DialogSection title="Posição atual">
+              <Row
+                label="Quantidade atual"
+                value={positionSummary.quantity.toLocaleString("pt-BR", {
+                  maximumFractionDigits: 8,
+                })}
+              />
+              <Row
+                label="Custo histórico total"
+                value={formatCurrency(positionSummary.historicalCost, asset.currency)}
+              />
+              <Row
+                label="Preço médio"
+                value={
+                  positionSummary.quantity > 0
+                    ? formatCurrency(positionSummary.averagePrice, asset.currency)
+                    : "—"
+                }
+              />
+              {positionSummary.quote === null ? (
+                <Row label="Cotação atual" value="Cotação indisponível" />
+              ) : (
+                <>
+                  <Row
+                    label="Cotação atual"
+                    value={formatCurrency(positionSummary.quote, positionSummary.quoteCurrency)}
+                  />
+                  <Row
+                    label="Valor atual da posição"
+                    value={formatCurrency(positionSummary.marketValue ?? 0, asset.currency)}
+                  />
+                  <Row
+                    label="Resultado"
+                    value={formatCurrency(positionSummary.result ?? 0, asset.currency)}
+                  />
+                  <Row
+                    label="Resultado em %"
+                    value={`${(positionSummary.resultPercent ?? 0).toFixed(2)}%`}
+                  />
+                </>
+              )}
+            </DialogSection>
+          )}
 
           <DialogSection title="Posição e custo">
             {detail.position.quantity > 0 && (

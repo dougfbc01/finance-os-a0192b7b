@@ -5,7 +5,12 @@ import { BaseService } from "./BaseService";
 import { AssetServiceImpl } from "./AssetService";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
 import type { AssetPosition } from "./AssetValuationService";
-import { INVESTMENT_ASSET_TYPES, InvestmentOperation } from "@/constants/enums";
+import {
+  AssetValuationSource,
+  INVESTMENT_ASSET_TYPES,
+  InvestmentOperation,
+} from "@/constants/enums";
+import type { QuotedAsset } from "./MarketQuotationService";
 import type { Asset, Movement } from "@/models";
 
 export interface InvestmentRow {
@@ -38,7 +43,54 @@ export interface AssetDetail {
   profitPercent: number;
 }
 
+export interface InvestmentPositionSummary {
+  quantity: number;
+  historicalCost: number;
+  averagePrice: number;
+  quote: number | null;
+  quoteCurrency: string;
+  marketValue: number | null;
+  result: number | null;
+  resultPercent: number | null;
+}
+
 class InvestmentServiceImpl extends BaseService {
+  /**
+   * Resumo estritamente derivado da posição reconstruída e da cotação existente.
+   * Ativos ACCOUNT não representam uma posição cotada e nunca entram neste cálculo.
+   */
+  static positionSummary(
+    asset: Asset & Partial<QuotedAsset>,
+    movements: Movement[] = [],
+  ): InvestmentPositionSummary | null {
+    if (asset.valuation_source !== AssetValuationSource.MOVEMENTS) return null;
+
+    const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
+    const quotePrice = Number(asset.quote?.price);
+    const hasPosition = position.quantity > 0 && position.cost > 0;
+    const hasQuote = !!asset.quote && Number.isFinite(quotePrice) && quotePrice > 0;
+    const canCalculate = hasPosition && hasQuote;
+    const marketValue = canCalculate
+      ? Number((position.quantity * quotePrice).toFixed(2))
+      : null;
+    const result = marketValue === null ? null : Number((marketValue - position.cost).toFixed(2));
+    const resultPercent =
+      result === null
+        ? null
+        : Number(((result / position.cost) * 100).toFixed(2));
+
+    return {
+      quantity: position.quantity,
+      historicalCost: position.cost,
+      averagePrice: position.averagePrice,
+      quote: hasQuote ? quotePrice : null,
+      quoteCurrency: asset.quote?.currency || asset.currency,
+      marketValue,
+      result,
+      resultPercent,
+    };
+  }
+
   /**
    * Sprint 4.6 — detalhe de um ativo para o drill-down patrimonial.
    * Não recalcula patrimônio: consome os valores já resolvidos pelo
