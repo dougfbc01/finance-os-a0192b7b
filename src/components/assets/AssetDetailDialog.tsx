@@ -142,28 +142,38 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
                     : "—"
                 }
               />
-              {positionSummary.quote === null ? (
-                <Row label="Cotação atual" value="Cotação indisponível" />
-              ) : (
-                <>
-                  <Row
-                    label="Cotação atual"
-                    value={formatCurrency(positionSummary.quote, positionSummary.quoteCurrency)}
-                  />
-                  <Row
-                    label="Valor atual da posição"
-                    value={formatCurrency(positionSummary.marketValue ?? 0, asset.currency)}
-                  />
-                  <Row
-                    label="Resultado"
-                    value={formatCurrency(positionSummary.result ?? 0, asset.currency)}
-                  />
-                  <Row
-                    label="Resultado em %"
-                    value={`${(positionSummary.resultPercent ?? 0).toFixed(2)}%`}
-                  />
-                </>
-              )}
+              <Row
+                label="Cotação atual"
+                value={
+                  positionSummary.quote === null
+                    ? "Cotação indisponível"
+                    : formatCurrency(positionSummary.quote, positionSummary.quoteCurrency)
+                }
+              />
+              <Row
+                label="Valor atual da posição"
+                value={
+                  positionSummary.marketValue === null
+                    ? "—"
+                    : formatCurrency(positionSummary.marketValue, asset.currency)
+                }
+              />
+              <Row
+                label="Resultado"
+                value={
+                  positionSummary.result === null
+                    ? "—"
+                    : formatCurrency(positionSummary.result, asset.currency)
+                }
+              />
+              <Row
+                label="Resultado em %"
+                value={
+                  positionSummary.resultPercent === null
+                    ? "—"
+                    : `${positionSummary.resultPercent.toFixed(2)}%`
+                }
+              />
             </DialogSection>
           )}
 
