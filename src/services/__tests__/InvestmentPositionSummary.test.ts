@@ -138,6 +138,18 @@ describe("Sprint 4.16A — resumo da posição atual", () => {
     expect(summary).toMatchObject({ quote: null, marketValue: null, result: null, resultPercent: null });
   });
 
+  it("não calcula valor ou resultado sem posição suficiente", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), []);
+    expect(summary).toMatchObject({
+      quantity: 0,
+      historicalCost: 0,
+      quote: 35,
+      marketValue: null,
+      result: null,
+      resultPercent: null,
+    });
+  });
+
   it("não trata ativo ACCOUNT como posição cotada", () => {
     const summary = InvestmentServiceImpl.positionSummary(
       asset({ valuation_source: AssetValuationSource.ACCOUNT, account_id: "account-1" }),
