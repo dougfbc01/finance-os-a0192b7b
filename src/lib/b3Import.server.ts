@@ -14,5 +14,8 @@ export function parseB3Workbook(bytes: Uint8Array): B3RawRow[] {
 
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { raw: true, defval: null });
   if (!rows.length) throw new Error('A aba "Movimentação" não possui linhas para processar.');
-  return rows.map((row) => Object.fromEntries(B3_REQUIRED_COLUMNS.map((column) => [column, row[column]])) as unknown as B3RawRow);
+  return rows.map((row) => Object.fromEntries(B3_REQUIRED_COLUMNS.map((column) => {
+    const value = row[column];
+    return [column, value instanceof Date ? value.toISOString() : typeof value === "string" || typeof value === "number" ? value : null];
+  })) as unknown as B3RawRow);
 }

@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
+import { FileSpreadsheet, Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -69,6 +69,11 @@ function InvestimentosPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/investimentos/importar-b3">
+              <FileSpreadsheet className="mr-1 h-4 w-4" /> Importar B3
+            </Link>
+          </Button>
           {hasQuotableAssets && (
             <QuoteRefreshButton
               isFetching={isQuotesFetching}

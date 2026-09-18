@@ -65,14 +65,14 @@ export interface B3ProductReference {
 }
 
 export interface B3RawRow {
-  "Entrada/Saída": unknown;
-  Data: unknown;
-  Movimentação: unknown;
-  Produto: unknown;
-  Instituição: unknown;
-  Quantidade: unknown;
-  "Preço unitário": unknown;
-  "Valor da Operação": unknown;
+  "Entrada/Saída": string | number | null;
+  Data: string | number | null;
+  Movimentação: string | number | null;
+  Produto: string | number | null;
+  Instituição: string | number | null;
+  Quantidade: string | number | null;
+  "Preço unitário": string | number | null;
+  "Valor da Operação": string | number | null;
 }
 
 export interface B3PreviewRow {
