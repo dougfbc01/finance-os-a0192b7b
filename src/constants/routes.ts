@@ -9,6 +9,7 @@ export const ROUTES = {
   MOVIMENTACOES: "/movimentacoes",
   CARTOES: "/cartoes",
   INVESTIMENTOS: "/investimentos",
+  INVESTIMENTOS_IMPORTAR_B3: "/investimentos/importar-b3",
   PATRIMONIO: "/patrimonio",
   PLANEJAMENTO: "/planejamento",
   RELATORIOS: "/relatorios",
