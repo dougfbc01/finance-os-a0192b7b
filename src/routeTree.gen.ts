@@ -32,6 +32,7 @@ import { Route as AuthenticatedCompromissosRouteImport } from './routes/_authent
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedInvestimentosImportarB3RouteImport } from './routes/_authenticated/investimentos_.importar-b3'
 import { Route as AuthenticatedContasAccountIdRouteImport } from './routes/_authenticated/contas_.$accountId'
 import { Route as ApiPublicHooksHealthCheckRouteImport } from './routes/api/public/hooks/health-check'
 import { Route as AuthenticatedImportacoesRevisaoImportIdRouteImport } from './routes/_authenticated/importacoes_.revisao.$importId'
@@ -160,6 +161,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInvestimentosImportarB3Route =
+  AuthenticatedInvestimentosImportarB3RouteImport.update({
+    id: '/investimentos_/importar-b3',
+    path: '/investimentos/importar-b3',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContasAccountIdRoute =
   AuthenticatedContasAccountIdRouteImport.update({
     id: '/contas_/$accountId',
@@ -209,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/contas/$accountId': typeof AuthenticatedContasAccountIdRoute
+  '/investimentos/importar-b3': typeof AuthenticatedInvestimentosImportarB3Route
   '/importacoes/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
   '/cartoes/faturas/$invoiceId/conciliacao': typeof AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/contas/$accountId': typeof AuthenticatedContasAccountIdRoute
+  '/investimentos/importar-b3': typeof AuthenticatedInvestimentosImportarB3Route
   '/importacoes/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
   '/cartoes/faturas/$invoiceId/conciliacao': typeof AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute
@@ -267,6 +276,7 @@ export interface FileRoutesById {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_authenticated/contas_/$accountId': typeof AuthenticatedContasAccountIdRoute
+  '/_authenticated/investimentos_/importar-b3': typeof AuthenticatedInvestimentosImportarB3Route
   '/_authenticated/importacoes_/revisao/$importId': typeof AuthenticatedImportacoesRevisaoImportIdRoute
   '/api/public/hooks/health-check': typeof ApiPublicHooksHealthCheckRoute
   '/_authenticated/cartoes_/faturas/$invoiceId/conciliacao': typeof AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/contas/$accountId'
+    | '/investimentos/importar-b3'
     | '/importacoes/revisao/$importId'
     | '/api/public/hooks/health-check'
     | '/cartoes/faturas/$invoiceId/conciliacao'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/contas/$accountId'
+    | '/investimentos/importar-b3'
     | '/importacoes/revisao/$importId'
     | '/api/public/hooks/health-check'
     | '/cartoes/faturas/$invoiceId/conciliacao'
@@ -354,6 +366,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/_authenticated/contas_/$accountId'
+    | '/_authenticated/investimentos_/importar-b3'
     | '/_authenticated/importacoes_/revisao/$importId'
     | '/api/public/hooks/health-check'
     | '/_authenticated/cartoes_/faturas/$invoiceId/conciliacao'
@@ -529,6 +542,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/investimentos_/importar-b3': {
+      id: '/_authenticated/investimentos_/importar-b3'
+      path: '/investimentos/importar-b3'
+      fullPath: '/investimentos/importar-b3'
+      preLoaderRoute: typeof AuthenticatedInvestimentosImportarB3RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contas_/$accountId': {
       id: '/_authenticated/contas_/$accountId'
       path: '/contas/$accountId'
@@ -580,6 +600,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedTransferenciasPendentesRoute: typeof AuthenticatedTransferenciasPendentesRoute
   AuthenticatedContasAccountIdRoute: typeof AuthenticatedContasAccountIdRoute
+  AuthenticatedInvestimentosImportarB3Route: typeof AuthenticatedInvestimentosImportarB3Route
   AuthenticatedImportacoesRevisaoImportIdRoute: typeof AuthenticatedImportacoesRevisaoImportIdRoute
   AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute: typeof AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute
 }
@@ -605,6 +626,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTransferenciasPendentesRoute:
     AuthenticatedTransferenciasPendentesRoute,
   AuthenticatedContasAccountIdRoute: AuthenticatedContasAccountIdRoute,
+  AuthenticatedInvestimentosImportarB3Route:
+    AuthenticatedInvestimentosImportarB3Route,
   AuthenticatedImportacoesRevisaoImportIdRoute:
     AuthenticatedImportacoesRevisaoImportIdRoute,
   AuthenticatedCartoesFaturasInvoiceIdConciliacaoRoute:
