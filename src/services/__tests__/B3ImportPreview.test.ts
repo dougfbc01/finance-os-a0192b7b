@@ -144,7 +144,7 @@ describe("Sprint 4.17A — parser B3", () => {
 
   it("rejeita a aba Movimentação vazia", () => {
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([B3_REQUIRED_COLUMNS]), "Movimentação");
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([[...B3_REQUIRED_COLUMNS]]), "Movimentação");
     const bytes = new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }));
     expect(() => parseB3Workbook(bytes)).toThrow("não possui linhas");
   });
