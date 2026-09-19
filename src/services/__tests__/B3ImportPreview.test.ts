@@ -24,7 +24,10 @@ const baseRow = (overrides: Partial<B3RawRow> = {}): B3RawRow => ({
 });
 
 function workbook(rows: B3RawRow[], sheetName = "Movimentação", headers = [...B3_REQUIRED_COLUMNS]) {
-  const sheet = XLSX.utils.json_to_sheet(rows, { header: headers as string[] });
+  const sheet = XLSX.utils.aoa_to_sheet([
+    headers,
+    ...rows.map((row) => headers.map((header) => row[header as keyof B3RawRow])),
+  ]);
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, sheetName);
   return new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }));
