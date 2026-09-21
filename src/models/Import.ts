@@ -1,6 +1,6 @@
 import type { UUID, ISODateString } from "./index";
 
-export type ImportSource = "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL";
+export type ImportSource = "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL" | "B3";
 export type ImportStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "PARTIAL";
 
 export interface ImportLogEntry {
@@ -30,6 +30,7 @@ export interface ImportRecord {
   reviewed_by: UUID | null;
   created_at: ISODateString;
   updated_at: ISODateString;
+  batch_ref?: string | null;
 }
 
 export interface CreateImportInput {
@@ -39,4 +40,5 @@ export interface CreateImportInput {
   file_name: string;
   file_hash: string;
   imported_by?: UUID | null;
+  batch_ref?: string | null;
 }

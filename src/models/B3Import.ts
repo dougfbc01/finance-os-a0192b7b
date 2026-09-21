@@ -113,6 +113,32 @@ export interface B3PreviewResult {
   eventCounts: Array<{ type: string; count: number }>;
 }
 
+export type B3CommitItemStatus = "IMPORTED" | "ALREADY_IMPORTED" | "PENDING_REVIEW" | "ERROR";
+
+export interface B3CommitItemResult {
+  index: number;
+  fingerprint: string;
+  status: B3CommitItemStatus;
+  movementId: UUID | null;
+  message: string;
+}
+
+export interface B3CommitResult {
+  importId: UUID;
+  batchRef: string;
+  imported: number;
+  alreadyImported: number;
+  notImported: number;
+  assetsFound: number;
+  assetsNotFound: number;
+  eventCounts: Array<{ type: string; count: number }>;
+  cashMovementsCreated: 0;
+  incomesCreated: 0;
+  expensesCreated: 0;
+  transfersCreated: 0;
+  items: B3CommitItemResult[];
+}
+
 export interface B3AssetReference {
   id: UUID;
   ticker: string | null;
