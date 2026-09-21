@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 import { B3ImportService } from "@/services/B3ImportService";
 import { B3ImportCommitService } from "@/services/B3ImportCommitService";
 import type { B3AssetReference, B3CommitItemResult, B3CommitResult } from "@/models/B3Import";
@@ -16,7 +18,9 @@ const commitSchema = inputSchema.extend({
   selectedIndexes: z.array(z.number().int().nonnegative()).min(1),
 });
 
-const validateWorkspace = async (supabase: Parameters<typeof validateWorkspace>[0], workspaceId: string) => {
+type AuthenticatedClient = SupabaseClient<Database>;
+
+const validateWorkspace = async (supabase: AuthenticatedClient, workspaceId: string) => {
   const { data, error } = await supabase
     .from("workspaces")
     .select("id")
@@ -27,7 +31,7 @@ const validateWorkspace = async (supabase: Parameters<typeof validateWorkspace>[
   if (!data) throw new Error("Workspace não encontrado ou sem acesso.");
 };
 
-const loadAssets = async (supabase: Parameters<typeof validateWorkspace>[0], workspaceId: string) => {
+const loadAssets = async (supabase: AuthenticatedClient, workspaceId: string) => {
   const { data, error } = await supabase
     .from("assets")
     .select("id,ticker,name")
