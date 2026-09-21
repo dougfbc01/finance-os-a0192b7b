@@ -27,10 +27,11 @@ export interface B3MovementPayload {
 }
 
 const incomeEvents = new Set(["DIVIDEND", "JCP", "YIELD", "CAPITAL_RETURN"]);
-const quantityEvents = new Set(["BONUS", "SPLIT", "REVERSE_SPLIT", "TRANSFER", "TRANSFER_SETTLEMENT"]);
+const quantityEvents = new Set(["BONUS", "SPLIT", "REVERSE_SPLIT"]);
 const neutralEvents = new Set([
   "UPDATE", "INCORPORATION", "SUBSCRIPTION_RIGHT", "SUBSCRIPTION_RIGHT_NOT_EXERCISED",
   "RIGHTS_ASSIGNMENT", "RIGHTS_ASSIGNMENT_REQUESTED", "FRACTION", "FRACTION_AUCTION",
+  "TRANSFER", "TRANSFER_SETTLEMENT",
 ]);
 
 const directionTag = (direction: string | null) =>

@@ -180,13 +180,15 @@ class AssetValuationServiceImpl extends BaseService {
         const avg = quantity > 0 ? cost / quantity : 0;
         const soldQty = Math.min(qty, quantity);
         const releasedCost = soldQty > 0 ? avg * soldQty : Math.min(amount, cost);
+        const historicalShare = cost > 0 ? historicalCost / cost : 0;
+        const releasedHistoricalCost = releasedCost * historicalShare;
         quantity -= soldQty;
         cost -= releasedCost;
         realizedValue += amount;
         realizedResult += amount - releasedCost;
         if (cost < 0) cost = 0;
-        if (m.is_historical) historicalCost -= Math.min(amount, historicalCost);
-        else currentCost -= Math.min(amount, currentCost);
+        historicalCost = Math.max(0, historicalCost - releasedHistoricalCost);
+        currentCost = Math.max(0, currentCost - (releasedCost - releasedHistoricalCost));
       } else if (op === InvestmentOperation.RENDIMENTO) {
         yieldsTotal += AssetValuationServiceImpl.deltaForAsset(m);
       } else if (op === InvestmentOperation.AJUSTE_QUANTIDADE) {

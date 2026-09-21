@@ -8,11 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useBuildB3Preview } from "@/hooks/useB3Import";
+import { useBuildB3Preview, useCommitB3Import } from "@/hooks/useB3Import";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { formatCurrency } from "@/lib/format";
-import type { B3Group, B3IdentificationStatus, B3PreviewResult, B3PreviewRow, B3RowStatus } from "@/models/B3Import";
+import type { B3CommitResult, B3Group, B3IdentificationStatus, B3PreviewResult, B3PreviewRow, B3RowStatus } from "@/models/B3Import";
+import { B3ImportCommitService } from "@/services/B3ImportCommitService";
 
 const GROUP_LABELS: Record<B3Group, string> = {
   B3_INCOME: "Rendimento",
@@ -43,8 +49,13 @@ const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
 export function B3ImportPreview() {
   const { data: workspace } = useWorkspace();
   const previewMutation = useBuildB3Preview();
+  const commitMutation = useCommitB3Import();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<B3PreviewResult | null>(null);
+  const [fileBase64, setFileBase64] = useState("");
+  const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [commitResult, setCommitResult] = useState<B3CommitResult | null>(null);
   const [selected, setSelected] = useState<B3PreviewRow | null>(null);
   const [dragging, setDragging] = useState(false);
   const [search, setSearch] = useState("");
@@ -61,13 +72,17 @@ export function B3ImportPreview() {
     if (!file.name.toLowerCase().endsWith(".xlsx")) return toast.error("Selecione o Excel .xlsx exportado pela B3.");
     if (file.size > 12 * 1024 * 1024) return toast.error("O arquivo deve ter no máximo 12 MB.");
     try {
+      const encoded = await fileToBase64(file);
       const result = await previewMutation.mutateAsync({
         workspaceId: workspace.id,
         fileName: file.name,
-        fileBase64: await fileToBase64(file),
+        fileBase64: encoded,
       });
       setPreview(result);
-      toast.success(`${result.totals.total.toLocaleString("pt-BR")} linhas analisadas sem gravar dados.`);
+      setFileBase64(encoded);
+      setCommitResult(null);
+      setSelectedIndexes(new Set(result.rows.filter((row) => B3ImportCommitService.eligibility(row).status === "IMPORTED" && !row.possibleDuplicate).map((row) => row.index)));
+      toast.success(`${result.totals.total.toLocaleString("pt-BR")} linhas analisadas.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao analisar o Excel B3.");
     }
@@ -90,6 +105,33 @@ export function B3ImportPreview() {
 
   const types = useMemo(() => [...new Set((preview?.rows ?? []).map((row) => row.movementType))].filter(Boolean).sort(), [preview]);
   const tickers = useMemo(() => [...new Set((preview?.rows ?? []).map((row) => row.product.ticker).filter((ticker): ticker is string => !!ticker))].sort(), [preview]);
+  const eligibleIndexes = useMemo(() => rows.filter((row) => B3ImportCommitService.eligibility(row).status === "IMPORTED").map((row) => row.index), [rows]);
+  const selectedCount = selectedIndexes.size;
+  const allVisibleSelected = eligibleIndexes.length > 0 && eligibleIndexes.every((index) => selectedIndexes.has(index));
+
+  const toggleRow = (index: number, checked: boolean) => setSelectedIndexes((current) => {
+    const next = new Set(current);
+    if (checked) next.add(index); else next.delete(index);
+    return next;
+  });
+
+  const toggleVisible = (checked: boolean) => setSelectedIndexes((current) => {
+    const next = new Set(current);
+    eligibleIndexes.forEach((index) => checked ? next.add(index) : next.delete(index));
+    return next;
+  });
+
+  const commitImport = async () => {
+    if (!workspace?.id || !preview || !fileBase64 || selectedCount === 0) return;
+    try {
+      const result = await commitMutation.mutateAsync({ workspaceId: workspace.id, fileName: preview.fileName, fileBase64, selectedIndexes: [...selectedIndexes] });
+      setCommitResult(result);
+      setConfirmOpen(false);
+      toast.success(`${result.imported} eventos históricos importados.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao importar o histórico B3.");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -101,7 +143,7 @@ export function B3ImportPreview() {
           <h1 className="text-2xl font-bold tracking-tight">Importação B3</h1>
           <p className="text-sm text-muted-foreground">Analise movimentações da B3 antes de qualquer decisão financeira.</p>
         </div>
-        <Badge variant="outline" className="gap-2 self-start py-1.5"><Info className="h-3.5 w-3.5" /> Somente preview · nenhum dado será gravado</Badge>
+        <Badge variant="outline" className="gap-2 self-start py-1.5"><Info className="h-3.5 w-3.5" /> Histórico de investimentos · caixa isolado</Badge>
       </div>
 
       {!preview ? (
@@ -133,14 +175,37 @@ export function B3ImportPreview() {
             <Metric label="Com alerta" value={preview.totals.warnings} tone="warning" />
             <Metric label="Não classificadas" value={preview.totals.unclassified} tone="danger" />
             <Metric label="Ativos encontrados" value={preview.totals.assetsFound} />
-            <Metric label="Não encontrados" value={preview.totals.assetsNotFound} />
+              <Metric label="Não encontrados" value={preview.totals.assetsNotFound} />
           </div>
+
+          {commitResult ? (
+            <Card>
+              <CardHeader><CardTitle>Importação concluída · {commitResult.batchRef}</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <Metric label="Importadas" value={commitResult.imported} tone="positive" />
+                  <Metric label="Já existentes" value={commitResult.alreadyImported} tone="warning" />
+                  <Metric label="Não importadas" value={commitResult.notImported} tone="danger" />
+                  <Metric label="Ativos não encontrados" value={commitResult.assetsNotFound} />
+                </div>
+                <div className="border p-4 text-sm">
+                  <p className="font-medium">Impacto financeiro explícito</p>
+                  <p className="mt-2 text-muted-foreground">Movimentos de caixa: 0 · Receitas: 0 · Despesas: 0 · Transferências: 0</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-3 border bg-muted/30 p-4 md:flex-row md:items-center md:justify-between">
+              <div><p className="font-medium">{selectedCount.toLocaleString("pt-BR")} eventos selecionados</p><p className="text-sm text-muted-foreground">Somente histórico de investimento. Nenhuma receita, despesa, transferência ou alteração de saldo.</p></div>
+              <Button onClick={() => setConfirmOpen(true)} disabled={selectedCount === 0}><CheckCircle2 /> Revisar e importar</Button>
+            </div>
+          )}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0">
                 <div><CardTitle>Linhas processadas</CardTitle><p className="mt-1 text-sm text-muted-foreground">{rows.length.toLocaleString("pt-BR")} de {preview.rows.length.toLocaleString("pt-BR")}</p></div>
-                <Button variant="outline" onClick={() => setPreview(null)}><Upload /> Outro arquivo</Button>
+                <Button variant="outline" onClick={() => { setPreview(null); setCommitResult(null); setSelectedIndexes(new Set()); setFileBase64(""); }}><Upload /> Outro arquivo</Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
@@ -155,10 +220,11 @@ export function B3ImportPreview() {
                 <div className="max-h-[620px] overflow-auto border">
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-background"><TableRow>
-                      <TableHead>Data</TableHead><TableHead>Produto original</TableHead><TableHead>Ticker</TableHead><TableHead>Instituição</TableHead><TableHead>Movimentação B3</TableHead><TableHead>Grupo interno</TableHead><TableHead>Entrada/Saída</TableHead><TableHead className="text-right">Quantidade</TableHead><TableHead className="text-right">Preço unitário</TableHead><TableHead className="text-right">Valor da Operação</TableHead><TableHead>Ativo encontrado</TableHead><TableHead>Status</TableHead><TableHead>Observação</TableHead>
+                       <TableHead className="w-10"><Checkbox aria-label="Selecionar linhas elegíveis visíveis" checked={allVisibleSelected} onCheckedChange={(value) => toggleVisible(!!value)} /></TableHead><TableHead>Data</TableHead><TableHead>Produto original</TableHead><TableHead>Ticker</TableHead><TableHead>Instituição</TableHead><TableHead>Movimentação B3</TableHead><TableHead>Grupo interno</TableHead><TableHead>Entrada/Saída</TableHead><TableHead className="text-right">Quantidade</TableHead><TableHead className="text-right">Preço unitário</TableHead><TableHead className="text-right">Valor da Operação</TableHead><TableHead>Ativo encontrado</TableHead><TableHead>Status</TableHead><TableHead>Observação</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>{rows.map((row) => (
                       <TableRow key={row.index} className="cursor-pointer" onClick={() => setSelected(row)}>
+                        <TableCell onClick={(event) => event.stopPropagation()}><Checkbox aria-label={`Selecionar linha ${row.index + 2}`} checked={selectedIndexes.has(row.index)} disabled={B3ImportCommitService.eligibility(row).status !== "IMPORTED" || !!commitResult} onCheckedChange={(value) => toggleRow(row.index, !!value)} /></TableCell>
                         <TableCell className="whitespace-nowrap tabular-nums">{formatDate(row.date)}</TableCell>
                         <TableCell className="min-w-60 font-medium">{row.product.rawProduct}</TableCell>
                         <TableCell>{row.product.ticker ?? "—"}</TableCell>
@@ -194,6 +260,22 @@ export function B3ImportPreview() {
           {selected && <RowDetail row={selected} />}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Importar {selectedCount.toLocaleString("pt-BR")} eventos históricos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta importação adicionará somente eventos históricos de investimento. Não serão criadas receitas, despesas, transferências ou alterações de saldo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="border p-3"><span className="text-muted-foreground">Novas selecionadas</span><strong className="mt-1 block text-lg tabular-nums">{selectedCount}</strong></div>
+            <div className="border p-3"><span className="text-muted-foreground">Com alerta no arquivo</span><strong className="mt-1 block text-lg tabular-nums">{preview?.totals.warnings ?? 0}</strong></div>
+          </div>
+          <AlertDialogFooter><AlertDialogCancel>Voltar</AlertDialogCancel><AlertDialogAction onClick={() => void commitImport()} disabled={commitMutation.isPending}>{commitMutation.isPending ? "Importando…" : "Confirmar importação"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -223,7 +305,7 @@ function RowDetail({ row }: { row: B3PreviewRow }) {
         ["Ticker", row.product.ticker ?? "Não identificado"], ["Ativo", row.product.assetName ? `${row.product.assetName} — encontrado` : IDENTIFICATION_LABELS[row.product.identificationStatus]], ["Grupo", row.group], ["Classificação", row.event], ["Impacto em caixa", IMPACT_LABELS[row.cashImpact]], ["Impacto na posição", IMPACT_LABELS[row.positionImpact]], ["Natureza", GROUP_LABELS[row.group]], ["Status", STATUS_LABELS[row.status]],
       ]} />
       <div className="border-l-2 border-primary pl-4"><p className="text-sm font-medium">Por que esta interpretação?</p><p className="mt-1 text-sm text-muted-foreground">{row.observation}</p>{[...row.errors, ...row.warnings].map((message) => <p key={message} className="mt-2 text-sm">• {message}</p>)}</div>
-      <p className="text-xs text-muted-foreground">Impactos exibidos são apenas diagnósticos. Nenhuma movimentação, ativo ou posição foi alterada.</p>
+      <p className="text-xs text-muted-foreground">A importação cria somente eventos históricos confirmados. Caixa, contas, cartões e faturas permanecem inalterados.</p>
     </div>
   </>;
 }

@@ -165,3 +165,51 @@ describe("Sprint 4.16A — resumo da posição atual", () => {
     expect(MovementServiceImpl.impactOnAccount(historical, "account-1")).toBe(0);
   });
 });
+
+describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
+  it("calcula retorno acumulado de R$ 1.800 e 18%", () => {
+    const summary = InvestmentServiceImpl.positionSummary(
+      asset({ quote: { ...asset().quote!, price: 112.5 } }),
+      [
+        movement({ amount: 10000, quantity: 100, is_historical: true, account_id: null }),
+        movement({ amount: 2000, quantity: 20, tags: ["op:RESGATE"], is_historical: true, account_id: null, transaction_date: "2026-02-10" }),
+        movement({ amount: 800, quantity: null, type: MovementType.DIVIDEND, tags: ["op:RENDIMENTO"], is_historical: true, account_id: null, transaction_date: "2026-03-10" }),
+      ],
+    );
+    expect(summary).toMatchObject({ investedCapital: 10000, realizedValue: 2000, incomeReceived: 800, marketValue: 9000, economicReturn: 1800, economicReturnPercent: 18 });
+  });
+
+  it("preserva o ativo quando a posição chega a zero", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10, is_historical: true }),
+      movement({ amount: 1200, quantity: 10, tags: ["op:RESGATE"], is_historical: true, transaction_date: "2026-02-10" }),
+    ]);
+    expect(summary).toMatchObject({ quantity: 0, historicalCost: 0, realizedValue: 1200, economicReturn: 200, economicReturnPercent: 20 });
+  });
+
+  it("permite recompra após posição zero sem recriar o ativo", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset({ quote: { ...asset().quote!, price: 60 } }), [
+      movement({ amount: 1000, quantity: 10 }),
+      movement({ amount: 1100, quantity: 10, tags: ["op:RESGATE"], transaction_date: "2026-02-10" }),
+      movement({ amount: 500, quantity: 10, transaction_date: "2026-03-10" }),
+    ]);
+    expect(summary).toMatchObject({ quantity: 10, historicalCost: 500, averagePrice: 50, marketValue: 600 });
+  });
+
+  it.each([
+    ["BONUS", "qty:INCREASE", 12],
+    ["SPLIT", "qty:INCREASE", 12],
+    ["REVERSE_SPLIT", "qty:DECREASE", 8],
+  ])("aplica %s à quantidade sem duplicar custo", (event, direction, expected) => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10 }),
+      movement({ amount: 0, quantity: 2, type: MovementType.ADJUSTMENT, tags: ["op:AJUSTE_QUANTIDADE", `b3:event:${event}`, direction], transaction_date: "2026-02-10" }),
+    ]);
+    expect(summary?.quantity).toBe(expected);
+    expect(summary?.historicalCost).toBe(1000);
+  });
+
+  it("não inventa retorno econômico para posição aberta sem cotação", () => {
+    expect(InvestmentServiceImpl.positionSummary(asset({ quote: null }), [movement()])?.economicReturn).toBeNull();
+  });
+});
