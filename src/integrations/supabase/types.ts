@@ -184,6 +184,95 @@ export type Database = {
           },
         ]
       }
+      b3_import_items: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          error: string | null
+          event: string
+          event_group: string
+          fingerprint: string
+          id: string
+          import_id: string
+          institution: string | null
+          movement_id: string | null
+          original_type: string
+          raw_row: Json
+          row_index: number
+          status: string
+          ticker: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          error?: string | null
+          event: string
+          event_group: string
+          fingerprint: string
+          id?: string
+          import_id: string
+          institution?: string | null
+          movement_id?: string | null
+          original_type: string
+          raw_row: Json
+          row_index: number
+          status: string
+          ticker?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          error?: string | null
+          event?: string
+          event_group?: string
+          fingerprint?: string
+          id?: string
+          import_id?: string
+          institution?: string | null
+          movement_id?: string | null
+          original_type?: string
+          raw_row?: Json
+          row_index?: number
+          status?: string
+          ticker?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "b3_import_items_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "b3_import_items_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "b3_import_items_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "b3_import_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_invoices: {
         Row: {
           amount: number
@@ -983,6 +1072,7 @@ export type Database = {
       imports: {
         Row: {
           account_id: string | null
+          batch_ref: string | null
           created_at: string
           duplicated_rows: number
           file_hash: string
@@ -1003,6 +1093,7 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          batch_ref?: string | null
           created_at?: string
           duplicated_rows?: number
           file_hash: string
@@ -1023,6 +1114,7 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          batch_ref?: string | null
           created_at?: string
           duplicated_rows?: number
           file_hash?: string
@@ -1935,7 +2027,12 @@ export type Database = {
         | "INVESTMENT"
         | "PATRIMONY"
         | "CUSTOM"
-      import_source: "NUBANK_ACCOUNT" | "NUBANK_CREDIT_CARD" | "OFX" | "MANUAL"
+      import_source:
+        | "NUBANK_ACCOUNT"
+        | "NUBANK_CREDIT_CARD"
+        | "OFX"
+        | "MANUAL"
+        | "B3"
       import_status:
         | "PENDING"
         | "PROCESSING"
@@ -2146,7 +2243,13 @@ export const Constants = {
         "PATRIMONY",
         "CUSTOM",
       ],
-      import_source: ["NUBANK_ACCOUNT", "NUBANK_CREDIT_CARD", "OFX", "MANUAL"],
+      import_source: [
+        "NUBANK_ACCOUNT",
+        "NUBANK_CREDIT_CARD",
+        "OFX",
+        "MANUAL",
+        "B3",
+      ],
       import_status: [
         "PENDING",
         "PROCESSING",
