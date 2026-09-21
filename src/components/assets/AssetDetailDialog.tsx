@@ -174,6 +174,13 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
                     : `${positionSummary.resultPercent.toFixed(2)}%`
                 }
               />
+              <Row label="Capital investido" value={formatCurrency(positionSummary.investedCapital, asset.currency)} />
+              <Row label="Valores realizados" value={formatCurrency(positionSummary.realizedValue, asset.currency)} />
+              <Row label="Rendimentos históricos" value={formatCurrency(positionSummary.incomeReceived, asset.currency)} />
+              <Row
+                label="Retorno econômico acumulado"
+                value={positionSummary.economicReturn === null ? "—" : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${positionSummary.economicReturnPercent === null ? "" : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`}`}
+              />
             </DialogSection>
           )}
 
