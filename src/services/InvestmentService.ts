@@ -52,6 +52,11 @@ export interface InvestmentPositionSummary {
   marketValue: number | null;
   result: number | null;
   resultPercent: number | null;
+  investedCapital: number;
+  realizedValue: number;
+  incomeReceived: number;
+  economicReturn: number | null;
+  economicReturnPercent: number | null;
 }
 
 class InvestmentServiceImpl extends BaseService {
@@ -78,6 +83,13 @@ class InvestmentServiceImpl extends BaseService {
       result === null
         ? null
         : Number(((result / position.cost) * 100).toFixed(2));
+    const canCalculateEconomicReturn = position.quantity === 0 || marketValue !== null;
+    const economicReturn = canCalculateEconomicReturn
+      ? Number(((marketValue ?? 0) + position.realizedValue + position.yields - position.investedCapital).toFixed(2))
+      : null;
+    const economicReturnPercent = economicReturn === null || position.investedCapital <= 0
+      ? null
+      : Number(((economicReturn / position.investedCapital) * 100).toFixed(2));
 
     return {
       quantity: position.quantity,
@@ -88,6 +100,11 @@ class InvestmentServiceImpl extends BaseService {
       marketValue,
       result,
       resultPercent,
+      investedCapital: position.investedCapital,
+      realizedValue: position.realizedValue,
+      incomeReceived: position.yields,
+      economicReturn,
+      economicReturnPercent,
     };
   }
 

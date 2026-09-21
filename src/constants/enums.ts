@@ -404,6 +404,8 @@ export enum InvestmentOperation {
   RESGATE = "RESGATE",
   RENDIMENTO = "RENDIMENTO",
   AJUSTE = "AJUSTE",
+  AJUSTE_QUANTIDADE = "AJUSTE_QUANTIDADE",
+  EVENTO = "EVENTO",
 }
 
 export const INVESTMENT_OPERATION_LABELS: Record<InvestmentOperation, string> = {
@@ -411,6 +413,8 @@ export const INVESTMENT_OPERATION_LABELS: Record<InvestmentOperation, string> = 
   [InvestmentOperation.RESGATE]: "Resgate",
   [InvestmentOperation.RENDIMENTO]: "Rendimento",
   [InvestmentOperation.AJUSTE]: "Ajuste",
+  [InvestmentOperation.AJUSTE_QUANTIDADE]: "Ajuste de quantidade",
+  [InvestmentOperation.EVENTO]: "Evento B3",
 };
 
 export const INVESTMENT_OPERATION_OPTIONS = Object.values(InvestmentOperation).map((v) => ({

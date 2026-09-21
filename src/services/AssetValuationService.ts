@@ -63,6 +63,12 @@ export interface AssetPosition {
   yields: number;
   operations: number;
   historicalOperations: number;
+  /** Capital bruto aplicado em aquisições, sem descontar realizações. */
+  investedCapital: number;
+  /** Valores brutos recebidos em vendas, resgates e vencimentos. */
+  realizedValue: number;
+  /** Resultado realizado calculado pelo preço médio vigente em cada saída. */
+  realizedResult: number;
 }
 
 const EMPTY_IMPACT: AssetMovementImpact = { delta: 0, invested: 0, yields: 0, count: 0 };
@@ -153,6 +159,9 @@ class AssetValuationServiceImpl extends BaseService {
     let historicalCost = 0;
     let currentCost = 0;
     let yieldsTotal = 0;
+    let investedCapital = 0;
+    let realizedValue = 0;
+    let realizedResult = 0;
     const ordered = movements
       .filter((m) => m.asset_id === assetId && !m.deleted_at)
       .sort((a, b) => (a.transaction_date < b.transaction_date ? -1 : 1));
@@ -164,18 +173,25 @@ class AssetValuationServiceImpl extends BaseService {
       if (op === InvestmentOperation.APORTE) {
         quantity += qty;
         cost += amount;
+        investedCapital += amount;
         if (m.is_historical) historicalCost += amount;
         else currentCost += amount;
       } else if (op === InvestmentOperation.RESGATE) {
         const avg = quantity > 0 ? cost / quantity : 0;
         const soldQty = Math.min(qty, quantity);
+        const releasedCost = soldQty > 0 ? avg * soldQty : Math.min(amount, cost);
         quantity -= soldQty;
-        cost -= soldQty > 0 ? avg * soldQty : Math.min(amount, cost);
+        cost -= releasedCost;
+        realizedValue += amount;
+        realizedResult += amount - releasedCost;
         if (cost < 0) cost = 0;
         if (m.is_historical) historicalCost -= Math.min(amount, historicalCost);
         else currentCost -= Math.min(amount, currentCost);
       } else if (op === InvestmentOperation.RENDIMENTO) {
         yieldsTotal += AssetValuationServiceImpl.deltaForAsset(m);
+      } else if (op === InvestmentOperation.AJUSTE_QUANTIDADE) {
+        const direction = (m.tags ?? []).includes("qty:DECREASE") ? -1 : 1;
+        quantity = Math.max(0, quantity + direction * qty);
       }
     }
 
@@ -188,6 +204,9 @@ class AssetValuationServiceImpl extends BaseService {
       yields: Number(yieldsTotal.toFixed(2)),
       operations: ordered.length,
       historicalOperations: ordered.filter((m) => m.is_historical).length,
+      investedCapital: Number(investedCapital.toFixed(2)),
+      realizedValue: Number(realizedValue.toFixed(2)),
+      realizedResult: Number(realizedResult.toFixed(2)),
     };
   }
 

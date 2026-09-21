@@ -72,9 +72,12 @@ export class B3ImportService {
       if (product.identificationStatus === "AMBIGUOUS") warnings.push("Identificação do ativo ambígua.");
 
       const rowFingerprint = fingerprint([
-        product.ticker, parsedDate, movementType, quantity, unitPrice, operationValue, institution,
+        parsedDate, product.ticker ?? product.rawProduct, movementType, direction,
+        quantity, unitPrice, operationValue, institution,
       ]);
       seen.set(rowFingerprint, (seen.get(rowFingerprint) ?? 0) + 1);
+
+      if (classification.event === "BUY_SELL") warnings.push("Compra e venda não serão inferidas; revisão obrigatória.");
 
       const status: B3RowStatus = errors.length
         ? "INVALID"

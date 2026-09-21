@@ -39,6 +39,7 @@ class ImportHistoryServiceImpl extends BaseService {
         file_name: input.file_name,
         file_hash: input.file_hash,
         imported_by: input.imported_by ?? null,
+        batch_ref: input.batch_ref ?? null,
         status: "PROCESSING",
       } as never)
       .select("*")
