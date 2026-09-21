@@ -5,7 +5,7 @@ import { NubankAccountImporter } from "./NubankAccountImporter";
 import { NubankCreditCardImporter } from "./NubankCreditCardImporter";
 import { OFXImporter } from "./OFXImporter";
 
-export const IMPORTER_LABELS: Record<ImportSource, string> = {
+export const IMPORTER_LABELS: Partial<Record<ImportSource, string>> = {
   NUBANK_ACCOUNT: "Nubank — Conta",
   NUBANK_CREDIT_CARD: "Nubank — Cartão de Crédito",
   OFX: "OFX (Itaú, Caixa, Santander e demais)",
@@ -13,9 +13,9 @@ export const IMPORTER_LABELS: Record<ImportSource, string> = {
 };
 
 export const IMPORTER_OPTIONS: { value: ImportSource; label: string }[] = [
-  { value: "NUBANK_ACCOUNT", label: IMPORTER_LABELS.NUBANK_ACCOUNT },
-  { value: "NUBANK_CREDIT_CARD", label: IMPORTER_LABELS.NUBANK_CREDIT_CARD },
-  { value: "OFX", label: IMPORTER_LABELS.OFX },
+  { value: "NUBANK_ACCOUNT", label: IMPORTER_LABELS.NUBANK_ACCOUNT ?? "Nubank — Conta" },
+  { value: "NUBANK_CREDIT_CARD", label: IMPORTER_LABELS.NUBANK_CREDIT_CARD ?? "Nubank — Cartão de Crédito" },
+  { value: "OFX", label: IMPORTER_LABELS.OFX ?? "OFX" },
 ];
 
 export class ImporterFactory {
