@@ -1,11 +1,11 @@
 import type { B3AssetReference, B3ProductReference } from "@/models/B3Import";
 
-const TICKER = /^[A-Z]{4}\d{1,2}(?:F)?$/;
+const TICKER = /^[A-Z][A-Z0-9]{3}\d{1,2}(?:F)?$/;
 
 export class B3ProductParser {
   static parse(rawProduct: string, institution: string | null, assets: B3AssetReference[]): B3ProductReference {
     const raw = rawProduct.trim();
-    const tokens = raw.toUpperCase().match(/\b[A-Z]{4}\d{1,2}(?:F)?\b/g) ?? [];
+    const tokens = raw.toUpperCase().match(/\b[A-Z][A-Z0-9]{3}\d{1,2}(?:F)?\b/g) ?? [];
     const unique = [...new Set(tokens.filter((token) => TICKER.test(token)))];
     const ticker = unique.length === 1 ? unique[0] : null;
     const productName = ticker
