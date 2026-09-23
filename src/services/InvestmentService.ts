@@ -54,6 +54,7 @@ export interface InvestmentPositionSummary {
   resultPercent: number | null;
   investedCapital: number;
   realizedValue: number;
+  realizedResult: number;
   incomeReceived: number;
   economicReturn: number | null;
   economicReturnPercent: number | null;
@@ -84,8 +85,19 @@ class InvestmentServiceImpl extends BaseService {
         ? null
         : Number(((result / position.cost) * 100).toFixed(2));
     const canCalculateEconomicReturn = position.quantity === 0 || marketValue !== null;
+    // Rendimento distribuído continua sendo retorno econômico mesmo quando
+    // já foi conciliado com uma conta. Nesse caso o account_id impede que ele
+    // aumente o valor patrimonial do ativo, mas não deve apagar o rendimento
+    // do retorno total do investimento.
+    const incomeReceived = movements
+      .filter((m) => m.asset_id === asset.id && !m.deleted_at)
+      .reduce((total, m) => {
+        return AssetValuationServiceImpl.operationOf(m) === InvestmentOperation.RENDIMENTO
+          ? total + Math.abs(Number(m.amount) || 0)
+          : total;
+      }, 0);
     const economicReturn = canCalculateEconomicReturn
-      ? Number(((marketValue ?? 0) + position.realizedValue + position.yields - position.investedCapital).toFixed(2))
+      ? Number(((marketValue ?? 0) + position.realizedValue + incomeReceived - position.investedCapital).toFixed(2))
       : null;
     const economicReturnPercent = economicReturn === null || position.investedCapital <= 0
       ? null
@@ -102,7 +114,8 @@ class InvestmentServiceImpl extends BaseService {
       resultPercent,
       investedCapital: position.investedCapital,
       realizedValue: position.realizedValue,
-      incomeReceived: position.yields,
+      realizedResult: position.realizedResult,
+      incomeReceived: Number(incomeReceived.toFixed(2)),
       economicReturn,
       economicReturnPercent,
     };
