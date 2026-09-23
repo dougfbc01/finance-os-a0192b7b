@@ -35,4 +35,5 @@ export class B3ProductParser {
       assetName: matches.length === 1 ? matches[0].name : null,
     };
   }
+  
 }
