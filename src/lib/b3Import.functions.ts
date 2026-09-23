@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { B3ImportService } from "@/services/B3ImportService";
+import { buildB3HistoricalAssetCandidates } from "@/services/B3HistoricalAssetService";
 import { B3ImportCommitService } from "@/services/B3ImportCommitService";
 import type { B3AssetReference, B3CommitItemResult, B3CommitResult } from "@/models/B3Import";
 import type { Json } from "@/integrations/supabase/types";
@@ -36,9 +37,18 @@ const loadAssets = async (supabase: AuthenticatedClient, workspaceId: string) =>
     .from("assets")
     .select("id,ticker,name")
     .eq("workspace_id", workspaceId)
-    .eq("is_active", true)
     .is("deleted_at", null);
   if (error) throw new Error("Não foi possível consultar os ativos do workspace.");
+  return (data ?? []) as B3AssetReference[];
+};
+
+const loadAllAssetReferences = async (supabase: AuthenticatedClient, workspaceId: string) => {
+  const { data, error } = await supabase
+    .from("assets")
+    .select("id,ticker,name")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+  if (error) throw new Error("Não foi possível consultar os ativos históricos do workspace.");
   return (data ?? []) as B3AssetReference[];
 };
 
@@ -56,6 +66,56 @@ export const buildB3PreviewFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await validateWorkspace(context.supabase, data.workspaceId);
     return parsePreview(data.fileName, data.fileBase64, await loadAssets(context.supabase, data.workspaceId));
+  });
+
+
+export const createB3HistoricalAssetsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => inputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    await validateWorkspace(context.supabase, data.workspaceId);
+    const assets = await loadAssets(context.supabase, data.workspaceId);
+    const preview = await parsePreview(data.fileName, data.fileBase64, assets);
+    const existingAssets = await loadAllAssetReferences(context.supabase, data.workspaceId);
+    const candidates = buildB3HistoricalAssetCandidates(preview.rows, existingAssets);
+
+    if (!candidates.length) {
+      return { created: [], skipped: [], unresolved: preview.totals.assetsNotFound };
+    }
+
+    const { data: inserted, error } = await context.supabase
+      .from("assets")
+      .insert(candidates.map((candidate) => ({
+        workspace_id: data.workspaceId,
+        name: candidate.name,
+        asset_type: candidate.assetType,
+        institution: candidate.institution,
+        ticker: candidate.ticker,
+        currency: "BRL",
+        quantity: 0,
+        unit_price: 0,
+        current_value: 0,
+        acquisition_value: 0,
+        acquisition_date: null,
+        notes: "Criado a partir do histórico B3. Posição e valor serão reconstruídos pelas movimentações históricas.",
+        is_active: true,
+        valuation_source: "MOVEMENTS",
+        account_id: null,
+        opening_value: 0,
+      })) as never)
+      .select("ticker,name");
+
+    if (error) throw new Error("Não foi possível cadastrar os ativos históricos da B3.");
+    const created = (inserted ?? []).map((row) => {
+      const typed = row as { ticker?: string | null; name?: string | null };
+      return typed.ticker?.trim() || typed.name?.trim() || "";
+    }).filter(Boolean);
+    const createdSet = new Set(created);
+    return {
+      created,
+      skipped: candidates.map((candidate) => candidate.ticker ?? candidate.name).filter((key) => !createdSet.has(key)),
+      unresolved: candidates.length - created.length,
+    };
   });
 
 export const commitB3ImportFn = createServerFn({ method: "POST" })
