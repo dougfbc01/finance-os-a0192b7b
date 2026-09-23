@@ -117,9 +117,23 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
             <Row label="Valor investido" value={formatCurrency(detail.invested, asset.currency)} />
             <Row label="Valor atual" value={formatCurrency(detail.current, asset.currency)} />
             <Row
-              label="Rentabilidade"
+              label="Rentabilidade da posição"
               value={`${formatCurrency(detail.profit, asset.currency)} (${detail.profitPercent.toFixed(2)}%)`}
             />
+            {positionSummary && (
+              <Row
+                label="Retorno econômico"
+                value={
+                  positionSummary.economicReturn === null
+                    ? "—"
+                    : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${
+                        positionSummary.economicReturnPercent === null
+                          ? ""
+                          : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`
+                      }`
+                }
+              />
+            )}
           </DialogSection>
 
           {positionSummary && (
@@ -176,7 +190,8 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               />
               <Row label="Capital investido" value={formatCurrency(positionSummary.investedCapital, asset.currency)} />
               <Row label="Valores realizados" value={formatCurrency(positionSummary.realizedValue, asset.currency)} />
-              <Row label="Rendimentos históricos" value={formatCurrency(positionSummary.incomeReceived, asset.currency)} />
+              <Row label="Resultado realizado" value={formatCurrency(positionSummary.realizedResult, asset.currency)} />
+              <Row label="Rendimentos recebidos" value={formatCurrency(positionSummary.incomeReceived, asset.currency)} />
               <Row
                 label="Retorno econômico acumulado"
                 value={positionSummary.economicReturn === null ? "—" : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${positionSummary.economicReturnPercent === null ? "" : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`}`}
