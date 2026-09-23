@@ -179,6 +179,30 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
     expect(summary).toMatchObject({ investedCapital: 10000, realizedValue: 2000, incomeReceived: 800, marketValue: 9000, economicReturn: 1800, economicReturnPercent: 18 });
   });
 
+  it("conta dividendos conciliados com a conta no retorno econômico", () => {
+    const summary = InvestmentServiceImpl.positionSummary(
+      asset({ quote: { ...asset().quote!, price: 120 } }),
+      [
+        movement({ amount: 1000, quantity: 10, account_id: "account-1", is_historical: true }),
+        movement({
+          amount: 100,
+          quantity: null,
+          type: MovementType.DIVIDEND,
+          tags: ["op:RENDIMENTO"],
+          account_id: "account-1",
+          is_historical: true,
+          transaction_date: "2026-02-10",
+        }),
+      ],
+    );
+    expect(summary).toMatchObject({
+      incomeReceived: 100,
+      economicReturn: 300,
+      economicReturnPercent: 30,
+      realizedResult: 0,
+    });
+  });
+
   it("preserva o ativo quando a posição chega a zero", () => {
     const summary = InvestmentServiceImpl.positionSummary(asset(), [
       movement({ amount: 1000, quantity: 10, is_historical: true }),
