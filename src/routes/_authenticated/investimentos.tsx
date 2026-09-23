@@ -143,6 +143,7 @@ function InvestimentosPage() {
                         <TableHead className="text-right">Investido</TableHead>
                         <TableHead className="text-right">Atual</TableHead>
                         <TableHead className="text-right">Rentab.</TableHead>
+                        <TableHead className="text-right">Retorno econômico</TableHead>
                         <TableHead />
                       </TableRow>
                     </TableHeader>
@@ -205,6 +206,11 @@ function InvestimentosPage() {
                             >
                               {formatCurrency(r.profit, r.asset.currency)} (
                               {r.profitPercent.toFixed(2)}%)
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {r.economicReturn === null
+                                ? "—"
+                                : formatCurrency(r.economicReturn, r.asset.currency)}
                             </TableCell>
                             <TableCell>
                               <Button

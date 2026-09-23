@@ -56,7 +56,10 @@ export function usePatrimony() {
       }),
     [dash.accounts, dash.balances, assets],
   );
-  const investments = useMemo(() => InvestmentServiceImpl.rows(assets), [assets]);
+  const investments = useMemo(
+    () => InvestmentServiceImpl.rows(assets, dash.movements),
+    [assets, dash.movements],
+  );
   const investmentTotals = useMemo(() => InvestmentServiceImpl.totals(assets), [assets]);
 
   const quotedById = useMemo(

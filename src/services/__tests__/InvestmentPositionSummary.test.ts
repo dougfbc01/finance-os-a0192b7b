@@ -237,3 +237,96 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
     expect(InvestmentServiceImpl.positionSummary(asset({ quote: null }), [movement()])?.economicReturn).toBeNull();
   });
 });
+
+describe("Retorno econômico — distribuições e exibição", () => {
+  const b3Distribution = (event: "DIVIDEND" | "JCP" | "YIELD", amount: number) =>
+    movement({
+      amount,
+      quantity: null,
+      type: event === "DIVIDEND" ? MovementType.DIVIDEND : MovementType.INTEREST,
+      tags: ["source:B3", `b3:event:${event}`, "op:RENDIMENTO"],
+      is_historical: true,
+      account_id: null,
+      transaction_date: "2026-02-10",
+    });
+
+  it.each([
+    ["dividendo", "DIVIDEND" as const],
+    ["JCP", "JCP" as const],
+    ["rendimento", "YIELD" as const],
+  ])("inclui %s histórico B3 no retorno econômico", (_label, event) => {
+    const summary = InvestmentServiceImpl.positionSummary(
+      asset({ quote: { ...asset().quote!, price: 120 } }),
+      [movement({ is_historical: true }), b3Distribution(event, 100)],
+    );
+
+    expect(summary).toMatchObject({
+      incomeReceived: 100,
+      economicReturn: 300,
+      economicReturnPercent: 30,
+    });
+  });
+
+  it("não considera evento corporativo B3 como rendimento financeiro", () => {
+    const summary = InvestmentServiceImpl.positionSummary(
+      asset({ quote: { ...asset().quote!, price: 120 } }),
+      [
+        movement({ is_historical: true }),
+        movement({
+          amount: 100,
+          quantity: null,
+          type: MovementType.INTEREST,
+          tags: ["source:B3", "b3:event:CAPITAL_RETURN", "op:RENDIMENTO"],
+          is_historical: true,
+        }),
+      ],
+    );
+
+    expect(summary).toMatchObject({ incomeReceived: 0, economicReturn: 200 });
+  });
+
+  it("usa o resultado realizado da venda, sem tratar o valor bruto como lucro", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10, is_historical: true }),
+      movement({
+        amount: 600,
+        quantity: 5,
+        tags: ["source:B3", "b3:event:REDEMPTION", "op:RESGATE"],
+        is_historical: true,
+        transaction_date: "2026-02-10",
+      }),
+    ]);
+
+    expect(summary).toMatchObject({ realizedValue: 600, realizedResult: 100, economicReturn: -225 });
+  });
+
+  it("calcula o retorno absoluto com capital zero e omite somente o percentual", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({
+        amount: 0,
+        quantity: 3.37,
+        type: MovementType.ADJUSTMENT,
+        tags: ["source:B3", "b3:event:SPLIT", "op:AJUSTE_QUANTIDADE", "qty:INCREASE"],
+        is_historical: true,
+      }),
+      b3Distribution("DIVIDEND", 51.58),
+    ]);
+
+    expect(summary).toMatchObject({
+      marketValue: 117.95,
+      incomeReceived: 51.58,
+      economicReturn: 169.53,
+      economicReturnPercent: null,
+    });
+  });
+
+  it("entrega o mesmo retorno econômico ao detalhe e à listagem", () => {
+    const quotedAsset = asset({ quote: { ...asset().quote!, price: 120 } });
+    const movements = [movement({ is_historical: true }), b3Distribution("JCP", 100)];
+    const detail = InvestmentServiceImpl.positionSummary(quotedAsset, movements);
+    const [row] = InvestmentServiceImpl.rows([quotedAsset], movements);
+
+    expect(detail?.economicReturn).toBe(300);
+    expect(row?.economicReturn).toBe(detail?.economicReturn);
+  });
+});

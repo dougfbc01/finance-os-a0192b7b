@@ -14,11 +14,12 @@ import type { QuotedAsset } from "./MarketQuotationService";
 import type { Asset, Movement } from "@/models";
 
 export interface InvestmentRow {
-  asset: Asset;
+  asset: Asset & Partial<QuotedAsset>;
   invested: number; // valor de aquisição
   current: number; // valor atual
   profit: number;
   profitPercent: number;
+  economicReturn: number | null;
 }
 
 export interface AssetDetail {
@@ -73,7 +74,7 @@ class InvestmentServiceImpl extends BaseService {
 
     const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
     const quotePrice = Number(asset.quote?.price);
-    const hasPosition = position.quantity > 0 && position.cost > 0;
+    const hasPosition = position.quantity > 0;
     const hasQuote = !!asset.quote && Number.isFinite(quotePrice) && quotePrice > 0;
     const canCalculate = hasPosition && hasQuote;
     const marketValue = canCalculate
@@ -81,7 +82,7 @@ class InvestmentServiceImpl extends BaseService {
       : null;
     const result = marketValue === null ? null : Number((marketValue - position.cost).toFixed(2));
     const resultPercent =
-      result === null
+      result === null || position.cost <= 0
         ? null
         : Number(((result / position.cost) * 100).toFixed(2));
     const canCalculateEconomicReturn = position.quantity === 0 || marketValue !== null;
@@ -89,15 +90,22 @@ class InvestmentServiceImpl extends BaseService {
     // já foi conciliado com uma conta. Nesse caso o account_id impede que ele
     // aumente o valor patrimonial do ativo, mas não deve apagar o rendimento
     // do retorno total do investimento.
+    const b3DistributionEvents = new Set(["DIVIDEND", "JCP", "YIELD"]);
     const incomeReceived = movements
-      .filter((m) => m.asset_id === asset.id && !m.deleted_at)
+      .filter((m) => m.asset_id === asset.id && !m.deleted_at && m.is_historical)
       .reduce((total, m) => {
-        return AssetValuationServiceImpl.operationOf(m) === InvestmentOperation.RENDIMENTO
-          ? total + Math.abs(Number(m.amount) || 0)
-          : total;
+        if (AssetValuationServiceImpl.operationOf(m) !== InvestmentOperation.RENDIMENTO) return total;
+        const b3Event = (m.tags ?? [])
+          .find((tag) => tag.startsWith("b3:event:"))
+          ?.slice("b3:event:".length);
+        if (b3Event && !b3DistributionEvents.has(b3Event)) return total;
+        return total + Math.abs(Number(m.amount) || 0);
       }, 0);
+    const currentPositionResult = marketValue === null
+      ? null
+      : marketValue - position.cost;
     const economicReturn = canCalculateEconomicReturn
-      ? Number(((marketValue ?? 0) + position.realizedValue + incomeReceived - position.investedCapital).toFixed(2))
+      ? Number(((currentPositionResult ?? 0) + position.realizedResult + incomeReceived).toFixed(2))
       : null;
     const economicReturnPercent = economicReturn === null || position.investedCapital <= 0
       ? null
@@ -175,14 +183,21 @@ class InvestmentServiceImpl extends BaseService {
     );
   }
 
-  static rows(assets: Asset[]): InvestmentRow[] {
-    return this.filterInvestments(assets).map((asset) => ({
-      asset,
-      invested: Number(asset.acquisition_value),
-      current: Number(asset.current_value),
-      profit: AssetServiceImpl.profit(asset),
-      profitPercent: AssetServiceImpl.profitPercent(asset),
-    }));
+  static rows(
+    assets: Array<Asset & Partial<QuotedAsset>>,
+    movements: Movement[] = [],
+  ): InvestmentRow[] {
+    return this.filterInvestments(assets).map((asset) => {
+      const summary = this.positionSummary(asset, movements);
+      return {
+        asset,
+        invested: Number(asset.acquisition_value),
+        current: Number(asset.current_value),
+        profit: AssetServiceImpl.profit(asset),
+        profitPercent: AssetServiceImpl.profitPercent(asset),
+        economicReturn: summary?.economicReturn ?? null,
+      };
+    });
   }
 
   static totals(assets: Asset[]) {
