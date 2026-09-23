@@ -14,11 +14,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useBuildB3Preview, useCommitB3Import } from "@/hooks/useB3Import";
+import { useBuildB3Preview, useCommitB3Import, useCreateB3HistoricalAssets } from "@/hooks/useB3Import";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { formatCurrency } from "@/lib/format";
 import type { B3CommitResult, B3Group, B3IdentificationStatus, B3PreviewResult, B3PreviewRow, B3RowStatus } from "@/models/B3Import";
 import { B3ImportCommitService } from "@/services/B3ImportCommitService";
+import { buildB3HistoricalAssetCandidates } from "@/services/B3HistoricalAssetService";
 
 const GROUP_LABELS: Record<B3Group, string> = {
   B3_INCOME: "Rendimento",
@@ -50,11 +51,13 @@ export function B3ImportPreview() {
   const { data: workspace } = useWorkspace();
   const previewMutation = useBuildB3Preview();
   const commitMutation = useCommitB3Import();
+  const createAssetsMutation = useCreateB3HistoricalAssets();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<B3PreviewResult | null>(null);
   const [fileBase64, setFileBase64] = useState("");
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [createAssetsOpen, setCreateAssetsOpen] = useState(false);
   const [commitResult, setCommitResult] = useState<B3CommitResult | null>(null);
   const [selected, setSelected] = useState<B3PreviewRow | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -107,6 +110,10 @@ export function B3ImportPreview() {
   const tickers = useMemo(() => [...new Set((preview?.rows ?? []).map((row) => row.product.ticker).filter((ticker): ticker is string => !!ticker))].sort(), [preview]);
   const eligibleIndexes = useMemo(() => rows.filter((row) => B3ImportCommitService.eligibility(row).status === "IMPORTED").map((row) => row.index), [rows]);
   const selectedCount = selectedIndexes.size;
+  const historicalAssetCandidates = useMemo(
+    () => preview ? buildB3HistoricalAssetCandidates(preview.rows, []) : [],
+    [preview],
+  );
   const allVisibleSelected = eligibleIndexes.length > 0 && eligibleIndexes.every((index) => selectedIndexes.has(index));
 
   const toggleRow = (index: number, checked: boolean) => setSelectedIndexes((current) => {
@@ -120,6 +127,28 @@ export function B3ImportPreview() {
     eligibleIndexes.forEach((index) => checked ? next.add(index) : next.delete(index));
     return next;
   });
+
+  const createHistoricalAssets = async () => {
+    if (!workspace?.id || !preview || !fileBase64) return;
+    try {
+      const result = await createAssetsMutation.mutateAsync({
+        workspaceId: workspace.id,
+        fileName: preview.fileName,
+        fileBase64,
+      });
+      setCreateAssetsOpen(false);
+      const refreshed = await previewMutation.mutateAsync({
+        workspaceId: workspace.id,
+        fileName: preview.fileName,
+        fileBase64,
+      });
+      setPreview(refreshed);
+      setSelectedIndexes(new Set(refreshed.rows.filter((row) => B3ImportCommitService.eligibility(row).status === "IMPORTED" && !row.possibleDuplicate).map((row) => row.index)));
+      toast.success(`${result.created.length} ativos históricos cadastrados.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao cadastrar os ativos históricos.");
+    }
+  };
 
   const commitImport = async () => {
     if (!workspace?.id || !preview || !fileBase64 || selectedCount === 0) return;
@@ -177,6 +206,16 @@ export function B3ImportPreview() {
             <Metric label="Ativos encontrados" value={preview.totals.assetsFound} />
               <Metric label="Não encontrados" value={preview.totals.assetsNotFound} />
           </div>
+
+          {!commitResult && historicalAssetCandidates.length > 0 && (
+            <div className="flex flex-col gap-3 border border-amber-200 bg-amber-50/60 p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-medium">{historicalAssetCandidates.length.toLocaleString("pt-BR")} ativos históricos podem ser cadastrados</p>
+                <p className="text-sm text-muted-foreground">Serão criados sem valor ou saldo inicial; o histórico B3 reconstruirá a posição. Direitos sem tipo seguro continuam pendentes.</p>
+              </div>
+              <Button variant="outline" onClick={() => setCreateAssetsOpen(true)} disabled={createAssetsMutation.isPending}>Cadastrar ativos históricos</Button>
+            </div>
+          )}
 
           {commitResult ? (
             <Card>
@@ -274,6 +313,31 @@ export function B3ImportPreview() {
             <div className="border p-3"><span className="text-muted-foreground">Com alerta no arquivo</span><strong className="mt-1 block text-lg tabular-nums">{preview?.totals.warnings ?? 0}</strong></div>
           </div>
           <AlertDialogFooter><AlertDialogCancel>Voltar</AlertDialogCancel><AlertDialogAction onClick={() => void commitImport()} disabled={commitMutation.isPending}>{commitMutation.isPending ? "Importando…" : "Confirmar importação"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={createAssetsOpen} onOpenChange={setCreateAssetsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cadastrar {historicalAssetCandidates.length.toLocaleString("pt-BR")} ativos históricos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O Finance OS criará somente os ativos B3 cujo tipo pode ser identificado com segurança. Eles começarão com valor e quantidade zero e usarão as movimentações B3 como fonte de valuation. Nenhuma conta, saldo ou movimento será alterado nesta etapa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-48 overflow-auto border p-3 text-sm">
+            {historicalAssetCandidates.map((candidate) => (
+              <div key={candidate.ticker} className="flex items-center justify-between border-b py-1.5 last:border-0">
+                <span>{candidate.ticker} · {candidate.name}</span>
+                <span className="text-muted-foreground">{candidate.assetType}</span>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void createHistoricalAssets()} disabled={createAssetsMutation.isPending}>
+              {createAssetsMutation.isPending ? "Cadastrando…" : "Confirmar cadastro"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

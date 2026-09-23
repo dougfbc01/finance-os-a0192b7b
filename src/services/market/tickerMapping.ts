@@ -8,6 +8,7 @@ export function normalizeTicker(raw: string): string {
 
 const FII_HINTS = [
   "FII",
+  "FIAGRO",
   "FDO INV IMOB",
   "FUNDO DE INVESTIMENTO IMOBILIARIO",
   "FUNDO INVESTIMENTO IMOBILIARIO",
@@ -27,15 +28,15 @@ export function inferAssetType(ticker: string, name: string | null): AssetType |
   const t = normalizeTicker(ticker);
   const n = deaccent(name ?? "");
 
-  if (/^[A-Z]{4}(34|35|32|33|39)$/.test(t)) return AssetType.BDR;
+  if (/^[A-Z0-9]{4}(34|35|32|33|39)$/.test(t)) return AssetType.BDR;
 
-  if (/^[A-Z]{4}11B?$/.test(t)) {
+  if (/^[A-Z0-9]{4}11B?$/.test(t)) {
     if (FII_HINTS.some((h) => n.includes(h))) return AssetType.FII;
     if (ETF_HINTS.some((h) => n.includes(h))) return AssetType.ETF;
     return null; // Units, FIIs e ETFs compartilham o sufixo 11 — ambíguo.
   }
 
-  if (/^[A-Z]{4}[3456]$/.test(t)) return AssetType.ACAO;
+  if (/^[A-Z0-9]{4}[3456]$/.test(t)) return AssetType.ACAO;
 
   return null;
 }

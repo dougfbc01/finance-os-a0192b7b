@@ -2,6 +2,9 @@ import type { B3AssetReference, B3ProductReference } from "@/models/B3Import";
 
 const TICKER = /^[A-Z][A-Z0-9]{3}\d{1,2}(?:F)?$/;
 
+const normalizeName = (value: string) =>
+  value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").toUpperCase();
+
 export class B3ProductParser {
   static parse(rawProduct: string, institution: string | null, assets: B3AssetReference[]): B3ProductReference {
     const raw = rawProduct.trim();
@@ -13,17 +16,17 @@ export class B3ProductParser {
       : null;
     const matches = ticker
       ? assets.filter((asset) => asset.ticker?.trim().toUpperCase() === ticker)
-      : [];
+      : assets.filter((asset) => !asset.ticker && normalizeName(asset.name) === normalizeName(raw));
 
     const identificationStatus = unique.length > 1
       ? "AMBIGUOUS"
-      : !ticker
-        ? "UNIDENTIFIED"
-        : matches.length > 1
-          ? "AMBIGUOUS"
-          : matches.length === 1
-            ? "FOUND"
-            : "NOT_FOUND";
+      : matches.length > 1
+        ? "AMBIGUOUS"
+        : matches.length === 1
+          ? "FOUND"
+          : ticker
+            ? "NOT_FOUND"
+            : "UNIDENTIFIED";
 
     return {
       rawProduct: raw,
@@ -35,5 +38,4 @@ export class B3ProductParser {
       assetName: matches.length === 1 ? matches[0].name : null,
     };
   }
-  
 }

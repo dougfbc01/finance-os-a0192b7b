@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { buildB3PreviewFn, commitB3ImportFn } from "@/lib/b3Import.functions";
+import { buildB3PreviewFn, commitB3ImportFn, createB3HistoricalAssetsFn } from "@/lib/b3Import.functions";
 
 export function useBuildB3Preview() {
   const buildPreview = useServerFn(buildB3PreviewFn);
@@ -15,5 +15,13 @@ export function useCommitB3Import() {
   return useMutation({
     mutationFn: (input: { workspaceId: string; fileName: string; fileBase64: string; selectedIndexes: number[] }) =>
       commitImport({ data: input }),
+  });
+}
+
+export function useCreateB3HistoricalAssets() {
+  const createAssets = useServerFn(createB3HistoricalAssetsFn);
+  return useMutation({
+    mutationFn: (input: { workspaceId: string; fileName: string; fileBase64: string }) =>
+      createAssets({ data: input }),
   });
 }

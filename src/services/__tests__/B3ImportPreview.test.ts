@@ -49,12 +49,27 @@ describe("Sprint 4.17A — parser B3", () => {
     expect(B3ProductParser.parse("GOAU4 - METALURGICA GERDAU S.A.", null, []).ticker).toBe("GOAU4");
   });
 
+  it("reconhece tickers B3 alfanuméricos", () => {
+    expect(B3ProductParser.parse("B3SA3 - B3 S.A.", null, []).ticker).toBe("B3SA3");
+    expect(B3ProductParser.parse("C9BS3 - COBASI INVESTIMENTOS S.A.", null, []).ticker).toBe("C9BS3");
+    expect(B3ProductParser.parse("C9BS4 - COBASI INVESTIMENTOS S.A.", null, []).ticker).toBe("C9BS4");
+  });
+
   it("identifica um ativo existente no workspace", () => {
     expect(B3ProductParser.parse("WEGE3 - WEG S.A.", null, assets)).toMatchObject({ identificationStatus: "FOUND", assetId: "asset-wege3" });
   });
 
   it("sinaliza ticker extraído sem ativo correspondente", () => {
     expect(B3ProductParser.parse("HABT11", null, assets).identificationStatus).toBe("NOT_FOUND");
+  });
+
+  it("encontra Tesouro e CDB por nome quando o ativo já existe", () => {
+    const fixedIncomeAssets: B3AssetReference[] = [
+      { id: "asset-tesouro", ticker: null, name: "Tesouro Selic 2027" },
+      { id: "asset-cdb", ticker: null, name: "CDB - CDB32230TDR - BANCO DAYCOVAL S/A" },
+    ];
+    expect(B3ProductParser.parse("Tesouro Selic 2027", null, fixedIncomeAssets)).toMatchObject({ identificationStatus: "FOUND", assetId: "asset-tesouro" });
+    expect(B3ProductParser.parse("CDB - CDB32230TDR - BANCO DAYCOVAL S/A", null, fixedIncomeAssets)).toMatchObject({ identificationStatus: "FOUND", assetId: "asset-cdb" });
   });
 
   it("sinaliza produto sem ticker seguro", () => {
