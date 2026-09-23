@@ -51,7 +51,7 @@ class MovementServiceImpl extends BaseService {
   // Consultas
   // ---------------------------------------------------------------------------
 
-  async list(workspaceId: UUID, filters: MovementFilters = {}): Promise<Movement[]> {
+  private buildListQuery(workspaceId: UUID, filters: MovementFilters = {}) {
     let q = this.client
       .from(this.table)
       .select("*")
@@ -105,11 +105,36 @@ class MovementServiceImpl extends BaseService {
         break;
     }
 
-    const { data, error } = await q
-      .order("transaction_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    return q.order("transaction_date", { ascending: false }).order("created_at", { ascending: false });
+  }
+
+  async list(workspaceId: UUID, filters: MovementFilters = {}): Promise<Movement[]> {
+    const { data, error } = await this.buildListQuery(workspaceId, filters);
     if (error) this.handleError(error, "list");
     return (data ?? []).map((r) => this.mapRow(r as Row));
+  }
+
+  /**
+   * Returns the complete movement set, bypassing Supabase/PostgREST's default
+   * 1,000-row response cap through deterministic pagination.
+   * This is required by portfolio valuation because historical B3 imports can
+   * legitimately exceed 1,000 movements.
+   */
+  async listAll(workspaceId: UUID, filters: MovementFilters = {}): Promise<Movement[]> {
+    const pageSize = 500;
+    const rows: Row[] = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await this.buildListQuery(workspaceId, filters)
+        .range(offset, offset + pageSize - 1);
+      if (error) this.handleError(error, "listAll");
+
+      const page = (data ?? []) as unknown as Row[];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
+
+    return rows.map((r) => this.mapRow(r));
   }
 
   async getById(id: UUID): Promise<Movement | null> {
