@@ -21,7 +21,7 @@ export function useMovements(workspaceId: UUID | undefined, filters: MovementFil
 export function useAllMovements(workspaceId: UUID | undefined) {
   return useQuery({
     queryKey: [KEY, workspaceId, "all"],
-    queryFn: () => MovementService.list(workspaceId as UUID, {}),
+    queryFn: () => MovementService.listAll(workspaceId as UUID, {}),
     enabled: !!workspaceId,
   });
 }
