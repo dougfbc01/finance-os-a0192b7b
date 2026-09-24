@@ -173,7 +173,7 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
       [
         movement({ amount: 10000, quantity: 100, is_historical: true, account_id: null }),
         movement({ amount: 2000, quantity: 20, tags: ["op:RESGATE"], is_historical: true, account_id: null, transaction_date: "2026-02-10" }),
-        movement({ amount: 800, quantity: null, type: MovementType.DIVIDEND, tags: ["op:RENDIMENTO"], is_historical: true, account_id: null, transaction_date: "2026-03-10" }),
+        movement({ amount: 800, quantity: null, type: MovementType.DIVIDEND, tags: ["source:B3", "b3:event:DIVIDEND", "op:RENDIMENTO"], is_historical: true, account_id: null, transaction_date: "2026-03-10" }),
       ],
     );
     expect(summary).toMatchObject({ investedCapital: 10000, realizedValue: 2000, incomeReceived: 800, marketValue: 9000, economicReturn: 1800, economicReturnPercent: 18 });
