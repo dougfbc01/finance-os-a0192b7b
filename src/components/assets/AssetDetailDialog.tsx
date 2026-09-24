@@ -128,7 +128,7 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
                     ? "—"
                     : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${
                         positionSummary.economicReturnPercent === null
-                          ? ""
+                          ? " (—)"
                           : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`
                       }`
                 }
@@ -194,7 +194,7 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               <Row label="Rendimentos recebidos" value={formatCurrency(positionSummary.incomeReceived, asset.currency)} />
               <Row
                 label="Retorno econômico acumulado"
-                value={positionSummary.economicReturn === null ? "—" : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${positionSummary.economicReturnPercent === null ? "" : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`}`}
+                value={positionSummary.economicReturn === null ? "—" : `${formatCurrency(positionSummary.economicReturn, asset.currency)}${positionSummary.economicReturnPercent === null ? " (—)" : ` (${positionSummary.economicReturnPercent.toFixed(2)}%)`}`}
               />
             </DialogSection>
           )}

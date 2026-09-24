@@ -188,7 +188,7 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
           amount: 100,
           quantity: null,
           type: MovementType.DIVIDEND,
-          tags: ["op:RENDIMENTO"],
+          tags: ["source:B3", "b3:event:DIVIDEND", "op:RENDIMENTO"],
           account_id: "account-1",
           is_historical: true,
           transaction_date: "2026-02-10",
