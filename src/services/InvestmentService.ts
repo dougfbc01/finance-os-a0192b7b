@@ -95,10 +95,11 @@ class InvestmentServiceImpl extends BaseService {
       .filter((m) => m.asset_id === asset.id && !m.deleted_at && m.is_historical)
       .reduce((total, m) => {
         if (AssetValuationServiceImpl.operationOf(m) !== InvestmentOperation.RENDIMENTO) return total;
+        if (!(m.tags ?? []).includes("source:B3")) return total;
         const b3Event = (m.tags ?? [])
           .find((tag) => tag.startsWith("b3:event:"))
           ?.slice("b3:event:".length);
-        if (b3Event && !b3DistributionEvents.has(b3Event)) return total;
+        if (!b3Event || !b3DistributionEvents.has(b3Event)) return total;
         return total + Math.abs(Number(m.amount) || 0);
       }, 0);
     const currentPositionResult = marketValue === null

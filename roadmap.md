@@ -14,6 +14,6 @@
 - [x] Sprint 4.16A: adicionar resumo da posição atual para investimentos MOVEMENTS.
 - [x] Validar cálculos, ausência de cotação, ativos ACCOUNT e neutralidade no saldo.
 - [x] Executar testes focados e typecheck, sem suíte completa ou build.
-- [ ] Corrigir somente o cálculo e a exibição do retorno econômico dos investimentos.
-- [ ] Exibir o retorno econômico absoluto na listagem geral sem substituir a rentabilidade da posição.
-- [ ] Validar dividendos, JCP, rendimentos, realizados, capital zero e consistência entre detalhe e listagem com testes focados e typecheck.
+- [x] Corrigir somente o cálculo e a exibição do retorno econômico dos investimentos.
+- [x] Exibir o retorno econômico absoluto na listagem geral sem substituir a rentabilidade da posição.
+- [x] Validar dividendos, JCP, rendimentos, realizados, capital zero e consistência entre detalhe e listagem com testes focados e typecheck.
