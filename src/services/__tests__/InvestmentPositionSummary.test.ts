@@ -223,7 +223,8 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
   it.each([
     ["BONUS", "qty:INCREASE", 12],
     ["SPLIT", "qty:INCREASE", 12],
-    ["REVERSE_SPLIT", "qty:DECREASE", 8],
+    ["FRACTION", "qty:DECREASE", 8],
+    ["TRANSFER_SETTLEMENT", "qty:INCREASE", 12],
   ])("aplica %s à quantidade sem duplicar custo", (event, direction, expected) => {
     const summary = InvestmentServiceImpl.positionSummary(asset(), [
       movement({ amount: 1000, quantity: 10 }),
@@ -231,6 +232,23 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
     ]);
     expect(summary?.quantity).toBe(expected);
     expect(summary?.historicalCost).toBe(1000);
+  });
+
+  it.each(["UPDATE", "REVERSE_SPLIT", "INCORPORATION"])("aplica %s como posição absoluta sem alterar custo", (event) => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10 }),
+      movement({ amount: 0, quantity: 7.5, type: MovementType.ADJUSTMENT, tags: ["op:AJUSTE_QUANTIDADE", `b3:event:${event}`, "qty:SET"], transaction_date: "2026-02-10" }),
+    ]);
+    expect(summary).toMatchObject({ quantity: 7.5, historicalCost: 1000, investedCapital: 1000 });
+  });
+
+  it("reduz a fração uma vez e realiza o leilão sem criar nova posição", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10, is_historical: true }),
+      movement({ amount: 0, quantity: 0.5, type: MovementType.ADJUSTMENT, tags: ["source:B3", "b3:event:FRACTION", "op:AJUSTE_QUANTIDADE", "qty:DECREASE"], is_historical: true, transaction_date: "2026-02-10" }),
+      movement({ amount: 60, quantity: 0.5, type: MovementType.ADJUSTMENT, tags: ["source:B3", "b3:event:FRACTION_AUCTION", "op:EVENTO", "qty:REALIZE"], is_historical: true, transaction_date: "2026-03-10" }),
+    ]);
+    expect(summary).toMatchObject({ quantity: 9.5, realizedValue: 60, realizedResult: 10, historicalCost: 950 });
   });
 
   it("não inventa retorno econômico para posição aberta sem cotação", () => {

@@ -33,14 +33,36 @@ describe("Sprint 4.17B — commit histórico B3", () => {
   it.each([
     ["Bonificação em Ativos", "Crédito", "qty:INCREASE"],
     ["Desdobro", "Crédito", "qty:INCREASE"],
-    ["Grupamento", "Débito", "qty:DECREASE"],
+    ["Fração em Ativos", "Débito", "qty:DECREASE"],
+    ["Transferência - Liquidação", "Crédito", "qty:INCREASE"],
   ])("mapeia %s como ajuste de quantidade sem valor", (name, direction, tag) => {
     const payload = B3ImportCommitService.movement(row(name, { "Entrada/Saída": direction }), "workspace-1", "import-1");
     expect(payload).toMatchObject({ amount: 0, quantity: 10, is_historical: true });
     expect(payload?.tags).toContain(tag);
   });
 
-  it.each(["Transferência", "Transferência - Liquidação"])("preserva %s sem inferir variação de posição", (name) => {
+  it.each(["Atualização", "Grupamento", "Incorporação"])("mapeia %s como posição absoluta sem valor", (name) => {
+    const payload = B3ImportCommitService.movement(row(name), "workspace-1", "import-1");
+    expect(payload).toMatchObject({ amount: 0, quantity: 10 });
+    expect(payload?.tags).toContain("op:AJUSTE_QUANTIDADE");
+    expect(payload?.tags).toContain("qty:SET");
+  });
+
+  it("preserva transferência genérica sem inferir variação de posição", () => {
+    const payload = B3ImportCommitService.movement(row("Transferência"), "workspace-1", "import-1");
+    expect(payload).toMatchObject({ amount: 0, quantity: null });
+    expect(payload?.tags).toContain("op:EVENTO");
+  });
+
+  it("trata leilão de fração como realização sem nova redução da posição", () => {
+    const payload = B3ImportCommitService.movement(row("Leilão de Fração", { Quantidade: 0.5, "Valor da Operação": 1.56 }), "workspace-1", "import-1");
+    expect(payload).toMatchObject({ amount: 1.56, quantity: 0.5 });
+    expect(payload?.tags).toContain("qty:REALIZE");
+    expect(payload?.tags).toContain("op:EVENTO");
+  });
+
+  it("preserva evento neutro sem inferir variação de posição", () => {
+    const payload = B3ImportCommitService.movement(row("Transferência"), "workspace-1", "import-1");
     const payload = B3ImportCommitService.movement(row(name), "workspace-1", "import-1");
     expect(payload).toMatchObject({ amount: 0, quantity: null });
     expect(payload?.tags).toContain("op:EVENTO");

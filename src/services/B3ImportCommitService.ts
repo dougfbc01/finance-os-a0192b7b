@@ -27,11 +27,11 @@ export interface B3MovementPayload {
 }
 
 const incomeEvents = new Set(["DIVIDEND", "JCP", "YIELD", "CAPITAL_RETURN"]);
-const quantityEvents = new Set(["BONUS", "SPLIT", "REVERSE_SPLIT"]);
+const deltaQuantityEvents = new Set(["BONUS", "SPLIT", "FRACTION", "TRANSFER_SETTLEMENT"]);
+const absoluteQuantityEvents = new Set(["UPDATE", "REVERSE_SPLIT", "INCORPORATION"]);
 const neutralEvents = new Set([
-  "UPDATE", "INCORPORATION", "SUBSCRIPTION_RIGHT", "SUBSCRIPTION_RIGHT_NOT_EXERCISED",
-  "RIGHTS_ASSIGNMENT", "RIGHTS_ASSIGNMENT_REQUESTED", "FRACTION", "FRACTION_AUCTION",
-  "TRANSFER", "TRANSFER_SETTLEMENT",
+  "SUBSCRIPTION_RIGHT", "SUBSCRIPTION_RIGHT_NOT_EXERCISED",
+  "RIGHTS_ASSIGNMENT", "RIGHTS_ASSIGNMENT_REQUESTED", "TRANSFER",
 ]);
 
 const directionTag = (direction: string | null) =>
@@ -45,7 +45,7 @@ export class B3ImportCommitService {
     if (row.product.identificationStatus !== "FOUND" || !row.product.assetId) return { status: "PENDING_REVIEW", message: "Ativo não cadastrado ou identificação ambígua." };
     if (!row.date) return { status: "ERROR", message: "Data inválida." };
     if (row.event === "BUY_SELL") return { status: "PENDING_REVIEW", message: "COMPRA / VENDA exige revisão manual." };
-    if ((row.event === "BUY" || row.event === "REDEMPTION" || row.event === "MATURITY" || quantityEvents.has(row.event)) && (!row.quantity || row.quantity <= 0)) {
+    if ((row.event === "BUY" || row.event === "REDEMPTION" || row.event === "MATURITY" || deltaQuantityEvents.has(row.event) || absoluteQuantityEvents.has(row.event) || row.event === "FRACTION_AUCTION") && (!row.quantity || row.quantity <= 0)) {
       return { status: "PENDING_REVIEW", message: "Quantidade necessária para atualizar a posição." };
     }
     if ((row.event === "BUY" || row.event === "REDEMPTION" || row.event === "MATURITY" || incomeEvents.has(row.event)) && (!row.operationValue || row.operationValue <= 0)) {
@@ -72,10 +72,17 @@ export class B3ImportCommitService {
       operation = InvestmentOperation.RENDIMENTO;
       type = row.event === "DIVIDEND" ? MovementType.DIVIDEND : MovementType.INTEREST;
       quantity = null;
-    } else if (quantityEvents.has(row.event)) {
+    } else if (deltaQuantityEvents.has(row.event)) {
       operation = InvestmentOperation.AJUSTE_QUANTIDADE;
       amount = 0;
       tags.push(directionTag(row.direction));
+    } else if (absoluteQuantityEvents.has(row.event)) {
+      operation = InvestmentOperation.AJUSTE_QUANTIDADE;
+      amount = 0;
+      tags.push("qty:SET");
+    } else if (row.event === "FRACTION_AUCTION") {
+      operation = InvestmentOperation.EVENTO;
+      tags.push("qty:REALIZE");
     } else if (neutralEvents.has(row.event)) {
       operation = InvestmentOperation.EVENTO;
       amount = 0;
