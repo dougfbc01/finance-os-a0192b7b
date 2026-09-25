@@ -192,8 +192,28 @@ class AssetValuationServiceImpl extends BaseService {
       } else if (op === InvestmentOperation.RENDIMENTO) {
         yieldsTotal += AssetValuationServiceImpl.deltaForAsset(m);
       } else if (op === InvestmentOperation.AJUSTE_QUANTIDADE) {
-        const direction = (m.tags ?? []).includes("qty:DECREASE") ? -1 : 1;
-        quantity = Math.max(0, quantity + direction * qty);
+        if ((m.tags ?? []).includes("qty:SET")) {
+          quantity = qty;
+        } else {
+          const direction = (m.tags ?? []).includes("qty:DECREASE") ? -1 : 1;
+          quantity = Math.max(0, quantity + direction * qty);
+        }
+      } else if (
+        op === InvestmentOperation.EVENTO &&
+        (m.tags ?? []).includes("b3:event:FRACTION_AUCTION") &&
+        (m.tags ?? []).includes("qty:REALIZE")
+      ) {
+        // A fração já saiu da posição no evento FRACTION. No leilão, somente
+        // realizamos o valor recebido e a parcela correspondente do custo.
+        const preFractionQuantity = quantity + qty;
+        const releasedCost = preFractionQuantity > 0 ? (cost / preFractionQuantity) * qty : 0;
+        const historicalShare = cost > 0 ? historicalCost / cost : 0;
+        const releasedHistoricalCost = releasedCost * historicalShare;
+        cost = Math.max(0, cost - releasedCost);
+        historicalCost = Math.max(0, historicalCost - releasedHistoricalCost);
+        currentCost = Math.max(0, currentCost - (releasedCost - releasedHistoricalCost));
+        realizedValue += amount;
+        realizedResult += amount - releasedCost;
       }
     }
 
