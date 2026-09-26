@@ -61,13 +61,6 @@ describe("Sprint 4.17B — commit histórico B3", () => {
     expect(payload?.tags).toContain("op:EVENTO");
   });
 
-  it("preserva evento neutro sem inferir variação de posição", () => {
-    const payload = B3ImportCommitService.movement(row("Transferência"), "workspace-1", "import-1");
-    const payload = B3ImportCommitService.movement(row(name), "workspace-1", "import-1");
-    expect(payload).toMatchObject({ amount: 0, quantity: null });
-    expect(payload?.tags).toContain("op:EVENTO");
-  });
-
   it("mantém COMPRA / VENDA pendente", () => {
     expect(B3ImportCommitService.eligibility(row("COMPRA / VENDA"))).toMatchObject({ status: "PENDING_REVIEW" });
     expect(B3ImportCommitService.movement(row("COMPRA / VENDA"), "workspace-1", "import-1")).toBeNull();
