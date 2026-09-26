@@ -17,6 +17,6 @@
 - [x] Corrigir somente o cálculo e a exibição do retorno econômico dos investimentos.
 - [x] Exibir o retorno econômico absoluto na listagem geral sem substituir a rentabilidade da posição.
 - [x] Validar dividendos, JCP, rendimentos, realizados, capital zero e consistência entre detalhe e listagem com testes focados e typecheck.
-- [ ] Corrigir a reconstrução de posição dos 1.291 eventos históricos B3 existentes sem reimportação ou impacto no caixa.
-- [ ] Reprocessar os eventos no lugar e validar IRIM11, PLAG11, QAGR11, VISC11, VILG11, XPCA11 e TORD11.
-- [ ] Executar testes relacionados e typecheck, preservando retorno econômico e cotações.
+- [x] Corrigir a reconstrução de posição dos 1.291 eventos históricos B3 existentes sem reimportação ou impacto no caixa.
+- [x] Reprocessar os eventos no lugar e validar IRIM11, PLAG11, QAGR11, VISC11, VILG11, XPCA11 e TORD11.
+- [x] Executar testes relacionados e typecheck, preservando retorno econômico e cotações.
