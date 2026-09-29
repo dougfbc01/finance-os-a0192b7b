@@ -12,6 +12,7 @@ import {
   INCOME_TYPES,
   EXPENSE_TYPES,
 } from "@/constants/enums";
+import { MovementImportExclusionService } from "./MovementImportExclusionService";
 import type {
   Movement,
   CreateMovementInput,
@@ -404,11 +405,28 @@ class MovementServiceImpl extends BaseService {
   }
 
   async softDelete(id: UUID): Promise<void> {
-    const { error } = await this.client
+    const { data, error } = await this.client
+      .from(this.table)
+      .select("id, workspace_id, duplicate_hash")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) this.handleError(error, "softDelete.load");
+    if (!data) return;
+
+    const { error: deleteError } = await this.client
       .from(this.table)
       .update({ deleted_at: new Date().toISOString() } as never)
       .eq("id", id);
-    if (error) this.handleError(error, "softDelete");
+    if (deleteError) this.handleError(deleteError, "softDelete");
+
+    const row = data as { id: UUID; workspace_id: UUID; duplicate_hash: string | null };
+    if (row.duplicate_hash) {
+      await MovementImportExclusionService.record({
+        workspaceId: row.workspace_id,
+        duplicateHash: row.duplicate_hash,
+        movementId: row.id,
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -417,11 +435,27 @@ class MovementServiceImpl extends BaseService {
 
   async bulkSoftDelete(ids: UUID[]): Promise<void> {
     if (!ids.length) return;
-    const { error } = await this.client
+    const { data, error } = await this.client
+      .from(this.table)
+      .select("id, workspace_id, duplicate_hash")
+      .in("id", ids);
+    if (error) this.handleError(error, "bulkSoftDelete.load");
+
+    const { error: deleteError } = await this.client
       .from(this.table)
       .update({ deleted_at: new Date().toISOString() } as never)
       .in("id", ids);
-    if (error) this.handleError(error, "bulkSoftDelete");
+    if (deleteError) this.handleError(deleteError, "bulkSoftDelete");
+
+    await MovementImportExclusionService.recordMany(
+      ((data ?? []) as Array<{ id: UUID; workspace_id: UUID; duplicate_hash: string | null }>)
+        .filter((row) => !!row.duplicate_hash)
+        .map((row) => ({
+          workspace_id: row.workspace_id,
+          duplicate_hash: row.duplicate_hash!,
+          movement_id: row.id,
+        })),
+    );
   }
 
   async bulkUpdate(

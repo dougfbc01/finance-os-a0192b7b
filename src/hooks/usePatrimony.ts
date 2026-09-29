@@ -8,6 +8,7 @@ import { PatrimonyServiceImpl } from "@/services/PatrimonyService";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
 import { AssetValuationServiceImpl } from "@/services/AssetValuationService";
 import { MarketQuotationServiceImpl } from "@/services/MarketQuotationService";
+import { useCommitments } from "./useCommitments";
 
 export function usePatrimony() {
   const { data: ws } = useWorkspace();
@@ -18,6 +19,7 @@ export function usePatrimony() {
 
   const rawAssets = assetsQ.data ?? [];
   const invoices = invoicesQ.data ?? [];
+  const commitments = useCommitments();
   const cashBalance = dash.totalBalance;
 
   // Sprint 4.5.2 — o valor do ativo é sempre derivado da sua fonte declarada
@@ -36,8 +38,13 @@ export function usePatrimony() {
   );
 
   const snapshot = useMemo(
-    () => PatrimonyServiceImpl.snapshot({ cashBalance, assets, invoices }),
-    [cashBalance, assets, invoices],
+    () => PatrimonyServiceImpl.snapshot({
+      cashBalance,
+      assets,
+      invoices,
+      futureObligations: commitments.remainingTotal,
+    }),
+    [cashBalance, assets, invoices, commitments.remainingTotal],
   );
   const byClass = useMemo(
     () => PatrimonyServiceImpl.byClassGroup(cashBalance, assets),
@@ -88,6 +95,7 @@ export function usePatrimony() {
     quotesCooldownUntil: marketQuotes.manualCooldownUntil,
     quotesNextAutoUpdate: marketQuotes.nextAutoUpdate,
     refreshQuotes: marketQuotes.refresh,
-    isLoading: assetsQ.isLoading || invoicesQ.isLoading || dash.isLoading,
+    futureObligations: commitments.remainingTotal,
+    isLoading: assetsQ.isLoading || invoicesQ.isLoading || dash.isLoading || commitments.isLoading,
   };
 }

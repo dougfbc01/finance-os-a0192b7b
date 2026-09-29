@@ -54,3 +54,14 @@ export function useRejectTransferCandidate() {
     onSuccess: refresh,
   });
 }
+
+export function useImportTransferCandidates(importId: string | undefined) {
+  const { data: ws } = useWorkspace();
+  const wsId = ws?.id as string | undefined;
+  const { data: candidates = [], isLoading } = useQuery({
+    queryKey: [KEY, "import", wsId, importId],
+    queryFn: () => ReconciliationService.listCandidatesForImport(wsId as string, importId as string),
+    enabled: !!wsId && !!importId,
+  });
+  return { candidates, isLoading, workspaceId: wsId };
+}

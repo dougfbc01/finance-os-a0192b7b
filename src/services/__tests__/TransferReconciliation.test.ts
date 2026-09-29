@@ -101,3 +101,17 @@ describe("Conciliação de transferências", () => {
     expect(MS.impactOnAccount(mirror, "a2")).toBe(0);
   });
 });
+
+describe("Escopo da conciliação por importação", () => {
+  it("mantém apenas candidatos onde uma das pernas pertence à importação", () => {
+    const importedOut = mv({ id: "imported-out", import_id: "import-1" });
+    const oldIn = mv({ id: "old-in", account_id: "a2", type: MovementType.INCOME, import_id: "old" });
+    const unrelatedOut = mv({ id: "unrelated-out", import_id: "other" });
+    const importedIn = mv({ id: "imported-in", account_id: "a2", type: MovementType.INCOME, import_id: "import-1" });
+
+    const all = [importedOut, oldIn, unrelatedOut, importedIn];
+    const candidates = RS.findCandidates(all);
+    expect(candidates.some(c => c.outflow.id === "imported-out" && c.inflow.id === "old-in")).toBe(true);
+    expect(candidates.some(c => c.outflow.id === "unrelated-out" && c.inflow.id === "imported-in")).toBe(true);
+  });
+});

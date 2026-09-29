@@ -58,6 +58,8 @@ export interface PatrimonySnapshot {
   totalAssets: number; // caixa + ativos
   netWorth: number; // totalAssets − liabilities
   assetProfit: number; // valor atual − valor de aquisição (agregado)
+  /** Obrigações futuras conhecidas; informativo e NÃO reduz o patrimônio líquido atual. */
+  futureObligations: number;
 }
 
 class PatrimonyServiceImpl extends BaseService {
@@ -91,6 +93,7 @@ class PatrimonyServiceImpl extends BaseService {
     cashBalance: number;
     assets: Asset[];
     invoices: CardInvoice[];
+    futureObligations?: number;
   }): PatrimonySnapshot {
     const assets = this.totalAssetsValue(params.assets);
     const liabilities = this.totalLiabilities(params.invoices);
@@ -102,6 +105,7 @@ class PatrimonyServiceImpl extends BaseService {
       totalAssets,
       netWorth: totalAssets - liabilities,
       assetProfit: this.totalAssetProfit(params.assets),
+      futureObligations: Number(params.futureObligations ?? 0),
     };
   }
 

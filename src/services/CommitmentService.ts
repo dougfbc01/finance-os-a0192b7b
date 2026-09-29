@@ -8,6 +8,8 @@
 //    que a soma das parcelas seja sempre exatamente o valor total.
 import { BaseService } from "./BaseService";
 import type { UUID } from "@/models";
+import { MovementType } from "@/constants/enums";
+import type { Movement } from "@/models/Movement";
 import type {
   Commitment,
   CommitmentForecast,
@@ -45,6 +47,18 @@ export interface ScheduleInput {
   installments_count: number;
   start_date: string;
   due_day?: number | null;
+}
+
+export interface CommitmentMovementCandidate {
+  movement: Movement;
+  dayDiff: number;
+  amountDiff: number;
+}
+
+function dateDiffDays(a: string, b: string): number {
+  const d1 = new Date(`${a}T00:00:00`).getTime();
+  const d2 = new Date(`${b}T00:00:00`).getTime();
+  return Math.abs(Math.round((d1 - d2) / 86400000));
 }
 
 class CommitmentServiceImpl extends BaseService {
@@ -221,6 +235,38 @@ class CommitmentServiceImpl extends BaseService {
     };
   }
 
+  /**
+   * Sugere movimentações reais para uma parcela, sem criar lançamentos.
+   * O vínculo só acontece depois da confirmação humana.
+   */
+  static findMovementCandidates(
+    installment: Pick<CommitmentInstallment, "due_date" | "amount">,
+    commitment: Pick<Commitment, "account_id" | "card_id">,
+    movements: Movement[],
+    linkedMovementIds: Set<UUID> = new Set(),
+    maxDayDiff = 7,
+  ): CommitmentMovementCandidate[] {
+    const expected = Number(installment.amount) || 0;
+    if (expected <= 0) return [];
+
+    return movements
+      .filter((m) => !m.deleted_at)
+      .filter((m) => !linkedMovementIds.has(m.id))
+      .filter((m) => m.type === MovementType.EXPENSE)
+      .filter((m) => {
+        if (commitment.card_id) return m.card_id === commitment.card_id;
+        if (commitment.account_id) return m.account_id === commitment.account_id;
+        return false;
+      })
+      .map((movement) => ({
+        movement,
+        dayDiff: dateDiffDays(movement.transaction_date, installment.due_date),
+        amountDiff: Math.abs(Math.abs(Number(movement.amount)) - expected),
+      }))
+      .filter((c) => c.dayDiff <= maxDayDiff && c.amountDiff <= 0.01)
+      .sort((a, b) => a.dayDiff - b.dayDiff || a.amountDiff - b.amountDiff);
+  }
+
   // ---------------------------------------------------------------------
   // Persistência — o compromisso e suas parcelas são PREVISÕES.
   // Nenhum método aqui cria movimentação financeira.
@@ -395,6 +441,92 @@ class CommitmentServiceImpl extends BaseService {
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
     if (error) this.handleError(error, "remove");
+  }
+
+  /** Lista candidatos de movimentação para uma parcela específica. */
+  async findMovementCandidates(installmentId: UUID): Promise<CommitmentMovementCandidate[]> {
+    const { data: installment, error: installmentError } = await this.client
+      .from(this.installmentsTable)
+      .select("*")
+      .eq("id", installmentId)
+      .maybeSingle();
+    if (installmentError) this.handleError(installmentError, "findMovementCandidates.installment");
+    if (!installment) return [];
+
+    const { data: commitment, error: commitmentError } = await this.client
+      .from(this.table)
+      .select("*")
+      .eq("id", (installment as CommitmentInstallment).commitment_id)
+      .maybeSingle();
+    if (commitmentError) this.handleError(commitmentError, "findMovementCandidates.commitment");
+    if (!commitment) return [];
+
+    const wsId = (installment as CommitmentInstallment).workspace_id;
+    const { data: movements, error: movementsError } = await this.client
+      .from("movements")
+      .select("*")
+      .eq("workspace_id", wsId)
+      .is("deleted_at", null);
+    if (movementsError) this.handleError(movementsError, "findMovementCandidates.movements");
+
+    const { data: linked, error: linkedError } = await this.client
+      .from(this.installmentsTable)
+      .select("movement_id")
+      .eq("workspace_id", wsId)
+      .not("movement_id", "is", null);
+    if (linkedError) this.handleError(linkedError, "findMovementCandidates.linked");
+
+    const linkedIds = new Set(
+      (linked ?? [])
+        .map((r) => (r as { movement_id: UUID | null }).movement_id)
+        .filter((id): id is UUID => !!id),
+    );
+    return CommitmentServiceImpl.findMovementCandidates(
+      installment as CommitmentInstallment,
+      commitment as Commitment,
+      (movements ?? []) as unknown as Movement[],
+      linkedIds,
+    );
+  }
+
+  /** Vincula uma movimentação real à parcela; não cria nem altera a movimentação. */
+  async reconcileInstallment(installmentId: UUID, movementId: UUID): Promise<void> {
+    const { data: installment, error: installmentError } = await this.client
+      .from(this.installmentsTable)
+      .select("id, workspace_id, amount")
+      .eq("id", installmentId)
+      .maybeSingle();
+    if (installmentError) this.handleError(installmentError, "reconcileInstallment.installment");
+    if (!installment) throw new Error("Parcela não encontrada.");
+
+    const { data: movement, error: movementError } = await this.client
+      .from("movements")
+      .select("id, workspace_id, amount, type, deleted_at")
+      .eq("id", movementId)
+      .maybeSingle();
+    if (movementError) this.handleError(movementError, "reconcileInstallment.movement");
+    if (!movement || movement.deleted_at) throw new Error("Movimentação não encontrada.");
+    if (movement.workspace_id !== installment.workspace_id) throw new Error("Movimentação fora do workspace.");
+    if (movement.type !== MovementType.EXPENSE) throw new Error("A movimentação precisa ser uma despesa.");
+    if (Math.abs(Math.abs(Number(movement.amount)) - Number(installment.amount)) > 0.01) {
+      throw new Error("O valor da movimentação não corresponde ao valor da parcela.");
+    }
+
+    const { data: alreadyLinked, error: linkedError } = await this.client
+      .from(this.installmentsTable)
+      .select("id")
+      .eq("workspace_id", installment.workspace_id)
+      .eq("movement_id", movementId)
+      .neq("id", installmentId)
+      .maybeSingle();
+    if (linkedError) this.handleError(linkedError, "reconcileInstallment.alreadyLinked");
+    if (alreadyLinked) throw new Error("Essa movimentação já está vinculada a outra parcela.");
+
+    const { error } = await this.client
+      .from(this.installmentsTable)
+      .update({ status: "PAID", movement_id: movementId })
+      .eq("id", installmentId);
+    if (error) this.handleError(error, "reconcileInstallment");
   }
 
   /**

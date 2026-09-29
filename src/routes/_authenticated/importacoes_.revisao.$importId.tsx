@@ -7,6 +7,8 @@ import {
   Copy,
   Pencil,
   Sparkles,
+  ArrowRight,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,11 @@ import { MovementFormDialog } from "@/components/movements";
 import { useImportReview } from "@/hooks/useImportReview";
 import { useSetImportReviewed } from "@/hooks/useImports";
 import { useBulkUpdateMovements } from "@/hooks/useMovements";
+import {
+  useApplyReconciliation,
+  useImportTransferCandidates,
+  useRejectTransferCandidate,
+} from "@/hooks/useReconciliation";
 import { useCategories, useSubcategories } from "@/hooks/useCategories";
 import { useAuth } from "@/hooks/useAuth";
 import { IMPORT_REVIEW_FLAG_LABELS } from "@/services/ImportReviewService";
@@ -37,6 +44,7 @@ import type { ImportReviewRow } from "@/services/ImportReviewService";
 import { MOVEMENT_STATUS_OPTIONS, MOVEMENT_TYPE_LABELS, MovementStatus } from "@/constants/enums";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Movement, UUID } from "@/models";
+import type { TransferCandidate } from "@/services/ReconciliationService";
 
 export const Route = createFileRoute("/_authenticated/importacoes_/revisao/$importId")({
   head: () => ({
@@ -68,6 +76,9 @@ function ImportReviewPage() {
   const { data: subcategories = [] } = useSubcategories(workspaceId);
   const bulk = useBulkUpdateMovements();
   const setReviewed = useSetImportReviewed();
+  const { candidates: transferCandidates, isLoading: transfersLoading } = useImportTransferCandidates(importId);
+  const applyTransfer = useApplyReconciliation();
+  const rejectTransfer = useRejectTransferCandidate();
 
   const [selected, setSelected] = useState<Set<UUID>>(new Set());
   const [editing, setEditing] = useState<Movement | null>(null);
@@ -165,6 +176,47 @@ function ImportReviewPage() {
           </Button>
         </div>
       </div>
+
+      {transferCandidates.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="space-y-3 p-4">
+            <div>
+              <h2 className="font-semibold">Transferências detectadas nesta importação</h2>
+              <p className="text-sm text-muted-foreground">
+                Antes de classificar esses lançamentos como receita/despesa, confirme se a
+                entrada e a saída representam a mesma transferência entre suas contas.
+              </p>
+            </div>
+            {transferCandidates.map((candidate) => (
+              <ImportTransferCandidateRow
+                key={`${candidate.outflow.id}-${candidate.inflow.id}`}
+                candidate={candidate}
+                onApply={async () => {
+                  try {
+                    await applyTransfer.mutateAsync(candidate);
+                    toast.success("Transferência conciliada.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Falha ao conciliar transferência.");
+                  }
+                }}
+                onReject={async () => {
+                  try {
+                    await rejectTransfer.mutateAsync(candidate);
+                    toast.success("Par marcado como não relacionado.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Falha ao registrar decisão.");
+                  }
+                }}
+                busy={applyTransfer.isPending || rejectTransfer.isPending}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {transfersLoading && (
+        <p className="text-xs text-muted-foreground">Verificando possíveis transferências desta importação…</p>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Novos" value={String(summary.total)} />
@@ -346,6 +398,49 @@ function ReviewRow({
         </Button>
       </td>
     </tr>
+  );
+}
+
+function ImportTransferCandidateRow({
+  candidate,
+  onApply,
+  onReject,
+  busy,
+}: {
+  candidate: TransferCandidate;
+  onApply: () => void;
+  onReject: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto] md:items-center">
+        <div>
+          <p className="text-xs text-muted-foreground">Saída</p>
+          <p className="font-medium truncate">{candidate.outflow.description || "—"}</p>
+          <p className="text-xs text-muted-foreground">{candidate.outflow.transaction_date}</p>
+          <p className="mt-1 text-sm font-semibold">-{formatCurrency(candidate.outflow.amount)}</p>
+        </div>
+        <ArrowRight className="hidden h-4 w-4 md:block" />
+        <div>
+          <p className="text-xs text-muted-foreground">Entrada</p>
+          <p className="font-medium truncate">{candidate.inflow.description || "—"}</p>
+          <p className="text-xs text-muted-foreground">{candidate.inflow.transaction_date}</p>
+          <p className="mt-1 text-sm font-semibold">+{formatCurrency(candidate.inflow.amount)}</p>
+        </div>
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          <Button variant="outline" size="sm" onClick={onReject} disabled={busy}>
+            <X className="mr-1 h-3.5 w-3.5" /> Não relacionadas
+          </Button>
+          <Button size="sm" onClick={onApply} disabled={busy}>
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirmar
+          </Button>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Confiança {candidate.confidence} · {candidate.signals.join(" · ")}
+      </p>
+    </div>
   );
 }
 

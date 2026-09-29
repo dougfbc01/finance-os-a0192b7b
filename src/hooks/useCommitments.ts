@@ -150,3 +150,20 @@ export function useToggleInstallmentPaid() {
     onSuccess: invalidate,
   });
 }
+
+export function useCommitmentMovementCandidates(installmentId: UUID | undefined) {
+  return useQuery({
+    queryKey: [INSTALLMENTS_KEY, "movement-candidates", installmentId],
+    queryFn: () => CommitmentService.findMovementCandidates(installmentId as UUID),
+    enabled: !!installmentId,
+  });
+}
+
+export function useReconcileCommitmentInstallment() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (vars: { installmentId: UUID; movementId: UUID }) =>
+      CommitmentService.reconcileInstallment(vars.installmentId, vars.movementId),
+    onSuccess: invalidate,
+  });
+}
