@@ -20,3 +20,6 @@
 - [x] Corrigir a reconstrução de posição dos 1.291 eventos históricos B3 existentes sem reimportação ou impacto no caixa.
 - [x] Reprocessar os eventos no lugar e validar IRIM11, PLAG11, QAGR11, VISC11, VILG11, XPCA11 e TORD11.
 - [x] Executar testes relacionados e typecheck, preservando retorno econômico e cotações.
+- [ ] Corrigir somente o custo histórico dos eventos B3 reconstruídos, sem alterar quantidades ou caixa.
+- [ ] Reprocessar liquidações com custo e sinalizar conversões sem origem comprovada de forma idempotente.
+- [ ] Validar transferência, preservação, conversão, revisão e neutralidade de caixa com testes focados e typecheck.
