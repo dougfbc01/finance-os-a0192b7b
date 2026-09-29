@@ -34,3 +34,5 @@ export { MarketHistoricalPriceService } from "./MarketHistoricalPriceService";
 export { MarketQuoteScheduleService } from "./MarketQuoteScheduleService";
 export { YieldReconciliationService } from "./YieldReconciliationService";
 export { ReconciliationDecisionService } from "./ReconciliationDecisionService";
+
+export { MovementImportExclusionService } from "./MovementImportExclusionService";

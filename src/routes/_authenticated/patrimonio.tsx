@@ -43,6 +43,7 @@ function PatrimonioPage() {
     assets,
     invoices,
     snapshot,
+    futureObligations,
     byClass,
     byInstitution,
     composition,
@@ -107,7 +108,7 @@ function PatrimonioPage() {
             <div className="lg:col-span-2">
               <NetWorthWidget snapshot={snapshot} />
             </div>
-            <LiabilitiesWidget invoices={invoices} />
+            <LiabilitiesWidget invoices={invoices} futureObligations={futureObligations} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

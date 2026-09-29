@@ -2,7 +2,7 @@
 // Nenhum cálculo aqui: tudo vem pronto do CommitmentService via useCommitments.
 import { useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { useCancelCommitment, useToggleInstallmentPaid } from "@/hooks/useCommitments";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { CommitmentMovementDialog } from "./CommitmentMovementDialog";
 import {
   COMMITMENT_STATUS_LABELS,
   COMMITMENT_TYPE_LABELS,
@@ -45,6 +46,7 @@ export function CommitmentsList({ views, categoryName, onEdit }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const cancelMut = useCancelCommitment();
   const toggleMut = useToggleInstallmentPaid();
+  const [reconcileInstallment, setReconcileInstallment] = useState<{ id: string; label: string; amount: number } | null>(null);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -183,15 +185,26 @@ export function CommitmentsList({ views, categoryName, onEdit }: Props) {
                           </TableCell>
                           <TableCell className="text-right">
                             {i.display_status !== "CANCELLED" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleToggle(i.id, i.display_status !== "PAID")
-                                }
-                              >
-                                {i.display_status === "PAID" ? "Desfazer baixa" : "Marcar paga"}
-                              </Button>
+                              <div className="flex justify-end gap-1">
+                                {i.display_status !== "PAID" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setReconcileInstallment({ id: i.id, label: i.label, amount: i.amount })}
+                                  >
+                                    <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleToggle(i.id, i.display_status !== "PAID")
+                                  }
+                                >
+                                  {i.display_status === "PAID" ? "Desfazer baixa" : "Marcar paga"}
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
@@ -204,7 +217,26 @@ export function CommitmentsList({ views, categoryName, onEdit }: Props) {
           </Card>
         );
       })}
+      <CommitmentReconcilePortal state={reconcileInstallment} onClose={() => setReconcileInstallment(null)} />
     </div>
+  );
+}
+
+function CommitmentReconcilePortal({
+  state,
+  onClose,
+}: {
+  state: { id: string; label: string; amount: number } | null;
+  onClose: () => void;
+}) {
+  return (
+    <CommitmentMovementDialog
+      open={!!state}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      installmentId={state?.id ?? null}
+      installmentLabel={state?.label ?? ""}
+      amount={state?.amount ?? 0}
+    />
   );
 }
 

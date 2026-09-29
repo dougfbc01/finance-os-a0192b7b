@@ -12,6 +12,7 @@
 // Deduplicação técnica (duplicate_hash) e conciliação de transferência são
 // problemas diferentes e permanecem separados.
 import { BaseService } from "./BaseService";
+import { MovementService } from "./MovementService";
 import { INCOME_TYPES, EXPENSE_TYPES, MovementType, MovementStatus } from "@/constants/enums";
 import { logFinanceError } from "@/lib/logger";
 import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
@@ -142,18 +143,26 @@ class ReconciliationServiceImpl extends BaseService {
     return candidates;
   }
 
+  /**
+   * Candidatas relacionadas a uma importação específica. O motor continua
+   * comparando contra todo o histórico, mas a lista final só contém pares
+   * onde pelo menos uma perna pertence à importação informada.
+   */
+  async listCandidatesForImport(workspaceId: UUID, importId: UUID): Promise<TransferCandidate[]> {
+    const movements = await MovementService.listAll(workspaceId);
+    const decisions = await ReconciliationDecisionService.list(workspaceId, "TRANSFER_MATCH");
+    const candidates = ReconciliationServiceImpl.findCandidates(movements, {
+      rejectedPairKeys: RD.rejectedKeys(decisions, "TRANSFER_MATCH"),
+      matchedPairKeys: RD.matchedKeys(decisions, "TRANSFER_MATCH"),
+    });
+    return candidates.filter(
+      (c) => c.outflow.import_id === importId || c.inflow.import_id === importId,
+    );
+  }
+
   /** Candidatas do workspace já filtradas pelas decisões manuais persistidas. */
   async listCandidates(workspaceId: UUID): Promise<TransferCandidate[]> {
-    const { data, error } = await this.client
-      .from("movements")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null);
-    if (error) this.handleError(error, "listCandidates");
-    const movements = ((data ?? []) as unknown as Movement[]).map((m) => ({
-      ...m,
-      amount: Number(m.amount),
-    }));
+    const movements = await MovementService.listAll(workspaceId);
     const decisions = await ReconciliationDecisionService.list(workspaceId, "TRANSFER_MATCH");
     return ReconciliationServiceImpl.findCandidates(movements, {
       rejectedPairKeys: RD.rejectedKeys(decisions, "TRANSFER_MATCH"),

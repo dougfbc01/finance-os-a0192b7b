@@ -1706,6 +1706,48 @@ export type Database = {
         }
         Relationships: []
       }
+      movement_import_exclusions: {
+        Row: {
+          id: string
+          workspace_id: string
+          duplicate_hash: string
+          movement_id: string | null
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          duplicate_hash: string
+          movement_id?: string | null
+          reason?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          duplicate_hash?: string
+          movement_id?: string | null
+          reason?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movement_import_exclusions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_import_exclusions_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reconciliation_decisions: {
         Row: {
           created_at: string

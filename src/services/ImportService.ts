@@ -19,6 +19,7 @@ import type { Account, Movement, UUID } from "@/models";
 import type { ImportRecord, ImportSource, ImportLogEntry } from "@/models/Import";
 import { MovementStatus } from "@/constants/enums";
 import { logFinanceError } from "@/lib/logger";
+import { MovementImportExclusionService } from "./MovementImportExclusionService";
 
 export interface BuildPreviewParams {
   source: ImportSource;
@@ -94,12 +95,14 @@ class ImportServiceImpl extends BaseService {
   async buildPreview(params: BuildPreviewParams): Promise<PreviewResult & { existingImport: ImportRecord | null }> {
     const importer = ImporterFactory.create(params.source);
     const fileHash = computeFileHash(params.fileText);
-    const [existingHashes, existingImport, rules, existingMovements] = await Promise.all([
+    const [existingHashes, excludedHashes, existingImport, rules, existingMovements] = await Promise.all([
       this.loadExistingHashes(params.workspaceId),
+      MovementImportExclusionService.listHashes(params.workspaceId),
       ImportHistoryService.findByHash(params.workspaceId, fileHash),
       ClassificationRuleService.list(params.workspaceId),
       this.loadRecentMovements(params.workspaceId),
     ]);
+    for (const hash of excludedHashes) existingHashes.add(hash);
 
     const preview = await importer.preview(
       params.fileText,

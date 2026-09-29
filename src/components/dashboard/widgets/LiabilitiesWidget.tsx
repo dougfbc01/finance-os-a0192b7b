@@ -6,9 +6,10 @@ import type { CardInvoice } from "@/models/CardInvoice";
 
 interface Props {
   invoices: CardInvoice[];
+  futureObligations?: number;
 }
 
-export function LiabilitiesWidget({ invoices }: Props) {
+export function LiabilitiesWidget({ invoices, futureObligations = 0 }: Props) {
   const open = invoices.filter((i) => i.status !== "PAID");
   const total = open.reduce((s, i) => s + Number(i.amount), 0);
   return (
@@ -25,6 +26,11 @@ export function LiabilitiesWidget({ invoices }: Props) {
         <p className="text-xs text-muted-foreground mt-1">
           {open.length} fatura(s) não paga(s)
         </p>
+        <div className="mt-4 border-t pt-3">
+          <p className="text-xs text-muted-foreground">Obrigações futuras conhecidas</p>
+          <p className="text-lg font-semibold tabular-nums">{formatCurrency(futureObligations)}</p>
+          <p className="text-[11px] text-muted-foreground">Compromissos ainda não baixados; não reduz o patrimônio líquido atual.</p>
+        </div>
         {open.length > 0 && (
           <ul className="mt-3 space-y-1 text-xs max-h-40 overflow-y-auto">
             {open.slice(0, 6).map((i) => (

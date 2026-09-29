@@ -61,6 +61,7 @@ function DashboardPage() {
   const {
     snapshot,
     invoices,
+    futureObligations,
     composition,
     assets,
     movements: patrimonyMovements,
@@ -90,7 +91,7 @@ function DashboardPage() {
         <div className="text-sm text-muted-foreground">Carregando…</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <KpiWidget title="Saldo disponível" value={lastNetWorth?.cash ?? snapshot.cash} icon={Wallet} />
             <KpiWidget
               title="Patrimônio líquido"
@@ -101,6 +102,12 @@ function DashboardPage() {
             <KpiWidget
               title="Passivo de cartões"
               value={snapshot.liabilities}
+              icon={ShieldAlert}
+              tone="negative"
+            />
+            <KpiWidget
+              title="Obrigações futuras"
+              value={futureObligations}
               icon={ShieldAlert}
               tone="negative"
             />
@@ -161,7 +168,7 @@ function DashboardPage() {
             <div className="lg:col-span-2">
               <NetWorthWidget snapshot={snapshot} />
             </div>
-            <LiabilitiesWidget invoices={invoices} />
+            <LiabilitiesWidget invoices={invoices} futureObligations={futureObligations} />
           </div>
 
           <PatrimonyCompositionWidget
