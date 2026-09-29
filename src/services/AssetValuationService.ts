@@ -162,11 +162,21 @@ class AssetValuationServiceImpl extends BaseService {
     let investedCapital = 0;
     let realizedValue = 0;
     let realizedResult = 0;
+    const sourceTag = `cost:SOURCE:${assetId}`;
     const ordered = movements
-      .filter((m) => m.asset_id === assetId && !m.deleted_at)
-      .sort((a, b) => (a.transaction_date < b.transaction_date ? -1 : 1));
+      .filter((m) => (m.asset_id === assetId || (m.tags ?? []).includes(sourceTag)) && !m.deleted_at)
+      .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date) || a.id.localeCompare(b.id));
 
     for (const m of ordered) {
+      if (m.asset_id !== assetId) {
+        // A conversão vinculada move integralmente a base da origem. O evento
+        // de destino continua histórico e não representa compra nem caixa.
+        quantity = 0;
+        cost = 0;
+        historicalCost = 0;
+        currentCost = 0;
+        continue;
+      }
       const op = AssetValuationServiceImpl.operationOf(m);
       const amount = Math.abs(Number(m.amount) || 0);
       const qty = m.quantity === null || m.quantity === undefined ? 0 : Math.abs(Number(m.quantity));
@@ -192,10 +202,36 @@ class AssetValuationServiceImpl extends BaseService {
       } else if (op === InvestmentOperation.RENDIMENTO) {
         yieldsTotal += AssetValuationServiceImpl.deltaForAsset(m);
       } else if (op === InvestmentOperation.AJUSTE_QUANTIDADE) {
-        if ((m.tags ?? []).includes("qty:SET")) {
+        const tags = m.tags ?? [];
+        const basisTag = tags.find((tag) => tag.startsWith("cost:BASIS:"));
+        const taggedBasis = basisTag ? Number(basisTag.slice("cost:BASIS:".length)) : 0;
+        const sourceAssetId = tags.find((tag) => tag.startsWith("cost:SOURCE:"))?.slice("cost:SOURCE:".length);
+        const sourcePosition = sourceAssetId && sourceAssetId !== assetId
+          ? AssetValuationServiceImpl.positionOf(
+              sourceAssetId,
+              movements.filter((candidate) =>
+                candidate.id !== m.id && candidate.transaction_date <= m.transaction_date,
+              ),
+            )
+          : null;
+        const carriedCost = sourcePosition?.cost ?? (Number.isFinite(taggedBasis) ? Math.max(0, taggedBasis) : 0);
+        if (tags.includes("cost:CARRIED") && carriedCost > 0 && !tags.includes("cost:LEGACY_COVERED")) {
+          cost += carriedCost;
+          investedCapital += carriedCost;
+          if (m.is_historical) historicalCost += carriedCost;
+          else currentCost += carriedCost;
+        }
+        if (tags.includes("qty:SET")) {
           quantity = qty;
         } else {
-          const direction = (m.tags ?? []).includes("qty:DECREASE") ? -1 : 1;
+          const direction = tags.includes("qty:DECREASE") ? -1 : 1;
+          if (direction < 0 && quantity > 0 && cost > 0) {
+            const releasedCost = Math.min(cost, (cost / quantity) * Math.min(qty, quantity));
+            const historicalShare = cost > 0 ? historicalCost / cost : 0;
+            historicalCost = Math.max(0, historicalCost - releasedCost * historicalShare);
+            currentCost = Math.max(0, currentCost - releasedCost * (1 - historicalShare));
+            cost = Math.max(0, cost - releasedCost);
+          }
           quantity = Math.max(0, quantity + direction * qty);
         }
       } else if (
