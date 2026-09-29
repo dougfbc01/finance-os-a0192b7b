@@ -242,6 +242,60 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
     expect(summary).toMatchObject({ quantity: 7.5, historicalCost: 1000, investedCapital: 1000 });
   });
 
+  it("incorpora o custo informado por uma transferência sem impacto no caixa", () => {
+    const transfer = movement({
+      amount: 0,
+      quantity: 7,
+      unit_price: 115.39,
+      type: MovementType.ADJUSTMENT,
+      tags: ["source:B3", "b3:event:TRANSFER_SETTLEMENT", "op:AJUSTE_QUANTIDADE", "qty:INCREASE", "cost:CARRIED", "cost:BASIS:807.72"],
+      is_historical: true,
+      account_id: null,
+    });
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [transfer]);
+    expect(summary).toMatchObject({ quantity: 7, historicalCost: 807.72, averagePrice: 115.388571 });
+    expect(MovementServiceImpl.impactOnAccount(transfer, "account-1")).toBe(0);
+  });
+
+  it("preserva o custo existente durante uma atualização", () => {
+    const summary = InvestmentServiceImpl.positionSummary(asset(), [
+      movement({ amount: 1000, quantity: 10, is_historical: true, account_id: null }),
+      movement({ amount: 0, quantity: 7, type: MovementType.ADJUSTMENT, tags: ["source:B3", "b3:event:UPDATE", "op:AJUSTE_QUANTIDADE", "qty:SET"], is_historical: true, account_id: null, transaction_date: "2026-02-10" }),
+    ]);
+    expect(summary).toMatchObject({ quantity: 7, historicalCost: 1000 });
+  });
+
+  it("transfere o custo disponível da origem ao destino sem criar compra", () => {
+    const source = movement({ id: "source-buy", asset_id: "source-asset", amount: 900, quantity: 9, is_historical: true, account_id: null });
+    const conversion = movement({
+      id: "destination-conversion",
+      asset_id: "asset-1",
+      amount: 0,
+      quantity: 6,
+      type: MovementType.ADJUSTMENT,
+      tags: ["source:B3", "b3:event:INCORPORATION", "op:AJUSTE_QUANTIDADE", "qty:SET", "cost:CARRIED", "cost:SOURCE:source-asset"],
+      is_historical: true,
+      account_id: null,
+      transaction_date: "2026-02-10",
+    });
+    const movements = [source, conversion];
+    expect(InvestmentServiceImpl.positionSummary(asset(), movements)).toMatchObject({ quantity: 6, historicalCost: 900 });
+    expect(InvestmentServiceImpl.positionSummary(asset({ id: "source-asset" }), movements)).toMatchObject({ quantity: 0, historicalCost: 0 });
+    expect(MovementServiceImpl.impactOnAccount(conversion, "account-1")).toBe(0);
+  });
+
+  it("mantém custo zero quando a conversão não informa origem confiável", () => {
+    const conversion = movement({
+      amount: 0,
+      quantity: 7,
+      type: MovementType.ADJUSTMENT,
+      tags: ["source:B3", "b3:event:INCORPORATION", "op:AJUSTE_QUANTIDADE", "qty:SET", "cost:INDETERMINATE"],
+      is_historical: true,
+      account_id: null,
+    });
+    expect(InvestmentServiceImpl.positionSummary(asset(), [conversion])).toMatchObject({ quantity: 7, historicalCost: 0 });
+  });
+
   it("reduz a fração uma vez e realiza o leilão sem criar nova posição", () => {
     const summary = InvestmentServiceImpl.positionSummary(asset(), [
       movement({ amount: 1000, quantity: 10, is_historical: true }),

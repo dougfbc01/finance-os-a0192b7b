@@ -41,6 +41,23 @@ describe("Sprint 4.17B — commit histórico B3", () => {
     expect(payload?.tags).toContain(tag);
   });
 
+  it("preserva o custo informado na liquidação sem gerar caixa", () => {
+    const payload = B3ImportCommitService.movement(row("Transferência - Liquidação"), "workspace-1", "import-1");
+    expect(payload).toMatchObject({ amount: 0, quantity: 10, unit_price: 100, is_historical: true });
+    expect(payload?.tags).toEqual(expect.arrayContaining(["cost:CARRIED", "cost:BASIS:1000"]));
+    expect(MovementServiceImpl.impactOnAccount(payload as unknown as Movement, "account-1")).toBe(0);
+  });
+
+  it("sinaliza incorporação sem custo disponível para revisão", () => {
+    const payload = B3ImportCommitService.movement(
+      row("Incorporação", { "Preço unitário": "-", "Valor da Operação": "-" }),
+      "workspace-1",
+      "import-1",
+    );
+    expect(payload).toMatchObject({ amount: 0, quantity: 10 });
+    expect(payload?.tags).toContain("cost:INDETERMINATE");
+  });
+
   it.each(["Atualização", "Grupamento", "Incorporação"])("mapeia %s como posição absoluta sem valor", (name) => {
     const payload = B3ImportCommitService.movement(row(name), "workspace-1", "import-1");
     expect(payload).toMatchObject({ amount: 0, quantity: 10 });

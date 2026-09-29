@@ -39,6 +39,8 @@ const directionTag = (direction: string | null) =>
     ? "qty:DECREASE"
     : "qty:INCREASE";
 
+const costBasisTag = (value: number) => `cost:BASIS:${value}`;
+
 export class B3ImportCommitService {
   static eligibility(row: B3PreviewRow): { status: B3CommitItemStatus; message: string } {
     if (row.status === "INVALID" || row.status === "UNCLASSIFIED") return { status: "ERROR", message: "Linha inválida ou não classificada." };
@@ -75,11 +77,22 @@ export class B3ImportCommitService {
     } else if (deltaQuantityEvents.has(row.event)) {
       operation = InvestmentOperation.AJUSTE_QUANTIDADE;
       amount = 0;
-      tags.push(directionTag(row.direction));
+      const quantityDirection = directionTag(row.direction);
+      tags.push(quantityDirection);
+      if (row.event === "TRANSFER_SETTLEMENT" && quantityDirection === "qty:INCREASE") {
+        if (row.operationValue && row.operationValue > 0) {
+          tags.push("cost:CARRIED", costBasisTag(row.operationValue));
+        } else if (row.unitPrice && row.unitPrice > 0 && row.quantity && row.quantity > 0) {
+          tags.push("cost:CARRIED", costBasisTag(row.unitPrice * row.quantity));
+        } else {
+          tags.push("cost:INDETERMINATE");
+        }
+      }
     } else if (absoluteQuantityEvents.has(row.event)) {
       operation = InvestmentOperation.AJUSTE_QUANTIDADE;
       amount = 0;
       tags.push("qty:SET");
+      if (row.event === "INCORPORATION") tags.push("cost:INDETERMINATE");
     } else if (row.event === "FRACTION_AUCTION") {
       operation = InvestmentOperation.EVENTO;
       tags.push("qty:REALIZE");
