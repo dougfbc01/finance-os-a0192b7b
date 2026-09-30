@@ -225,7 +225,12 @@ class AssetValuationServiceImpl extends BaseService {
           quantity = qty;
         } else {
           const direction = tags.includes("qty:DECREASE") ? -1 : 1;
-          if (direction < 0 && quantity > 0 && cost > 0) {
+          if (
+            direction < 0 &&
+            tags.includes("b3:event:TRANSFER_SETTLEMENT") &&
+            quantity > 0 &&
+            cost > 0
+          ) {
             const releasedCost = Math.min(cost, (cost / quantity) * Math.min(qty, quantity));
             const historicalShare = cost > 0 ? historicalCost / cost : 0;
             historicalCost = Math.max(0, historicalCost - releasedCost * historicalShare);
