@@ -1533,6 +1533,48 @@ export type Database = {
           },
         ]
       }
+      movement_import_exclusions: {
+        Row: {
+          created_at: string
+          duplicate_hash: string
+          id: string
+          movement_id: string | null
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          duplicate_hash: string
+          id?: string
+          movement_id?: string | null
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          duplicate_hash?: string
+          id?: string
+          movement_id?: string | null
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movement_import_exclusions_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_import_exclusions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movements: {
         Row: {
           account_id: string | null
