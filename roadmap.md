@@ -23,3 +23,6 @@
 - [x] Corrigir somente o custo histórico dos eventos B3 reconstruídos, sem alterar quantidades ou caixa.
 - [x] Reprocessar liquidações com custo e sinalizar conversões sem origem comprovada de forma idempotente.
 - [x] Validar transferência, preservação, conversão, revisão e neutralidade de caixa com testes focados e typecheck.
+- [x] Integrar a conciliação manual de transferências à Revisão da Importação usando o motor existente.
+- [x] Restringir as sugestões ao lote aberto, sem reconciliação automática ou terceiro movimento.
+- [ ] Validar confirmação, rejeição, neutralidade financeira e executar testes focados e typecheck.
