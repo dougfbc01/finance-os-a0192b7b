@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReconciliationServiceImpl as RS } from "@/services/ReconciliationService";
-import { ReconciliationDecisionServiceImpl as RD } from "@/services/ReconciliationDecisionService";
+import {
+  ReconciliationDecisionService,
+  ReconciliationDecisionServiceImpl as RD,
+} from "@/services/ReconciliationDecisionService";
 import { MovementServiceImpl as MS } from "@/services/MovementService";
+import { MovementService } from "@/services/MovementService";
 import { MovementStatus, MovementType } from "@/constants/enums";
 import type { Movement } from "@/models";
 
@@ -45,6 +49,10 @@ const inc = mv({
   account_id: "a2",
   type: MovementType.INCOME,
   description: "PIX RECEBIDO",
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("Conciliação de transferências", () => {
@@ -103,15 +111,95 @@ describe("Conciliação de transferências", () => {
 });
 
 describe("Escopo da conciliação por importação", () => {
-  it("mantém apenas candidatos onde uma das pernas pertence à importação", () => {
+  it("importação com movimento correspondente existente gera candidato", async () => {
     const importedOut = mv({ id: "imported-out", import_id: "import-1" });
     const oldIn = mv({ id: "old-in", account_id: "a2", type: MovementType.INCOME, import_id: "old" });
     const unrelatedOut = mv({ id: "unrelated-out", import_id: "other" });
     const importedIn = mv({ id: "imported-in", account_id: "a2", type: MovementType.INCOME, import_id: "import-1" });
 
     const all = [importedOut, oldIn, unrelatedOut, importedIn];
-    const candidates = RS.findCandidates(all);
+    vi.spyOn(MovementService, "listAll").mockResolvedValue(all);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([]);
+
+    const candidates = await new RS().listCandidatesForImport("ws", "import-1");
     expect(candidates.some(c => c.outflow.id === "imported-out" && c.inflow.id === "old-in")).toBe(true);
     expect(candidates.some(c => c.outflow.id === "unrelated-out" && c.inflow.id === "imported-in")).toBe(true);
+    expect(
+      candidates.every(c => c.outflow.import_id === "import-1" || c.inflow.import_id === "import-1"),
+    ).toBe(true);
+  });
+
+  it("somente detectar não reconcilia nem altera movimentos", async () => {
+    const importedOut = mv({ id: "imported-out", import_id: "import-1" });
+    const oldIn = mv({ id: "old-in", account_id: "a2", type: MovementType.INCOME });
+    const update = vi.fn();
+    const service = new RS({ from: () => ({ update }) } as never);
+
+    const candidates = RS.findCandidates([importedOut, oldIn]);
+
+    expect(candidates).toHaveLength(1);
+    expect(update).not.toHaveBeenCalled();
+    expect(importedOut.type).toBe(MovementType.EXPENSE);
+    expect(oldIn.type).toBe(MovementType.INCOME);
+    void service;
+  });
+
+  it("confirmar atualiza somente as duas pernas e registra a decisão", async () => {
+    const updates: Array<{ payload: Record<string, unknown>; id: string }> = [];
+    const client = {
+      from: () => ({
+        update: (payload: Record<string, unknown>) => ({
+          eq: async (_column: string, id: string) => {
+            updates.push({ payload, id });
+            return { error: null };
+          },
+        }),
+      }),
+    };
+    const confirm = vi
+      .spyOn(ReconciliationDecisionService, "confirmTransfer")
+      .mockResolvedValue(undefined);
+    const candidate = RS.findCandidates([out, inc])[0];
+
+    await new RS(client as never).apply(candidate);
+
+    expect(updates).toHaveLength(2);
+    expect(updates.map((entry) => entry.id)).toEqual(["out", "inc"]);
+    expect(updates.every((entry) => entry.payload.type === MovementType.TRANSFER)).toBe(true);
+    expect(updates[0].payload.transfer_group_id).toBe(updates[1].payload.transfer_group_id);
+    expect(confirm).toHaveBeenCalledOnce();
+
+    const reconciledOut = mv({
+      ...out,
+      type: MovementType.TRANSFER,
+      transfer_account_id: "a2",
+      transfer_group_id: String(updates[0].payload.transfer_group_id),
+    });
+    const reconciledIn = mv({
+      ...inc,
+      type: MovementType.TRANSFER,
+      transfer_account_id: null,
+      transfer_group_id: String(updates[1].payload.transfer_group_id),
+    });
+    expect(MS.impactOnAccount(reconciledOut, "a1")).toBe(-500);
+    expect(MS.impactOnAccount(reconciledOut, "a2")).toBe(500);
+    expect(MS.impactOnAccount(reconciledIn, "a2")).toBe(0);
+  });
+
+  it("rejeitar registra a decisão sem reconciliar movimentos", async () => {
+    const from = vi.fn();
+    const reject = vi
+      .spyOn(ReconciliationDecisionService, "rejectTransfer")
+      .mockResolvedValue(undefined);
+    const candidate = RS.findCandidates([out, inc])[0];
+
+    await new RS({ from } as never).reject(candidate);
+
+    expect(reject).toHaveBeenCalledWith({
+      workspaceId: "ws",
+      movementAId: "out",
+      movementBId: "inc",
+    });
+    expect(from).not.toHaveBeenCalled();
   });
 });

@@ -312,7 +312,7 @@ class ImportServiceImpl extends BaseService {
     // respeitando as decisões MATCH/REJECT já persistidas.
     let suggestedTransfers = 0;
     try {
-      const candidates = await ReconciliationService.listCandidates(workspaceId);
+      const candidates = await ReconciliationService.listCandidatesForImport(workspaceId, record.id);
       suggestedTransfers = candidates.length;
       if (suggestedTransfers > 0) {
         log.push({ level: "info", message: `${suggestedTransfers} possível(is) transferência(s) entre contas aguardando confirmação manual.`, at: new Date().toISOString() });
