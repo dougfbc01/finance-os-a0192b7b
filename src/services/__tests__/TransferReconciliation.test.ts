@@ -144,6 +144,114 @@ describe("Escopo da conciliação por importação", () => {
     void service;
   });
 
+  it("reimportação encontra contraparte que já é transferência", async () => {
+    const existingTransfer = mv({
+      id: "existing-transfer",
+      type: MovementType.TRANSFER,
+      account_id: "a1",
+      transfer_account_id: "a2",
+      transfer_group_id: "lonely-group",
+      import_id: "old-import",
+    });
+    const importedIn = mv({
+      id: "imported-in",
+      account_id: "a2",
+      type: MovementType.INCOME,
+      import_id: "import-1",
+      description: "PIX RECEBIDO",
+    });
+    vi.spyOn(MovementService, "listAll").mockResolvedValue([existingTransfer, importedIn]);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([]);
+
+    const candidates = await new RS().listCandidatesForImport("ws", "import-1");
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].outflow).toBe(existingTransfer);
+    expect(candidates[0].inflow).toBe(importedIn);
+    expect(candidates[0].signals).toContain("Transferência existente");
+  });
+
+  it("não associa a transferência existente a uma conta diferente do destino", async () => {
+    const existingTransfer = mv({
+      id: "existing-transfer",
+      type: MovementType.TRANSFER,
+      account_id: "a1",
+      transfer_account_id: "a2",
+      transfer_group_id: "lonely-group",
+    });
+    const importedInWrongAccount = mv({
+      id: "imported-in",
+      account_id: "a3",
+      type: MovementType.INCOME,
+      import_id: "import-1",
+    });
+    vi.spyOn(MovementService, "listAll").mockResolvedValue([
+      existingTransfer,
+      importedInWrongAccount,
+    ]);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([]);
+
+    await expect(new RS().listCandidatesForImport("ws", "import-1")).resolves.toHaveLength(0);
+  });
+
+  it("não sugere terceira perna para um grupo de transferência completo", async () => {
+    const existingOut = mv({
+      id: "existing-out",
+      type: MovementType.TRANSFER,
+      account_id: "a1",
+      transfer_account_id: "a2",
+      transfer_group_id: "complete-group",
+    });
+    const existingMirror = mv({
+      id: "existing-mirror",
+      type: MovementType.TRANSFER,
+      account_id: "a2",
+      transfer_account_id: null,
+      transfer_group_id: "complete-group",
+    });
+    const importedIn = mv({
+      id: "imported-in",
+      account_id: "a2",
+      type: MovementType.INCOME,
+      import_id: "import-1",
+    });
+    vi.spyOn(MovementService, "listAll").mockResolvedValue([
+      existingOut,
+      existingMirror,
+      importedIn,
+    ]);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([]);
+
+    await expect(new RS().listCandidatesForImport("ws", "import-1")).resolves.toHaveLength(0);
+  });
+
+  it("mantém rejeição manual também na busca complementar", async () => {
+    const existingTransfer = mv({
+      id: "existing-transfer",
+      type: MovementType.TRANSFER,
+      account_id: "a1",
+      transfer_account_id: "a2",
+      transfer_group_id: "lonely-group",
+    });
+    const importedIn = mv({
+      id: "imported-in",
+      account_id: "a2",
+      type: MovementType.INCOME,
+      import_id: "import-1",
+    });
+    vi.spyOn(MovementService, "listAll").mockResolvedValue([existingTransfer, importedIn]);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([
+      {
+        movement_a_id: "existing-transfer",
+        movement_b_id: "imported-in",
+        decision: "REJECT",
+        kind: "TRANSFER_MATCH",
+      },
+    ] as never);
+
+    await expect(new RS().listCandidatesForImport("ws", "import-1")).resolves.toHaveLength(0);
+  });
+
   it("confirmar atualiza somente as duas pernas e registra a decisão", async () => {
     const updates: Array<{ payload: Record<string, unknown>; id: string }> = [];
     const client = {
