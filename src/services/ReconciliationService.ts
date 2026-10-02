@@ -151,13 +151,93 @@ class ReconciliationServiceImpl extends BaseService {
   async listCandidatesForImport(workspaceId: UUID, importId: UUID): Promise<TransferCandidate[]> {
     const movements = await MovementService.listAll(workspaceId);
     const decisions = await ReconciliationDecisionService.list(workspaceId, "TRANSFER_MATCH");
-    const candidates = ReconciliationServiceImpl.findCandidates(movements, {
+    const options = {
       rejectedPairKeys: RD.rejectedKeys(decisions, "TRANSFER_MATCH"),
       matchedPairKeys: RD.matchedKeys(decisions, "TRANSFER_MATCH"),
-    });
-    return candidates.filter(
+    };
+    const candidates = ReconciliationServiceImpl.findCandidates(movements, options).filter(
       (c) => c.outflow.import_id === importId || c.inflow.import_id === importId,
     );
+
+    // Reimportação: uma das pernas pode já estar marcada como transferência e,
+    // por isso, é corretamente ignorada pelo fluxo normal. Para esta consulta,
+    // ela recupera temporariamente sua direção original e passa pelo mesmo motor.
+    const activeGroupSize = new Map<UUID, number>();
+    for (const movement of movements) {
+      if (!movement.deleted_at && movement.transfer_group_id) {
+        activeGroupSize.set(
+          movement.transfer_group_id,
+          (activeGroupSize.get(movement.transfer_group_id) ?? 0) + 1,
+        );
+      }
+    }
+
+    const existingById = new Map<UUID, Movement>();
+    const existingAsDirectional = movements.flatMap((movement) => {
+      if (
+        movement.import_id === importId ||
+        movement.deleted_at ||
+        movement.is_historical ||
+        movement.card_id ||
+        (!movement.transfer_group_id && movement.type !== MovementType.TRANSFER) ||
+        (movement.transfer_group_id && (activeGroupSize.get(movement.transfer_group_id) ?? 0) >= 2)
+      ) {
+        return [];
+      }
+
+      let directionalType = movement.type;
+      if (movement.type === MovementType.TRANSFER) {
+        if (!movement.transfer_account_id) return [];
+        directionalType = MovementType.EXPENSE;
+      } else if (
+        !EXPENSE_TYPES.includes(movement.type) &&
+        !INCOME_TYPES.includes(movement.type)
+      ) {
+        return [];
+      }
+
+      existingById.set(movement.id, movement);
+      return [{ ...movement, type: directionalType, transfer_group_id: null }];
+    });
+
+    if (existingAsDirectional.length === 0) return candidates;
+
+    const imported = movements.filter((movement) => movement.import_id === importId);
+    const supplemental = ReconciliationServiceImpl.findCandidates(
+      [...imported, ...existingAsDirectional],
+      options,
+    ).flatMap((candidate) => {
+      const existingOut = existingById.get(candidate.outflow.id);
+      const existingIn = existingById.get(candidate.inflow.id);
+      if (!!existingOut === !!existingIn) return [];
+
+      const restored: TransferCandidate = {
+        ...candidate,
+        outflow: existingOut ?? candidate.outflow,
+        inflow: existingIn ?? candidate.inflow,
+        signals: [...candidate.signals, "Transferência existente"],
+      };
+
+      // Uma transferência de saída já cadastrada conhece explicitamente a
+      // conta de destino; não oferece candidata de outra conta por semelhança.
+      if (
+        existingOut?.type === MovementType.TRANSFER &&
+        existingOut.transfer_account_id !== restored.inflow.account_id
+      ) {
+        return [];
+      }
+      return [restored];
+    });
+
+    const seen = new Set(candidates.map((candidate) => RD.pairKey(candidate.outflow.id, candidate.inflow.id)));
+    for (const candidate of supplemental) {
+      const key = RD.pairKey(candidate.outflow.id, candidate.inflow.id);
+      if (!seen.has(key)) {
+        seen.add(key);
+        candidates.push(candidate);
+      }
+    }
+    return candidates;
   }
 
   /** Candidatas do workspace já filtradas pelas decisões manuais persistidas. */
