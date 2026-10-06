@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -43,6 +43,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   asset: (Asset & Partial<QuotedAsset>) | null;
   movements: Movement[];
+  /** Atualiza somente a cotação deste ativo. */
+  onRefreshQuote?: (ticker: string) => void;
+  quoteRefreshing?: boolean;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -54,7 +57,14 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Props) {
+export function AssetDetailDialog({
+  open,
+  onOpenChange,
+  asset,
+  movements,
+  onRefreshQuote,
+  quoteRefreshing = false,
+}: Props) {
   const [yieldOpen, setYieldOpen] = useState(false);
   const [editing, setEditing] = useState<Movement | null>(null);
   const [deleting, setDeleting] = useState<Movement | null>(null);
@@ -229,6 +239,19 @@ export function AssetDetailDialog({ open, onOpenChange, asset, movements }: Prop
               title="Mercado"
               description="Valorização da posição (não é rentabilidade completa)"
             >
+              {onRefreshQuote && asset.ticker && (
+                <div className="flex justify-end pb-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={quoteRefreshing}
+                    onClick={() => onRefreshQuote(asset.ticker as string)}
+                  >
+                    <RefreshCw className={`mr-1 h-3.5 w-3.5 ${quoteRefreshing ? "animate-spin" : ""}`} />
+                    Atualizar cotação deste ativo
+                  </Button>
+                </div>
+              )}
               {quote && marketValue !== null ? (
                 <>
                   <Row label="Custo histórico" value={formatCurrency(costBasis, asset.currency)} />

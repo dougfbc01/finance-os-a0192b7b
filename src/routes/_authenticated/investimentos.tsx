@@ -52,6 +52,8 @@ function InvestimentosPage() {
     quotesCooldownUntil,
     quotesNextAutoUpdate,
     refreshQuotes,
+    refreshQuote,
+    pendingQuoteTickers,
     isLoading,
   } = usePatrimony();
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -241,6 +243,10 @@ function InvestimentosPage() {
         onOpenChange={(o) => !o && setDetailId(null)}
         asset={(detailId ? quotedById.get(detailId) : null) ?? null}
         movements={movements}
+        onRefreshQuote={(t) => void refreshQuote(t)}
+        quoteRefreshing={pendingQuoteTickers.has(
+          ((detailId ? quotedById.get(detailId)?.ticker : null) ?? "").toUpperCase(),
+        )}
       />
 
       {wsId && (
