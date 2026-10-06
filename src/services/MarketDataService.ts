@@ -38,9 +38,15 @@ export class MarketDataServiceImpl {
     this.clearQuoteCache();
   }
 
-  /** Limpa apenas as cotações (usado pelo botão "Atualizar cotações"). */
+  /** Limpa apenas as cotações. */
   clearQuoteCache() {
     this.quoteCache.clear();
+  }
+
+  /** Reconsulta SOMENTE os tickers pedidos; o cache dos demais é preservado. */
+  async refreshQuotes(rawTickers: string[]): Promise<MarketQuoteMap> {
+    for (const t of rawTickers) this.quoteCache.delete(normalizeTicker(t ?? ""));
+    return this.getQuotes(rawTickers);
   }
 
   /**

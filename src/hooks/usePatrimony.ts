@@ -95,6 +95,8 @@ export function usePatrimony() {
     quotesCooldownUntil: marketQuotes.manualCooldownUntil,
     quotesNextAutoUpdate: marketQuotes.nextAutoUpdate,
     refreshQuotes: marketQuotes.refresh,
+    refreshQuote: marketQuotes.refreshTicker,
+    pendingQuoteTickers: marketQuotes.pendingTickers,
     futureObligations: commitments.remainingTotal,
     isLoading: assetsQ.isLoading || invoicesQ.isLoading || dash.isLoading || commitments.isLoading,
   };
