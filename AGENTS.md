@@ -11,3 +11,4 @@
 
 - Represent B3 historical cost provenance with `cost:CARRIED`, `cost:BASIS:<value>`, `cost:LEGACY_COVERED`, and `cost:INDETERMINATE` movement tags, because quantity adjustments must remain cash-neutral and conversion cost must never be inferred.
 - Persist the latest quote per asset in `market_price_history` (one row per asset/day) and only query the provider on explicit user request, because refreshing one asset must never clear or change other assets' quotes.
+- Investment analysis is a read-only projection through the existing valuation, quotation and investment services, grouped by asset type and currency; use stored prices at or before each date and leave unavailable historical valuations as gaps, because analysis must not introduce financial formulas, future prices or cross-currency sums.

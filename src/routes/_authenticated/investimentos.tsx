@@ -23,6 +23,9 @@ import { usePatrimony } from "@/hooks/usePatrimony";
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import { formatCurrency } from "@/lib/format";
 import type { Asset } from "@/models";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { InvestmentPortfolioSummary } from "@/components/assets/InvestmentPortfolioSummary";
+import { InvestmentAnalysis } from "@/components/assets/InvestmentAnalysis";
 
 export const Route = createFileRoute("/_authenticated/investimentos")({
   head: () => ({
@@ -33,6 +36,10 @@ export const Route = createFileRoute("/_authenticated/investimentos")({
         content:
           "Acompanhe seus investimentos: quantidade, preço médio, valor atual e rentabilidade.",
       },
+      { property: "og:title", content: "Investimentos — Finance OS" },
+      { property: "og:description", content: "Carteira, retorno econômico por grupo e análise histórica dos investimentos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: InvestimentosPage,
@@ -100,7 +107,12 @@ function InvestimentosPage() {
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Carregando…</div>
       ) : (
-        <>
+        <Tabs defaultValue="portfolio" className="space-y-6">
+          <TabsList aria-label="Visões de investimentos">
+            <TabsTrigger value="portfolio">Carteira</TabsTrigger>
+            <TabsTrigger value="analysis">Análise</TabsTrigger>
+          </TabsList>
+          <TabsContent value="portfolio" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <KpiWidget title="Investido" value={investmentTotals.invested} icon={Wallet} />
             <KpiWidget title="Valor atual" value={investmentTotals.current} icon={PieIcon} />
@@ -118,6 +130,8 @@ function InvestimentosPage() {
               suffix="%"
             />
           </div>
+
+          <InvestmentPortfolioSummary rows={investments} />
 
           <Card>
             <CardHeader>
@@ -235,7 +249,11 @@ function InvestimentosPage() {
               )}
             </CardContent>
           </Card>
-        </>
+          </TabsContent>
+          <TabsContent value="analysis">
+            <InvestmentAnalysis workspaceId={wsId} rows={investments} movements={movements} />
+          </TabsContent>
+        </Tabs>
       )}
 
       <AssetDetailDialog
