@@ -6,7 +6,7 @@ import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 
-export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string) {
+export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const assetsQuery = useAssets(workspaceId);
   const rawAssets = assetsQuery.data ?? [];
   const history = useQuery({
@@ -27,7 +27,7 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
   });
   const points = useMemo(() => {
     if (!from || !to || from > to) return [];
-    const assets = rawAssets.filter((a) => `${a.asset_type}_${a.currency}` === group || group === "ALL");
+    const assets = rawAssets.filter((a) => a.currency === currency && (`${a.asset_type}_${a.currency}` === group || group === "ALL"));
     const dates = new Set([from, to]);
     // Monthly endpoints keep long histories legible; short periods retain daily observations.
     const cursor = new Date(`${from}T00:00:00Z`);
@@ -40,6 +40,6 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
       if (!daily) cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     return investmentHistory({ assets, movements, prices: history.data ?? {}, dates: [...dates].sort() });
-  }, [rawAssets, movements, history.data, from, to, group]);
+  }, [rawAssets, movements, history.data, from, to, group, currency]);
   return { points, isLoading: assetsQuery.isLoading || history.isLoading, error: history.error };
 }

@@ -1,5 +1,5 @@
 import { summarizeInvestments } from "@/services/InvestmentAnalysisService";
-import type { InvestmentRow } from "@/services/InvestmentService";
+import { InvestmentServiceImpl, type InvestmentRow } from "@/services/InvestmentService";
 import { formatCurrency } from "@/lib/format";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell, TableFooter } from "@/components/ui/table";
 import { TrendingUp } from "lucide-react";
@@ -14,7 +14,7 @@ export function InvestmentPortfolioSummary({ rows }: { rows: InvestmentRow[] }) 
       const currencyGroups = groups.filter((g) => g.currency === currency);
       const totals = currencyGroups.reduce((s, g) => ({ invested: s.invested + g.invested, current: s.current + g.current, profit: s.profit + g.profit, economicReturn: s.economicReturn + (g.economicReturn ?? 0), available: s.available + (g.economicReturn !== null ? 1 : 0), unavailable: s.unavailable + g.unavailableReturns }), { invested: 0, current: 0, profit: 0, economicReturn: 0, available: 0, unavailable: 0 });
       // Aggregate profitability is delegated to the same service used by the portfolio.
-      const totalGroup = summarizeInvestments(currencyRows.map((r) => ({ ...r, asset: { ...r.asset, asset_type: currencyRows[0]?.asset.asset_type ?? r.asset.asset_type } })))[0];
+      const totalGroup = InvestmentServiceImpl.totals(currencyRows.map((r) => r.asset));
       return <div key={currency} className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3 border-l-4 border-primary bg-muted/40 px-5 py-4">
           <div><p className="text-sm text-muted-foreground">Retorno Econômico Total · {currency}</p><p className="mt-1 text-3xl font-semibold tabular-nums">{totals.available ? formatCurrency(totals.economicReturn, currency) : "—"}</p></div>
