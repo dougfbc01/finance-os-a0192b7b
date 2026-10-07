@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Investimentos: resumo por tipo com totais e retorno econômico existente; aba Análise com histórico, período, grupos e composição, sem alterar regras financeiras.
+- [ ] Validar agregações e séries com testes focados e conferir as telas com dados reais.
+
 - [x] Sprint 4.15E: corrigir totais da conciliação, identificando somente pagamentos específicos de fatura/cartão sem falsos positivos.
 - [x] Preservar créditos e estornos legítimos no valor oficial.
 - [x] Validar criação manual, vínculo à fatura aberta, recálculo e deduplicação.
