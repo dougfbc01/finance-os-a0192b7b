@@ -69,7 +69,7 @@ function InvestimentosPage() {
   const [editing, setEditing] = useState<Asset | null>(null);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 w-full space-y-6 [contain:inline-size]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Investimentos</h1>

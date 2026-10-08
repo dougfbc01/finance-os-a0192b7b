@@ -91,9 +91,12 @@ export function investmentHistory(params: {
         } };
       }
     }
-    const projected = MarketQuotationServiceImpl.applyQuotes(
-      AssetValuationServiceImpl.effectiveAssets(eligible, movements), quotes,
+    const effective = AssetValuationServiceImpl.effectiveAssets(eligible, movements).map((asset) =>
+      isMarketQuotableType(asset.asset_type) && asset.position.quantity === 0
+        ? { ...asset, current_value: 0, effective_value: 0, acquisition_value: 0, effective_acquisition: 0 }
+        : asset,
     );
+    const projected = MarketQuotationServiceImpl.applyQuotes(effective, quotes);
     const rows = InvestmentServiceImpl.rows(projected, movements);
     const groups = summarizeInvestments(rows);
     const returns: Record<string, number | null> = {};
