@@ -50,4 +50,8 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     const points = investmentHistory({ assets: [asset()], movements: [movement({ amount: 0, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE"] })], prices: { a: [price("2026-01-10", 12)] }, dates: ["2026-02-01"] });
     expect(points[0]?.returns.ACAO_BRL).toBeNull();
   });
+  it("posição vendida e posição futura não reaparecem pelas quantidades atuais do cadastro", () => {
+    const points = investmentHistory({ assets: [asset({ quantity: 10, current_value: 120 })], movements: [movement(), movement({ id: "sale", transaction_date: "2026-02-01", tags: ["op:RESGATE"], amount: 120 })], prices: { a: [price("2026-01-10", 12)] }, dates: ["2025-12-01", "2026-03-01"] });
+    expect(points.map((p) => p.value)).toEqual([0, 0]);
+  });
 });
