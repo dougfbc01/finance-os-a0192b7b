@@ -3,6 +3,7 @@
 import { MovementType, MovementStatus } from "@/constants/enums";
 import type { Importer, ImportContext, PreviewResult, PreviewRow } from "./types";
 import { buildDuplicateHash, parseAmount, parseCSV, parseDate } from "./utils";
+import { isInvoicePaymentLine } from "../CardInvoiceReconciliationService";
 
 export class NubankCreditCardImporter implements Importer {
   readonly source = "NUBANK_CREDIT_CARD" as const;
@@ -57,7 +58,7 @@ export class NubankCreditCardImporter implements Importer {
       // Sprint 3.6 — causa raiz das faturas zeradas: linhas de pagamento da
       // fatura ("Pagamento recebido") vinham como estorno e abatiam o total da
       // fatura. Pagamento de fatura é CARD_PAYMENT e nunca compõe a fatura.
-      const isPayment = /pagamento/i.test(description);
+      const isPayment = isInvoicePaymentLine(description);
       const type = isPayment
         ? MovementType.CARD_PAYMENT
         : raw >= 0
@@ -69,7 +70,7 @@ export class NubankCreditCardImporter implements Importer {
         accountId: ctx.accountId,
         date: date ?? "",
         amount,
-        description: `card:${description}`,
+        description: `card:${ctx.cardId ?? ""}:${description}`,
       });
       const dup = seenInFile.has(hash);
       seenInFile.add(hash);

@@ -255,42 +255,15 @@ class ReconciliationServiceImpl extends BaseService {
    * Nenhum lançamento é excluído; a decisão MATCH fica persistida.
    */
   async apply(candidate: TransferCandidate): Promise<void> {
-    const groupId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
-
-    const { error: e1 } = await this.client
-      .from("movements")
-      .update({
-        type: MovementType.TRANSFER,
-        transfer_account_id: candidate.inflow.account_id,
-        transfer_group_id: groupId,
-        category_id: null,
-        subcategory_id: null,
-        status: MovementStatus.RECONCILED,
-      } as never)
-      .eq("id", candidate.outflow.id);
-    if (e1) this.handleError(e1, "apply.outflow");
-
-    // Perna espelho: permanece no histórico da conta de destino, sem impacto
-    // próprio no saldo (o crédito já vem da perna de saída).
-    const { error: e2 } = await this.client
-      .from("movements")
-      .update({
-        type: MovementType.TRANSFER,
-        transfer_account_id: null,
-        transfer_group_id: groupId,
-        category_id: null,
-        subcategory_id: null,
-        status: MovementStatus.RECONCILED,
-      } as never)
-      .eq("id", candidate.inflow.id);
-    if (e2) this.handleError(e2, "apply.inflow");
-
-    await ReconciliationDecisionService.confirmTransfer({
-      workspaceId: candidate.outflow.workspace_id,
-      movementAId: candidate.outflow.id,
-      movementBId: candidate.inflow.id,
-      notes: `Confiança ${candidate.confidence}`,
-    });
+    // Lock, validate, update both legs and persist MATCH in one transaction.
+    const { error } = await this.client.rpc("confirm_transfer_pair" as never, {
+      _workspace_id: candidate.outflow.workspace_id,
+      _outflow_id: candidate.outflow.id,
+      _inflow_id: candidate.inflow.id,
+      _outflow_updated_at: candidate.outflow.updated_at,
+      _inflow_updated_at: candidate.inflow.updated_at,
+    } as never);
+    if (error) this.handleError(error, "apply");
   }
 
   /** "Não são relacionados" — decisão persistente, nunca mais sugerido. */
