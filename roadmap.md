@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Estabilização: auditar importações, transferências, cartões, saldos e indicadores; corrigir somente falhas confirmadas.
+- [ ] Validar correções com testes focados, verificação de tipos, build automático e conferência autenticada sem modificar históricos.
+
 - [x] Investimentos: resumo por tipo com totais e retorno econômico existente; aba Análise com histórico, período, grupos e composição, sem alterar regras financeiras.
 - [x] Validar agregações e séries com testes focados e conferir as telas com dados reais.
 

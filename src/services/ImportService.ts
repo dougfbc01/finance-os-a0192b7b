@@ -4,7 +4,8 @@ import { BaseService } from "./BaseService";
 import { ImporterFactory } from "./importers/ImporterFactory";
 import { ImportHistoryService } from "./ImportHistoryService";
 import { ClassificationRuleService, ClassificationRuleServiceImpl } from "./ClassificationRuleService";
-import { ReconciliationService, ReconciliationServiceImpl } from "./ReconciliationService";
+import { ReconciliationService } from "./ReconciliationService";
+import { MovementService } from "./MovementService";
 import { CardService, CardServiceImpl } from "./CardService";
 import { CardInvoiceService } from "./CardInvoiceService";
 import {
@@ -61,35 +62,24 @@ class ImportServiceImpl extends BaseService {
    * Busca hashes de duplicidade existentes no workspace para bloquear reimportação.
    */
   async loadExistingHashes(workspaceId: UUID): Promise<Set<string>> {
-    const { data, error } = await this.client
-      .from("movements")
-      .select("duplicate_hash")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
-      .not("duplicate_hash", "is", null);
-    if (error) this.handleError(error, "loadExistingHashes");
     const set = new Set<string>();
-    for (const r of data ?? []) {
-      const h = (r as { duplicate_hash: string | null }).duplicate_hash;
-      if (h) set.add(h);
+    for (let offset = 0; ; offset += 500) {
+      // Deleted rows also block reimport, including deletions predating tombstones.
+      const { data, error } = await this.client.from("movements")
+        .select("id, duplicate_hash").eq("workspace_id", workspaceId)
+        .not("duplicate_hash", "is", null).order("id").range(offset, offset + 499);
+      if (error) this.handleError(error, "loadExistingHashes");
+      for (const row of data ?? []) {
+        if (row.duplicate_hash) set.add(row.duplicate_hash);
+      }
+      if ((data ?? []).length < 500) break;
     }
     return set;
   }
 
   /** Base recente do workspace usada pela detecção inteligente de duplicidade. */
   async loadRecentMovements(workspaceId: UUID): Promise<Movement[]> {
-    const { data, error } = await this.client
-      .from("movements")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
-      .order("transaction_date", { ascending: false })
-      .limit(4000);
-    if (error) this.handleError(error, "loadRecentMovements");
-    return ((data ?? []) as unknown as Movement[]).map((m) => ({
-      ...m,
-      amount: Number(m.amount),
-    }));
+    return MovementService.listAll(workspaceId);
   }
 
   async buildPreview(params: BuildPreviewParams): Promise<PreviewResult & { existingImport: ImportRecord | null }> {
@@ -185,6 +175,13 @@ class ImportServiceImpl extends BaseService {
     const t0 = Date.now();
     const { preview, workspaceId, accountId, cardId, importedBy, selectedIndexes } = params;
 
+    // A preview may be stale: reload deletion/dedup guards before any write.
+    const [existingHashes, excludedHashes] = await Promise.all([
+      this.loadExistingHashes(workspaceId),
+      MovementImportExclusionService.listHashes(workspaceId),
+    ]);
+    for (const hash of excludedHashes) existingHashes.add(hash);
+
     const record = await ImportHistoryService.create({
       workspace_id: workspaceId,
       account_id: accountId,
@@ -196,11 +193,16 @@ class ImportServiceImpl extends BaseService {
 
     const eligible = preview.rows.filter((r) => !r.isInvalid && !r.isDuplicate);
     const selectedSet = selectedIndexes ? new Set(selectedIndexes) : null;
-    const toInsert = selectedSet ? eligible.filter((r) => selectedSet.has(r.index)) : eligible;
+    const selected = selectedSet ? eligible.filter((r) => selectedSet.has(r.index)) : eligible;
+    const toInsert = selected.filter((row) => {
+      if (existingHashes.has(row.duplicate_hash)) return false;
+      existingHashes.add(row.duplicate_hash);
+      return true;
+    });
 
     const log: ImportLogEntry[] = [];
     let inserted = 0;
-    let duplicated = 0;
+    let duplicated = selected.length - toInsert.length;
     let ignored = 0;
     const invoiceIds = new Set<UUID>();
 
@@ -254,8 +256,8 @@ class ImportServiceImpl extends BaseService {
         transaction_date: r.transaction_date,
         // Sprint 4.0.1 — competência/vencimento nunca ficam vazios na importação.
         competence_date: r.transaction_date,
-        due_date: isCardPurchase(r)
-          ? CardServiceImpl.computeInvoicePeriod(card!, r.transaction_date).due_date
+        due_date: card && isCardPurchase(r)
+          ? CardServiceImpl.computeInvoicePeriod(card, r.transaction_date).due_date
           : r.transaction_date,
         tags: [],
         attachments: [],
@@ -273,9 +275,21 @@ class ImportServiceImpl extends BaseService {
           .select("id");
         if (error) {
           const msg = String(error.message ?? error);
-          if (/duplicate key/i.test(msg) || /movements_workspace_duphash_unique/i.test(msg)) {
-            duplicated += chunk.length;
-            log.push({ level: "warn", message: `Lote com duplicidade detectada no banco: ${msg}`, at: new Date().toISOString() });
+          if (error.code === "23505" || /duplicate key/i.test(msg)) {
+            // One conflict rolls the entire batch back; retry each row so new
+            // movements are not silently discarded alongside the duplicate.
+            for (const item of chunk) {
+              const result = await this.client.from("movements").insert(item as never).select("id");
+              if (result.error?.code === "23505") { duplicated++; continue; }
+              if (result.error) {
+                await ImportHistoryService.finalize(record.id, {
+                  status: "FAILED", total_rows: preview.totals.total,
+                  imported_rows: inserted, ignored_rows: ignored, duplicated_rows: duplicated, log,
+                });
+                this.handleError(result.error, "commit.retry");
+              }
+              inserted += result.data?.length ?? 1;
+            }
             continue;
           }
           log.push({ level: "error", message: msg, at: new Date().toISOString() });

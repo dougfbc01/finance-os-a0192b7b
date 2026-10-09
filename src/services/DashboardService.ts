@@ -116,8 +116,8 @@ class DashboardServiceImpl extends BaseService {
     for (const m of movements) {
       const d = this.competenceDate(m);
       if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-      if (INCOME_TYPES.includes(m.type)) income += m.amount;
-      else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
+      if (MovementServiceImpl.isIncome(m)) income += m.amount;
+      else if (MovementServiceImpl.isExpense(m)) expense += m.amount;
     }
     return { income, expense, result: income - expense };
   }
@@ -150,8 +150,8 @@ class DashboardServiceImpl extends BaseService {
       for (const m of movements) {
         const comp = this.competenceDate(m);
         if (comp.getFullYear() === y && comp.getMonth() === mo) {
-          if (INCOME_TYPES.includes(m.type)) income += m.amount;
-          else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
+          if (MovementServiceImpl.isIncome(m)) income += m.amount;
+          else if (MovementServiceImpl.isExpense(m)) expense += m.amount;
         }
         const cash = new Date(`${m.transaction_date}T00:00:00`);
         if (cash.getFullYear() === y && cash.getMonth() === mo) delta += this.balanceDelta(m);
@@ -172,21 +172,15 @@ class DashboardServiceImpl extends BaseService {
 
   /** Delta global de saldo bancário (soma sobre todas as contas do workspace). */
   private balanceDelta(m: Movement): number {
-    if (m.type === MovementType.TRANSFER) return 0; // fluxo entre contas
-    // Compras no cartão não impactam caixa (viram passivo). Pagamento sim.
-    if (m.card_id && m.type !== MovementType.CARD_PAYMENT) return 0;
-    if (INCOME_TYPES.includes(m.type)) return m.amount;
-    if (EXPENSE_TYPES.includes(m.type)) return -m.amount;
-    if (m.type === MovementType.INVESTMENT || m.type === MovementType.CARD_PAYMENT) return -m.amount;
-    if (m.type === MovementType.ADJUSTMENT) return m.amount;
-    return 0;
+    if (!m.account_id || m.type === MovementType.TRANSFER) return 0;
+    return MovementServiceImpl.impactOnAccount(m, m.account_id);
   }
 
   /** Despesas do mês por categoria. */
   expensesByCategory(movements: Movement[], year: number, month: number): CategoryBreakdown[] {
     const map = new Map<UUID | "none", number>();
     for (const m of movements) {
-      if (!EXPENSE_TYPES.includes(m.type)) continue;
+      if (!MovementServiceImpl.isExpense(m)) continue;
       const d = this.competenceDate(m);
       if (d.getFullYear() !== year || d.getMonth() !== month) continue;
       const key = m.category_id ?? "none";
@@ -226,8 +220,8 @@ class DashboardServiceImpl extends BaseService {
     let expense = 0;
     for (const m of movements) {
       if (!this.inRange(range, this.competenceIso(m))) continue;
-      if (INCOME_TYPES.includes(m.type)) income += m.amount;
-      else if (EXPENSE_TYPES.includes(m.type)) expense += m.amount;
+      if (MovementServiceImpl.isIncome(m)) income += m.amount;
+      else if (MovementServiceImpl.isExpense(m)) expense += m.amount;
     }
     return { income, expense, result: income - expense };
   }
@@ -263,7 +257,7 @@ class DashboardServiceImpl extends BaseService {
     const map = new Map<UUID | "none", number>();
     let total = 0;
     for (const m of movements) {
-      if (!types.includes(m.type)) continue;
+      if (m.deleted_at || m.is_historical || !types.includes(m.type)) continue;
       if (!this.inRange(range, this.competenceIso(m))) continue;
       const key = keyOf(m) ?? "none";
       map.set(key, (map.get(key) ?? 0) + m.amount);
@@ -294,8 +288,8 @@ class DashboardServiceImpl extends BaseService {
       const key = this.competenceIso(m).slice(0, 7);
       const point = base.get(key);
       if (!point) continue;
-      if (INCOME_TYPES.includes(m.type)) point.income += m.amount;
-      else if (EXPENSE_TYPES.includes(m.type)) point.expense += m.amount;
+      if (MovementServiceImpl.isIncome(m)) point.income += m.amount;
+      else if (MovementServiceImpl.isExpense(m)) point.expense += m.amount;
       point.result = point.income - point.expense;
     }
     return Array.from(base.values());

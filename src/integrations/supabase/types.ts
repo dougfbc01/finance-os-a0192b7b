@@ -1991,6 +1991,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_transfer_pair: {
+        Args: {
+          _inflow_id: string
+          _inflow_updated_at: string
+          _outflow_id: string
+          _outflow_updated_at: string
+          _workspace_id: string
+        }
+        Returns: undefined
+      }
       financial_health_check: { Args: { _workspace_id: string }; Returns: Json }
       has_role: {
         Args: {
