@@ -502,7 +502,7 @@ class MovementServiceImpl extends BaseService {
   static impactOnAccount(m: Movement, accountId: UUID): number {
     // Sprint 4.7 — operações históricas são anteriores ao início do controle:
     // reconstroem posição/patrimônio do ativo e nunca alteram o caixa.
-    if (m.is_historical) return 0;
+    if (m.deleted_at || m.is_historical) return 0;
     if (m.type === MovementType.TRANSFER) {
       // Sprint 4.14 — perna espelho de uma transferência conciliada: o lançamento
       // original do banco de destino permanece no histórico, mas o crédito já é
@@ -520,10 +520,10 @@ class MovementServiceImpl extends BaseService {
 
   /** Regra 002: transferências e pagamento de cartão nunca são receita nem despesa. */
   static isIncome(m: Movement): boolean {
-    return !m.is_historical && INCOME_TYPES.includes(m.type);
+    return !m.deleted_at && !m.is_historical && INCOME_TYPES.includes(m.type);
   }
   static isExpense(m: Movement): boolean {
-    return !m.is_historical && EXPENSE_TYPES.includes(m.type);
+    return !m.deleted_at && !m.is_historical && EXPENSE_TYPES.includes(m.type);
   }
 
   /**
@@ -551,6 +551,7 @@ class MovementServiceImpl extends BaseService {
     let historical = 0;
     let historicalCount = 0;
     for (const m of movements) {
+      if (m.deleted_at) continue;
       const value = Math.abs(Number(m.amount));
       if (m.is_historical) {
         historical += value;
@@ -560,10 +561,10 @@ class MovementServiceImpl extends BaseService {
       if (MovementServiceImpl.isIncome(m)) income += value;
       else if (MovementServiceImpl.isExpense(m)) expense += value;
       // A perna espelho não soma no total de transferências (mesmo dinheiro).
-      else if (!MovementServiceImpl.isMirrorTransferLeg(m)) transfers += value;
+      else if (m.type === MovementType.TRANSFER && !MovementServiceImpl.isMirrorTransferLeg(m)) transfers += value;
     }
     return {
-      count: movements.length,
+      count: movements.filter((m) => !m.deleted_at).length,
       income,
       expense,
       net: income - expense,

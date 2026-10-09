@@ -256,7 +256,7 @@ class ImportServiceImpl extends BaseService {
         transaction_date: r.transaction_date,
         // Sprint 4.0.1 — competência/vencimento nunca ficam vazios na importação.
         competence_date: r.transaction_date,
-        due_date: isCardPurchase(r)
+        due_date: card && isCardPurchase(r)
           ? CardServiceImpl.computeInvoicePeriod(card, r.transaction_date).due_date
           : r.transaction_date,
         tags: [],
