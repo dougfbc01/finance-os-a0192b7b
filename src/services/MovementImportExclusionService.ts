@@ -8,16 +8,16 @@ import type { UUID } from "@/models";
  */
 class MovementImportExclusionServiceImpl extends BaseService {
   async listHashes(workspaceId: UUID): Promise<Set<string>> {
-    const { data, error } = await this.client
-      .from("movement_import_exclusions")
-      .select("duplicate_hash")
-      .eq("workspace_id", workspaceId);
-    if (error) this.handleError(error, "listHashes");
-    return new Set(
-      (data ?? [])
-        .map((row) => (row as { duplicate_hash: string | null }).duplicate_hash)
-        .filter((hash): hash is string => !!hash),
-    );
+    const hashes = new Set<string>();
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await this.client.from("movement_import_exclusions")
+        .select("duplicate_hash").eq("workspace_id", workspaceId)
+        .order("id").range(offset, offset + 499);
+      if (error) this.handleError(error, "listHashes");
+      for (const row of data ?? []) if (row.duplicate_hash) hashes.add(row.duplicate_hash);
+      if ((data ?? []).length < 500) break;
+    }
+    return hashes;
   }
 
   async record(params: {
