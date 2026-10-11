@@ -70,7 +70,7 @@ export class NubankCreditCardImporter implements Importer {
         accountId: ctx.accountId,
         date: date ?? "",
         amount,
-        description: `card:${ctx.cardId ?? ""}:${description}`,
+        description: `card:${description}`,
       });
       const dup = seenInFile.has(hash);
       seenInFile.add(hash);

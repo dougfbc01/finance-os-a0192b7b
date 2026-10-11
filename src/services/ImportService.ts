@@ -111,6 +111,7 @@ class ImportServiceImpl extends BaseService {
     // Aplica regras de classificação: só sobrescreve quando a linha ainda não
     // possui categoria manual do próprio importador.
     for (const row of preview.rows) {
+      if (row.type === "TRANSFER" || row.type === "CARD_PAYMENT") continue;
       if (row.category_id) continue;
       const match = ClassificationRuleServiceImpl.match(
         {
@@ -247,8 +248,8 @@ class ImportServiceImpl extends BaseService {
         card_id: r.card_id ?? (card ? card.id : null),
         invoice_id: rowInvoiceMap.get(r.index) ?? null,
         transfer_account_id: r.transfer_account_id,
-        category_id: r.category_id,
-        subcategory_id: r.subcategory_id,
+        category_id: r.type === "TRANSFER" || r.type === "CARD_PAYMENT" ? null : r.category_id,
+        subcategory_id: r.type === "TRANSFER" || r.type === "CARD_PAYMENT" ? null : r.subcategory_id,
         type: r.type,
         status: r.status ?? (isCardPurchase(r) ? MovementStatus.PENDING : MovementStatus.CLEARED),
         description: r.description,

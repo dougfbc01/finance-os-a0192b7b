@@ -213,7 +213,7 @@ class CardServiceImpl extends BaseService {
   static computeInvoiceAmount(movements: Movement[]): number {
     let total = 0;
     for (const m of movements) {
-      if (m.deleted_at) continue;
+      if (m.deleted_at || m.is_historical || m.type === "TRANSFER" || m.type === "CARD_PAYMENT") continue;
       if (m.type === "REFUND") total -= Number(m.amount);
       else total += Number(m.amount);
     }
