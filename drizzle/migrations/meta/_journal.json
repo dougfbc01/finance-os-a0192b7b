@@ -8,6 +8,13 @@
       "when": 1791546588835,
       "tag": "0000_stabilize_manual_transfer_confirmation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791751930898,
+      "tag": "0001_align_invoice_totals_and_health_diagnostics",
+      "breakpoints": true
     }
   ]
 }
