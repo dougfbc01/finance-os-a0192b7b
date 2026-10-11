@@ -182,17 +182,15 @@ class SimilarityServiceImpl extends BaseService {
 
   /** Carrega os pares de revisão do workspace. */
   async listReviewPairs(workspaceId: UUID): Promise<DuplicatePair[]> {
-    const { data, error } = await this.client
-      .from("movements")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
-      .order("transaction_date", { ascending: true });
-    if (error) this.handleError(error, "listReviewPairs");
-    const list = ((data ?? []) as unknown as Movement[]).map((m) => ({
-      ...m,
-      amount: Number(m.amount),
-    }));
+    const list: Movement[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await this.client.from("movements").select("*")
+        .eq("workspace_id", workspaceId).is("deleted_at", null)
+        .order("id").range(offset, offset + 499);
+      if (error) this.handleError(error, "listReviewPairs");
+      list.push(...((data ?? []) as unknown as Movement[]).map((m) => ({ ...m, amount: Number(m.amount) })));
+      if ((data ?? []).length < 500) break;
+    }
     const decisions = await this.client
       .from("reconciliation_decisions")
       .select("movement_a_id, movement_b_id, decision, kind")
