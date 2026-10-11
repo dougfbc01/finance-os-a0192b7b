@@ -91,7 +91,7 @@ describe("Estabilização — importação", () => {
 
   it("transferência importada não carrega categoria de despesa", async () => {
     mockCommit();
-    const insert = vi.fn(() => ({ select: async () => ({ data: [{ id: "new" }], error: null }) }));
+    const insert = vi.fn((_payload: unknown) => ({ select: async () => ({ data: [{ id: "new" }], error: null }) }));
     const originalClient = (ImportService as unknown as { client: unknown }).client;
     try {
       (ImportService as unknown as { client: unknown }).client = { from: () => ({ insert }) };
