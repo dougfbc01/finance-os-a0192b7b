@@ -252,46 +252,22 @@ describe("Escopo da conciliação por importação", () => {
     await expect(new RS().listCandidatesForImport("ws", "import-1")).resolves.toHaveLength(0);
   });
 
-  it("confirmar atualiza somente as duas pernas e registra a decisão", async () => {
-    const updates: Array<{ payload: Record<string, unknown>; id: string }> = [];
-    const client = {
-      from: () => ({
-        update: (payload: Record<string, unknown>) => ({
-          eq: async (_column: string, id: string) => {
-            updates.push({ payload, id });
-            return { error: null };
-          },
-        }),
-      }),
-    };
-    const confirm = vi
-      .spyOn(ReconciliationDecisionService, "confirmTransfer")
-      .mockResolvedValue(undefined);
+  it("confirmar delega as duas pernas e a versão persistida a uma transação", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
     const candidate = RS.findCandidates([out, inc])[0];
-
-    await new RS(client as never).apply(candidate);
-
-    expect(updates).toHaveLength(2);
-    expect(updates.map((entry) => entry.id)).toEqual(["out", "inc"]);
-    expect(updates.every((entry) => entry.payload.type === MovementType.TRANSFER)).toBe(true);
-    expect(updates[0].payload.transfer_group_id).toBe(updates[1].payload.transfer_group_id);
-    expect(confirm).toHaveBeenCalledOnce();
-
-    const reconciledOut = mv({
-      ...out,
-      type: MovementType.TRANSFER,
-      transfer_account_id: "a2",
-      transfer_group_id: String(updates[0].payload.transfer_group_id),
+    await new RS({ rpc } as never).apply(candidate);
+    expect(rpc).toHaveBeenCalledWith("confirm_transfer_pair", {
+      _workspace_id: "ws", _outflow_id: "out", _inflow_id: "inc",
+      _outflow_updated_at: out.updated_at, _inflow_updated_at: inc.updated_at,
     });
-    const reconciledIn = mv({
-      ...inc,
-      type: MovementType.TRANSFER,
-      transfer_account_id: null,
-      transfer_group_id: String(updates[1].payload.transfer_group_id),
-    });
-    expect(MS.impactOnAccount(reconciledOut, "a1")).toBe(-500);
-    expect(MS.impactOnAccount(reconciledOut, "a2")).toBe(500);
-    expect(MS.impactOnAccount(reconciledIn, "a2")).toBe(0);
+  });
+
+  it("falha da confirmação não executa escritas parciais no cliente", async () => {
+    const from = vi.fn();
+    const rpc = vi.fn().mockResolvedValue({ error: new Error("Lançamentos alterados") });
+    await expect(new RS({ rpc, from } as never).apply(RS.findCandidates([out, inc])[0]))
+      .rejects.toThrow("Lançamentos alterados");
+    expect(from).not.toHaveBeenCalled();
   });
 
   it("rejeitar registra a decisão sem reconciliar movimentos", async () => {
