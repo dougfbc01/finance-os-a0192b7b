@@ -225,6 +225,18 @@ describe("Escopo da conciliação por importação", () => {
     await expect(new RS().listCandidatesForImport("ws", "import-1")).resolves.toHaveLength(0);
   });
 
+  it("encontra o destino correto mesmo quando outra conta empata no valor e data", async () => {
+    const existing = mv({ id: "existing", type: MovementType.TRANSFER,
+      transfer_account_id: "a2", transfer_group_id: "g" });
+    const wrong = mv({ id: "wrong", type: MovementType.INCOME, account_id: "a3", import_id: "import-1" });
+    const correct = mv({ id: "correct", type: MovementType.INCOME, account_id: "a2", import_id: "import-1" });
+    vi.spyOn(MovementService, "listAll").mockResolvedValue([existing, wrong, correct]);
+    vi.spyOn(ReconciliationDecisionService, "list").mockResolvedValue([]);
+    const candidates = await new RS().listCandidatesForImport("ws", "import-1");
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].inflow.id).toBe("correct");
+  });
+
   it("mantém rejeição manual também na busca complementar", async () => {
     const existingTransfer = mv({
       id: "existing-transfer",
