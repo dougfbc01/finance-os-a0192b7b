@@ -11,7 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 export const Route = createFileRoute("/auth/forgot-password")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Recuperar senha — Finance OS" }] }),
+  head: () => ({ meta: [
+      { name: "description", content: "Recupere o acesso à sua conta no Finance OS." },
+      { property: "og:title", content: "Recuperar senha — Finance OS" },
+      { property: "og:description", content: "Recupere o acesso à sua conta no Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+{ title: "Recuperar senha — Finance OS" }] }),
   component: ForgotPasswordPage,
 });
 

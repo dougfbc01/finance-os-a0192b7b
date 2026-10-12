@@ -22,6 +22,11 @@ import type { ImportRecord } from "@/models/Import";
 export const Route = createFileRoute("/_authenticated/importacoes")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Importações — Finance OS" },
+      { property: "og:description", content: "Importe extratos bancários e faturas de cartão automaticamente." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Importações — Finance OS" },
       {
         name: "description",

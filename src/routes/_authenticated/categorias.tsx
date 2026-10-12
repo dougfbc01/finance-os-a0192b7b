@@ -25,6 +25,11 @@ type Filter = "all" | CategoryType;
 export const Route = createFileRoute("/_authenticated/categorias")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Categorias — Finance OS" },
+      { property: "og:description", content: "Plano de categorias e subcategorias do Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Categorias — Finance OS" },
       { name: "description", content: "Plano de categorias e subcategorias do Finance OS." },
     ],

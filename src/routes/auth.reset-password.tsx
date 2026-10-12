@@ -11,7 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 export const Route = createFileRoute("/auth/reset-password")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Nova senha — Finance OS" }] }),
+  head: () => ({ meta: [
+      { name: "description", content: "Defina uma nova senha para sua conta no Finance OS." },
+      { property: "og:title", content: "Nova senha — Finance OS" },
+      { property: "og:description", content: "Defina uma nova senha para sua conta no Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+{ title: "Nova senha — Finance OS" }] }),
   component: ResetPasswordPage,
 });
 

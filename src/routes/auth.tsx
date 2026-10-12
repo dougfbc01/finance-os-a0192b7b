@@ -18,6 +18,11 @@ export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({
     meta: [
+      { property: "og:title", content: "Entrar — Finance OS" },
+      { property: "og:description", content: "Acesse sua conta no Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Entrar — Finance OS" },
       { name: "description", content: "Acesse sua conta no Finance OS." },
     ],

@@ -74,6 +74,9 @@ import {
 export const Route = createFileRoute("/_authenticated/cartoes_/faturas/$invoiceId/conciliacao")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Conciliação de fatura — Finance OS" },
       {
         name: "description",

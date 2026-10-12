@@ -41,6 +41,11 @@ export const Route = createFileRoute("/_authenticated/regras")({
   }),
   head: () => ({
     meta: [
+      { property: "og:title", content: "Regras de Classificação — Finance OS" },
+      { property: "og:description", content: "Regras que classificam automaticamente movimentações importadas." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Regras de Classificação — Finance OS" },
       {
         name: "description",

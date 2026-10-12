@@ -83,6 +83,11 @@ export const Route = createFileRoute("/_authenticated/movimentacoes")({
   }),
   head: () => ({
     meta: [
+      { property: "og:title", content: "Movimentações — Finance OS" },
+      { property: "og:description", content: "Extrato completo de movimentações financeiras." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Movimentações — Finance OS" },
       { name: "description", content: "Extrato completo de movimentações financeiras." },
     ],

@@ -46,6 +46,11 @@ export const Route = createFileRoute("/_authenticated/cartoes")({
   }),
   head: () => ({
     meta: [
+      { property: "og:title", content: "Cartões — Finance OS" },
+      { property: "og:description", content: "Gerencie cartões de crédito, limites, faturas e pagamentos consolidados por competência." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Cartões — Finance OS" },
       {
         name: "description",
