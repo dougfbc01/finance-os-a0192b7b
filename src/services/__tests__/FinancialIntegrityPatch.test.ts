@@ -3,6 +3,7 @@ import { ImportService } from "../ImportService";
 import { ImportHistoryService } from "../ImportHistoryService";
 import { MovementImportExclusionService, MovementImportExclusionServiceImpl } from "../MovementImportExclusionService";
 import { ReconciliationService } from "../ReconciliationService";
+import { ReconciliationDecisionServiceImpl } from "../ReconciliationDecisionService";
 import { DashboardService } from "../DashboardService";
 import { MovementServiceImpl } from "../MovementService";
 import { AccountStatementService } from "../AccountStatementService";
@@ -41,6 +42,16 @@ function mockCommit(hashes: string[] = []) {
 }
 
 describe("Estabilização — importação", () => {
+  it("preserva rejeições manuais além da primeira página de decisões", async () => {
+    const pages = Array.from({ length: 1001 }, (_, n) => ({ id: String(n), decision: "REJECT" }));
+    const chain = { select: vi.fn(), eq: vi.fn(), order: vi.fn(),
+      range: vi.fn(async (a: number, b: number) => ({ data: pages.slice(a, b + 1), error: null })) };
+    for (const key of ["select", "eq", "order"] as const) chain[key].mockReturnValue(chain);
+    const decisions = await new ReconciliationDecisionServiceImpl({ from: () => chain } as never).list("ws", "TRANSFER_MATCH");
+    expect(decisions).toHaveLength(1001);
+    expect(decisions[1000].decision).toBe("REJECT");
+    expect(chain.range).toHaveBeenCalledTimes(3);
+  });
   it("carrega todos os hashes, incluindo exclusões antigas e páginas após 1000", async () => {
     const pages = Array.from({ length: 1101 }, (_, n) => ({ id: String(n), duplicate_hash: `hash-${n}` }));
     const range = vi.fn(async (from: number, to: number) => ({ data: pages.slice(from, to + 1), error: null }));

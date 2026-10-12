@@ -203,9 +203,17 @@ class ReconciliationServiceImpl extends BaseService {
     if (existingAsDirectional.length === 0) return candidates;
 
     const imported = movements.filter((movement) => movement.import_id === importId);
-    const supplemental = ReconciliationServiceImpl.findCandidates(
-      [...imported, ...existingAsDirectional],
-      options,
+    // Restrict the destination before matching. Filtering afterwards could
+    // discard the chosen wrong-account pair and hide the correct candidate.
+    const supplemental = existingAsDirectional.flatMap((existing) =>
+      ReconciliationServiceImpl.findCandidates([
+        existing,
+        ...imported.filter((movement) => {
+          const original = existingById.get(existing.id);
+          return original?.type !== MovementType.TRANSFER ||
+            movement.account_id === original.transfer_account_id;
+        }),
+      ], options),
     ).flatMap((candidate) => {
       const existingOut = existingById.get(candidate.outflow.id);
       const existingIn = existingById.get(candidate.inflow.id);

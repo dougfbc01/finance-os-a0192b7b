@@ -25,6 +25,11 @@ import type { Asset } from "@/models";
 export const Route = createFileRoute("/_authenticated/patrimonio")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Patrimônio — Finance OS" },
+      { property: "og:description", content: "Consolide seus ativos, passivos e patrimônio líquido em um único painel." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Patrimônio — Finance OS" },
       {
         name: "description",

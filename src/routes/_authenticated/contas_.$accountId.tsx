@@ -48,6 +48,11 @@ export const Route = createFileRoute("/_authenticated/contas_/$accountId")({
   }),
   head: () => ({
     meta: [
+      { property: "og:title", content: "Extrato da conta — Finance OS" },
+      { property: "og:description", content: "Extrato individual com saldo corrido, filtros e totalizador da conta." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Extrato da conta — Finance OS" },
       {
         name: "description",

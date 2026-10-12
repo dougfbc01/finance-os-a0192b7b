@@ -16,6 +16,11 @@ type Filter = "all" | "active" | "inactive";
 export const Route = createFileRoute("/_authenticated/contas")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Contas — Finance OS" },
+      { property: "og:description", content: "Gerencie suas contas financeiras no Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Contas — Finance OS" },
       { name: "description", content: "Gerencie suas contas financeiras no Finance OS." },
     ],

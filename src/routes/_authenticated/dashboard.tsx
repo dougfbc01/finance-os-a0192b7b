@@ -34,6 +34,11 @@ import { AssetDetailDialog } from "@/components/assets";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
+      { property: "og:title", content: "Dashboard — Finance OS" },
+      { property: "og:description", content: "Visão geral da sua vida financeira no Finance OS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+
       { title: "Dashboard — Finance OS" },
       { name: "description", content: "Visão geral da sua vida financeira no Finance OS." },
     ],

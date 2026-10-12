@@ -106,13 +106,11 @@ class MovementServiceImpl extends BaseService {
         break;
     }
 
-    return q.order("transaction_date", { ascending: false }).order("created_at", { ascending: false });
+    return q.order("transaction_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false });
   }
 
   async list(workspaceId: UUID, filters: MovementFilters = {}): Promise<Movement[]> {
-    const { data, error } = await this.buildListQuery(workspaceId, filters);
-    if (error) this.handleError(error, "list");
-    return (data ?? []).map((r) => this.mapRow(r as Row));
+    return this.listAll(workspaceId, filters);
   }
 
   /**
