@@ -80,14 +80,19 @@ class ReconciliationDecisionServiceImpl extends BaseService {
   }
 
   async list(workspaceId: UUID, kind?: ReconciliationDecisionDomain): Promise<ReconciliationDecision[]> {
-    let q = this.client
-      .from("reconciliation_decisions")
-      .select("*")
-      .eq("workspace_id", workspaceId);
-    if (kind) q = q.eq("kind", kind);
-    const { data, error } = await q.order("created_at", { ascending: false });
-    if (error) this.handleError(error, "list");
-    return (data ?? []) as unknown as ReconciliationDecision[];
+    const rows: ReconciliationDecision[] = [];
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      let q = this.client.from("reconciliation_decisions").select("*").eq("workspace_id", workspaceId);
+      if (kind) q = q.eq("kind", kind);
+      const { data, error } = await q.order("created_at", { ascending: false })
+        .order("id", { ascending: false }).range(offset, offset + pageSize - 1);
+      if (error) this.handleError(error, "list");
+      const page = (data ?? []) as unknown as ReconciliationDecision[];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return rows;
   }
 
   /** Registra (ou reafirma) uma decisão manual sobre um par. */
