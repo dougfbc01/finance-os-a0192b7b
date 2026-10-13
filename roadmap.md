@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Evoluir a análise existente com comparação por grupo, composição coerente e limitações históricas explícitas, preservando cálculos e funcionalidades.
-- [ ] Executar testes relacionados e conferir análise autenticada; informar arquivos, verificação de tipos e build automático.
+- [x] Evoluir a análise existente com comparação por grupo, composição coerente e limitações históricas explícitas, preservando cálculos e funcionalidades.
+- [x] Executar testes relacionados e conferir análise autenticada; informar arquivos, verificação de tipos e build automático.
 
 - [x] Estabilização: auditar importações, transferências, cartões, saldos e indicadores; corrigir somente falhas confirmadas.
 - [x] Validar correções com testes focados, verificação de tipos, build automático e conferência autenticada sem modificar históricos.
