@@ -5,10 +5,11 @@ import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceSe
 import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
+import { InvestmentServiceImpl } from "@/services/InvestmentService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const assetsQuery = useAssets(workspaceId);
-  const rawAssets = assetsQuery.data ?? [];
+  const rawAssets = useMemo(() => InvestmentServiceImpl.filterInvestments(assetsQuery.data ?? []).filter((a) => !a.deleted_at), [assetsQuery.data]);
   const history = useQuery({
     queryKey: ["investment-analysis-prices", workspaceId, rawAssets.map((a) => a.id).sort().join(","), to],
     enabled: !!workspaceId && rawAssets.length > 0,
@@ -41,5 +42,5 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     }
     return investmentHistory({ assets, movements, prices: history.data ?? {}, dates: [...dates].sort() });
   }, [rawAssets, movements, history.data, from, to, group, currency]);
-  return { points, isLoading: assetsQuery.isLoading || history.isLoading, error: history.error };
+  return { points, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }

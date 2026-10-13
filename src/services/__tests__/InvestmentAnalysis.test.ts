@@ -54,4 +54,31 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     const points = investmentHistory({ assets: [asset({ quantity: 10, current_value: 120 })], movements: [movement(), movement({ id: "sale", transaction_date: "2026-02-01", tags: ["op:RESGATE"], amount: 120 })], prices: { a: [price("2026-01-10", 12)] }, dates: ["2025-12-01", "2026-03-01"] });
     expect(points.map((p) => p.value)).toEqual([0, 0]);
   });
+  it("identifica o ativo sem preço sem inventar valor histórico", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement()], prices: {}, dates: ["2026-02-01"] });
+    expect(points[0]?.limitations).toEqual([{ assetId: "a", name: "Ação", reason: "NO_PRICE" }]);
+    expect(points[0]?.value).toBeNull();
+  });
+  it("não transforma saldo de abertura ou avaliação manual em aquisição histórica", () => {
+    const points = investmentHistory({ assets: [asset({ opening_value: 500 })], movements: [], prices: {}, dates: ["2026-02-01"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.limitations[0]?.reason).toBe("NO_HISTORY");
+  });
+  it("preserva o último preço anterior e identifica sua data sem interpolação", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement()], prices: { a: [price("2026-01-10", 12), price("2026-03-01", 99)] }, dates: ["2026-02-01"] });
+    expect(points[0]?.value).toBe(120);
+    expect(points[0]?.carriedPrices).toEqual([{ assetId: "a", priceDate: "2026-01-10" }]);
+  });
+  it("mantém valor cotado mas não inventa rentabilidade com custo indeterminado", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement({ amount: 0, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE", "cost:INDETERMINATE"] })], prices: { a: [price("2026-01-10", 12)] }, dates: ["2026-02-01"] });
+    expect(points[0]?.value).toBe(120);
+    expect(points[0]?.returns.ACAO_BRL).toBeNull();
+    expect(points[0]?.limitations[0]?.reason).toBe("UNKNOWN_COST");
+  });
+  it("lacuna em um grupo não apaga rentabilidade conhecida de outro", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b", asset_type: AssetType.FII, ticker: "FII11" })], movements: [movement(), movement({ id: "b-buy", asset_id: "b" })], prices: { a: [price("2026-01-10", 12)] }, dates: ["2026-02-01"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.returns.ACAO_BRL).toBe(20);
+    expect(points[0]?.returns.FII_BRL).toBeNull();
+  });
 });
