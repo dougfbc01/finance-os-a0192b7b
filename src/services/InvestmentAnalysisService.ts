@@ -50,6 +50,8 @@ export interface InvestmentHistoryPoint {
   value: number | null;
   returns: Record<string, number | null>;
   missingAssets: number;
+  limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "UNKNOWN_COST" }[];
+  carriedPrices: { assetId: string; priceDate: string }[];
 }
 
 /** Rebuild an as-of-date projection; never use a future quote or today's manual valuation. */
@@ -69,21 +71,31 @@ export function investmentHistory(params: {
     const eligible: Asset[] = [];
     const quotes: MarketQuoteMap = {};
     const missing = new Map<string, number>();
+    const unknownCost = new Set<string>();
+    const limitations: InvestmentHistoryPoint["limitations"] = [];
+    const carriedPrices: InvestmentHistoryPoint["carriedPrices"] = [];
     for (const asset of assets) {
       const key = investmentGroupKey(asset);
       if (asset.valuation_source !== AssetValuationSource.MOVEMENTS || Number(asset.opening_value) !== 0) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
+        limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
         continue;
       }
       const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
       const price = sortedPrices.get(asset.id)?.filter((p) => p.date <= date).at(-1);
       if (isMarketQuotableType(asset.asset_type) && position.quantity > 0 && (!price || !asset.ticker)) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
+        limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_PRICE" });
         continue;
+      }
+      if (position.quantity > 0 && movements.some((m) => m.asset_id === asset.id && (m.tags ?? []).includes("cost:INDETERMINATE"))) {
+        unknownCost.add(key);
+        limitations.push({ assetId: asset.id, name: asset.name, reason: "UNKNOWN_COST" });
       }
       // Clear static quantities so a fully sold or not-yet-acquired position cannot reappear.
       eligible.push({ ...asset, quantity: 0, unit_price: 0, current_value: 0, acquisition_value: 0 });
       if (price && asset.ticker) {
+        if (position.quantity > 0 && price.date < date) carriedPrices.push({ assetId: asset.id, priceDate: price.date });
         const ticker = asset.ticker.trim().toUpperCase();
         quotes[ticker] = { status: "FOUND", ticker, message: null, quote: {
           ticker, price: price.close, currency: asset.currency, quotedAt: `${price.date}T00:00:00Z`,
@@ -104,11 +116,11 @@ export function investmentHistory(params: {
       const key = investmentGroupKey(asset);
       const group = groups.find((g) => g.key === key);
       // Same position profitability used by the current portfolio; no TIR or new return formula.
-      returns[key] = missing.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
+      returns[key] = missing.has(key) || unknownCost.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
     }
     const missingAssets = Array.from(missing.values()).reduce((a, b) => a + b, 0);
     return {
-      date, returns, missingAssets,
+      date, returns, missingAssets, limitations, carriedPrices,
       value: missingAssets > 0 ? null : Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2)),
     };
   });
