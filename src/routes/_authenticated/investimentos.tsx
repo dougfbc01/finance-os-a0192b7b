@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { FileSpreadsheet, Plus, TrendingUp, Wallet, PieChart as PieIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileSpreadsheet, Plus, TrendingUp, Wallet, PieChart as PieIcon, ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -26,6 +26,9 @@ import type { Asset } from "@/models";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { InvestmentPortfolioSummary } from "@/components/assets/InvestmentPortfolioSummary";
 import { InvestmentAnalysis } from "@/components/assets/InvestmentAnalysis";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { portfolioView, type InvestmentSortKey, type InvestmentSortDirection } from "@/services/InvestmentViewService";
 
 export const Route = createFileRoute("/_authenticated/investimentos")({
   head: () => ({
@@ -67,6 +70,23 @@ function InvestimentosPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState("ALL");
+  const [sortKey, setSortKey] = useState<InvestmentSortKey | null>(null);
+  const [direction, setDirection] = useState<InvestmentSortDirection>("asc");
+  const types = [...new Set(investments.map((row) => row.asset.asset_type))];
+  const displayed = useMemo(() => portfolioView(investments, { search, type, sortKey, direction }), [investments, search, type, sortKey, direction]);
+  const sortHeader = (key: InvestmentSortKey, label: string, numeric = false) => (
+    <TableHead className={numeric ? "text-right" : undefined} aria-sort={sortKey === key ? direction === "asc" ? "ascending" : "descending" : "none"}>
+      <Button variant="ghost" size="sm" className={numeric ? "ml-auto whitespace-nowrap" : "whitespace-nowrap"} aria-label={`Ordenar por ${label}`} onClick={() => {
+        setSortKey(key);
+        setDirection(sortKey === key && direction === "asc" ? "desc" : "asc");
+      }}>
+        {label}{sortKey !== key ? <ArrowUpDown className="h-3 w-3" /> : direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+      </Button>
+    </TableHead>
+  );
 
   return (
     <div className="min-w-0 w-full space-y-6 [contain:inline-size]">
@@ -136,10 +156,21 @@ function InvestimentosPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Carteira ({investments.length})
+                Carteira ({displayed.length}{displayed.length !== investments.length ? ` de ${investments.length}` : ""})
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 flex flex-wrap gap-3">
+                <div className="relative min-w-0 flex-1 basis-64">
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input aria-label="Buscar por nome ou ticker" placeholder="Buscar por nome ou ticker" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                </div>
+                <Select value={type} onValueChange={setType}>
+                  <SelectTrigger aria-label="Tipo de investimento" className="w-full sm:w-56"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="ALL">Todos os tipos</SelectItem>{types.map((t) => <SelectItem key={t} value={t}>{ASSET_TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+                </Select>
+                {(search || type !== "ALL" || sortKey) && <Button variant="outline" onClick={() => { setSearch(""); setType("ALL"); setSortKey(null); setDirection("asc"); }}>Limpar filtros</Button>}
+              </div>
               {investments.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">
                   Nenhum investimento cadastrado ainda.
@@ -149,34 +180,35 @@ function InvestimentosPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Ativo</TableHead>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Classe</TableHead>
-                        <TableHead>Instituição</TableHead>
-                        <TableHead className="text-right">Qtd.</TableHead>
-                        <TableHead className="text-right">PM</TableHead>
-                        <TableHead className="text-right">Cotação</TableHead>
-                        <TableHead className="text-right">Investido</TableHead>
-                        <TableHead className="text-right">Atual</TableHead>
-                        <TableHead className="text-right">Rentab.</TableHead>
-                        <TableHead className="text-right">Retorno econômico</TableHead>
+                        {sortHeader("name", "Ativo")}
+                        {sortHeader("ticker", "Código")}
+                        {sortHeader("type", "Classe")}
+                        {sortHeader("institution", "Instituição")}
+                        {sortHeader("quantity", "Qtd.", true)}
+                        {sortHeader("averagePrice", "PM", true)}
+                        {sortHeader("quote", "Cotação", true)}
+                        {sortHeader("invested", "Investido", true)}
+                        {sortHeader("current", "Atual", true)}
+                        {sortHeader("profitPercent", "Rentab.", true)}
+                        {sortHeader("economicReturn", "Retorno econômico", true)}
                         <TableHead />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {investments.map((r) => {
+                      {displayed.length === 0 && <TableRow><TableCell colSpan={12} className="py-8 text-center text-muted-foreground">Nenhum investimento corresponde à busca e ao tipo selecionado.</TableCell></TableRow>}
+                      {displayed.map((r) => {
                         const positive = r.profit >= 0;
                         const quoted = quotedById.get(r.asset.id);
                         return (
                           <TableRow key={r.asset.id}>
                             <TableCell className="font-medium">
-                              <button
-                                type="button"
-                                className="hover:underline"
+                              <Button
+                                variant="link"
+                                className="h-auto whitespace-normal p-0 text-left text-foreground"
                                 onClick={() => setDetailId(r.asset.id)}
                               >
                                 {r.asset.name}
-                              </button>
+                              </Button>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {r.asset.ticker || "—"}

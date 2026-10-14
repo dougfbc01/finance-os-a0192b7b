@@ -6,13 +6,15 @@ import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
+import { validInvestmentRange } from "@/services/InvestmentViewService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const assetsQuery = useAssets(workspaceId);
   const rawAssets = useMemo(() => InvestmentServiceImpl.filterInvestments(assetsQuery.data ?? []).filter((a) => !a.deleted_at), [assetsQuery.data]);
+  const validRange = validInvestmentRange(from, to, new Date().toISOString().slice(0, 10));
   const history = useQuery({
     queryKey: ["investment-analysis-prices", workspaceId, rawAssets.map((a) => a.id).sort().join(","), to],
-    enabled: !!workspaceId && rawAssets.length > 0,
+    enabled: !!workspaceId && rawAssets.length > 0 && validRange,
     queryFn: async () => {
       if (!workspaceId) return {};
       const entries = await Promise.all(rawAssets.filter((a) => a.ticker && !a.deleted_at).map(async (a) => {
@@ -27,8 +29,9 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     refetchOnWindowFocus: false,
   });
   const points = useMemo(() => {
-    if (!from || !to || from > to) return [];
+    if (!validRange) return [];
     const assets = rawAssets.filter((a) => a.currency === currency && (`${a.asset_type}_${a.currency}` === group || group === "ALL"));
+    if (assets.length === 0) return [];
     const dates = new Set([from, to]);
     // Monthly endpoints keep long histories legible; short periods retain daily observations.
     const cursor = new Date(`${from}T00:00:00Z`);
@@ -41,6 +44,6 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
       if (!daily) cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     return investmentHistory({ assets, movements, prices: history.data ?? {}, dates: [...dates].sort() });
-  }, [rawAssets, movements, history.data, from, to, group, currency]);
+  }, [rawAssets, movements, history.data, from, to, group, currency, validRange]);
   return { points, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }
