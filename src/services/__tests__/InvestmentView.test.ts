@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AssetType, AssetValuationSource } from "@/constants/enums";
-import type { Asset } from "@/models";
+import { AssetType } from "@/constants/enums";
 import type { InvestmentRow } from "../InvestmentService";
 import type { InvestmentHistoryPoint } from "../InvestmentAnalysisService";
 import { historicalChartView, investmentPeriodStart, portfolioView, validInvestmentRange, type InvestmentSortKey } from "../InvestmentViewService";
