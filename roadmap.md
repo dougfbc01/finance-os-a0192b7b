@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Corrigir séries históricas inválidas e explicações dos dados ausentes na Análise.
+- [ ] Adicionar busca, filtro por tipo e ordenação combinados na Carteira, sem mudar valores financeiros.
+- [ ] Executar testes focados e conferir filtros, gráficos e ordenação com dados reais; verificar tipos e build automáticos.
+
 - [x] Evoluir a análise existente com comparação por grupo, composição coerente e limitações históricas explícitas, preservando cálculos e funcionalidades.
 - [x] Executar testes relacionados e conferir análise autenticada; informar arquivos, verificação de tipos e build automático.
 
