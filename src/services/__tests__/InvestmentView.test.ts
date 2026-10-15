@@ -53,7 +53,7 @@ describe("Operações de apresentação dos investimentos", () => {
   it("identifica um ponto isolado válido sem preencher as lacunas", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);
     expect(chart.isolatedReturns).toEqual([{ key: "A", date: "2026-01-02" }]);
-    expect(chart.data.map((p) => p.A)).toEqual([null, 20, null]);
+    expect(chart.data).toEqual([{ date: "2026-01-01", value: null, A: null }, { date: "2026-01-02", value: 100, A: 20 }, { date: "2026-01-03", value: null, A: null }]);
   });
   it("limita mês anterior ao último dia existente, inclusive ano bissexto", () => {
     expect(investmentPeriodStart("2026-03-31", 1)).toBe("2026-02-28");

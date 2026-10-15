@@ -81,7 +81,7 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     expect(points[0]?.returns.ACAO_BRL).toBe(20);
     expect(points[0]?.returns.FII_BRL).toBeNull();
   });
-  it.each([AssetType.TESOURO_DIRETO, AssetType.POUPANCA])("não usa o custo de %s como avaliação histórica a 0%%", (asset_type) => {
+  it.each([AssetType.TESOURO, AssetType.POUPANCA])("não usa o custo de %s como avaliação histórica zerada", (asset_type) => {
     const points = investmentHistory({ assets: [asset({ asset_type, ticker: null })], movements: [movement()], prices: {}, dates: ["2026-02-01", "2026-03-01"] });
     expect(points.map((p) => p.returns[`${asset_type}_BRL`])).toEqual([null, null]);
     expect(points[0]?.limitations[0]?.reason).toBe("NO_VALUATION");
