@@ -6,7 +6,7 @@ import { historicalChartView, investmentPeriodStart, portfolioView, validInvestm
 
 const row = (id: string, name: string, type: AssetType, number: number): InvestmentRow => ({
   asset: { id, name, asset_type: type, ticker: id, institution: name, currency: "BRL", quantity: number, unit_price: number, quote: number > 0 ? { price: number } : null } as InvestmentRow["asset"],
-  invested: number, current: number, profit: number, profitPercent: number, economicReturn: number > 0 ? number : null,
+  invested: number, current: number, profit: number, profitPercent: number, economicReturn: number > 0 ? number : null, accumulatedIncome: number,
 });
 const rows = [row("B3", "Beta", AssetType.ACAO, 20), row("A11", "Álpha", AssetType.FII, 10), row("C3", "Zero", AssetType.ACAO, 0)];
 const point = (date: string, value: number | null, returns: Record<string, number | null>): InvestmentHistoryPoint => ({ date, value, returns, missingAssets: 0, limitations: [], carriedPrices: [] });
@@ -26,7 +26,7 @@ describe("Operações de apresentação dos investimentos", () => {
     expect(portfolioView(rows, { search: "", type: "ALL", sortKey: "name", direction: "asc" }).map((r) => r.asset.id)).toEqual(["A11", "B3", "C3"]);
     expect(portfolioView(rows, { search: "", type: "ALL", sortKey: "name", direction: "desc" }).map((r) => r.asset.id)).toEqual(["C3", "B3", "A11"]);
   });
-  it.each<InvestmentSortKey>(["quantity", "averagePrice", "quote", "invested", "current", "profitPercent", "economicReturn"])("ordena %s nos dois sentidos mantendo indisponíveis ao final", (sortKey) => {
+  it.each<InvestmentSortKey>(["quantity", "averagePrice", "quote", "invested", "current", "profitPercent", "economicReturn", "accumulatedIncome"])("ordena %s nos dois sentidos mantendo indisponíveis ao final", (sortKey) => {
     const input = rows.slice(0, 2);
     expect(portfolioView(input, { search: "", type: "ALL", sortKey, direction: "asc" }).map((r) => r.asset.id)).toEqual(["A11", "B3"]);
     expect(portfolioView(input, { search: "", type: "ALL", sortKey, direction: "desc" }).map((r) => r.asset.id)).toEqual(["B3", "A11"]);
@@ -49,6 +49,11 @@ describe("Operações de apresentação dos investimentos", () => {
     const chart = historicalChartView([point("2026-02-01", 100, { A: 5, B: 10 })], ["B"]);
     expect(chart.returnKeys).toEqual(["B"]);
     expect(chart.data).toEqual([{ date: "2026-02-01", value: 100, B: 10 }]);
+  });
+  it("identifica um ponto isolado válido sem preencher as lacunas", () => {
+    const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);
+    expect(chart.isolatedReturns).toEqual([{ key: "A", date: "2026-01-02" }]);
+    expect(chart.data.map((p) => p.A)).toEqual([null, 20, null]);
   });
   it("limita mês anterior ao último dia existente, inclusive ano bissexto", () => {
     expect(investmentPeriodStart("2026-03-31", 1)).toBe("2026-02-28");
