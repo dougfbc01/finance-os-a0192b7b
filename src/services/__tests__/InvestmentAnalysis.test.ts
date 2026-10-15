@@ -17,7 +17,7 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     const projected = MarketQuotationServiceImpl.applyQuotes(AssetValuationServiceImpl.effectiveAssets([asset()], movements), { TEST3: { status: "FOUND", ticker: "TEST3", message: null, quote: { ticker: "TEST3", price: 12, currency: "BRL", quotedAt: null, change: null, changePercent: null, marketState: null, provider: "test" } } });
     const rows = InvestmentServiceImpl.rows(projected, movements);
     const group = summarizeInvestments(rows)[0];
-    expect(group).toMatchObject({ invested: 100, current: 120, economicReturn: 25, profitPercent: 20, participation: 100 });
+    expect(group).toMatchObject({ invested: 100, current: 120, economicReturn: 25, accumulatedIncome: 5, profitPercent: 20, participation: 100 });
     expect(group?.economicReturn).toBe(rows[0]?.economicReturn);
   });
   it("participação considera valor atual de cada grupo", () => {
@@ -80,5 +80,20 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     expect(points[0]?.value).toBeNull();
     expect(points[0]?.returns.ACAO_BRL).toBe(20);
     expect(points[0]?.returns.FII_BRL).toBeNull();
+  });
+  it.each([AssetType.TESOURO, AssetType.POUPANCA])("não usa o custo de %s como avaliação histórica zerada", (asset_type) => {
+    const points = investmentHistory({ assets: [asset({ asset_type, ticker: null })], movements: [movement()], prices: {}, dates: ["2026-02-01", "2026-03-01"] });
+    expect(points.map((p) => p.returns[`${asset_type}_BRL`])).toEqual([null, null]);
+    expect(points[0]?.limitations[0]?.reason).toBe("NO_VALUATION");
+    expect(points[0]?.value).toBeNull();
+  });
+  it("custo zero de um ativo não pode inventar rentabilidade para seu grupo", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b", ticker: "ZERO3" })], movements: [movement(), movement({ id: "b", asset_id: "b", amount: 0, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE"] })], prices: { a: [price("2026-01-10", 12)], b: [price("2026-01-10", 10)] }, dates: ["2026-02-01"] });
+    expect(points[0]?.returns.ACAO_BRL).toBeNull();
+    expect(points[0]?.value).toBe(220);
+  });
+  it("soma proventos por tipo e moeda sem alterar retorno econômico", () => {
+    const input = InvestmentServiceImpl.rows([asset(), asset({ id: "b", asset_type: AssetType.FII }), asset({ id: "usd", currency: "USD" })], [movement({ amount: 5, tags: ["op:RENDIMENTO"] }), movement({ id: "fii", asset_id: "b", amount: 7, tags: ["op:RENDIMENTO"] }), movement({ id: "usd", asset_id: "usd", amount: 3, tags: ["op:RENDIMENTO"] })]);
+    expect(summarizeInvestments(input).map((g) => [g.key, g.accumulatedIncome]).sort()).toEqual([["ACAO_BRL", 5], ["ACAO_USD", 3], ["FII_BRL", 7]]);
   });
 });

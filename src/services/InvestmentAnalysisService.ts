@@ -16,6 +16,7 @@ export interface InvestmentGroup {
   profit: number;
   profitPercent: number;
   economicReturn: number | null;
+  accumulatedIncome: number;
   unavailableReturns: number;
   participation: number;
 }
@@ -40,6 +41,7 @@ export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
       ...totals,
       economicReturn: available.length ? Number(available.reduce((sum, r) => sum + (r.economicReturn ?? 0), 0).toFixed(2)) : null,
       unavailableReturns: members.length - available.length,
+      accumulatedIncome: Number(members.reduce((sum, r) => sum + r.accumulatedIncome, 0).toFixed(2)),
       participation: currencyTotal > 0 ? (totals.current / currencyTotal) * 100 : 0,
     };
   }).filter((g): g is InvestmentGroup => g !== null).sort((a, b) => b.current - a.current);
@@ -50,7 +52,7 @@ export interface InvestmentHistoryPoint {
   value: number | null;
   returns: Record<string, number | null>;
   missingAssets: number;
-  limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "UNKNOWN_COST" }[];
+  limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
   carriedPrices: { assetId: string; priceDate: string }[];
 }
 
@@ -83,12 +85,18 @@ export function investmentHistory(params: {
       }
       const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
       const price = sortedPrices.get(asset.id)?.filter((p) => p.date <= date).at(-1);
+      // Contribution cost is not evidence of historical fair value for unquoted assets.
+      if (!isMarketQuotableType(asset.asset_type) && (position.quantity > 0 || position.cost > 0)) {
+        missing.set(key, (missing.get(key) ?? 0) + 1);
+        limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_VALUATION" });
+        continue;
+      }
       if (isMarketQuotableType(asset.asset_type) && position.quantity > 0 && (!price || !asset.ticker)) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_PRICE" });
         continue;
       }
-      if (position.quantity > 0 && movements.some((m) => m.asset_id === asset.id && (m.tags ?? []).includes("cost:INDETERMINATE"))) {
+      if (position.quantity > 0 && (position.cost <= 0 || movements.some((m) => m.asset_id === asset.id && (m.tags ?? []).includes("cost:INDETERMINATE")))) {
         unknownCost.add(key);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "UNKNOWN_COST" });
       }

@@ -183,13 +183,13 @@ function InvestimentosPage() {
                         {sortHeader("name", "Ativo")}
                         {sortHeader("ticker", "Código")}
                         {sortHeader("type", "Classe")}
-                        {sortHeader("institution", "Instituição")}
                         {sortHeader("quantity", "Qtd.", true)}
                         {sortHeader("averagePrice", "PM", true)}
                         {sortHeader("quote", "Cotação", true)}
                         {sortHeader("invested", "Investido", true)}
                         {sortHeader("current", "Atual", true)}
                         {sortHeader("profitPercent", "Rentab.", true)}
+                        {sortHeader("accumulatedIncome", "Proventos acumulados", true)}
                         {sortHeader("economicReturn", "Retorno econômico", true)}
                         <TableHead />
                       </TableRow>
@@ -218,7 +218,6 @@ function InvestimentosPage() {
                                 {ASSET_TYPE_LABELS[r.asset.asset_type]}
                               </Badge>
                             </TableCell>
-                            <TableCell>{r.asset.institution || "—"}</TableCell>
                             <TableCell className="text-right tabular-nums">
                               {Number(r.asset.quantity).toLocaleString("pt-BR", {
                                 maximumFractionDigits: 8,
@@ -254,6 +253,9 @@ function InvestimentosPage() {
                             >
                               {formatCurrency(r.profit, r.asset.currency)} (
                               {r.profitPercent.toFixed(2)}%)
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(r.accumulatedIncome, r.asset.currency)}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {r.economicReturn === null

@@ -3,7 +3,7 @@ import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import type { InvestmentRow } from "./InvestmentService";
 import type { InvestmentHistoryPoint } from "./InvestmentAnalysisService";
 
-export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn";
+export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn" | "accumulatedIncome";
 export type InvestmentSortDirection = "asc" | "desc";
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
@@ -51,6 +51,11 @@ export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys:
     data,
     hasValues: data.some((point) => finite(point.value)),
     returnKeys: groupKeys.filter((key) => points.some((point) => finite(point.returns[key]))),
+    isolatedReturns: groupKeys.flatMap((key) => {
+      const valid = points.filter((point) => finite(point.returns[key]));
+      const single = valid[0];
+      return valid.length === 1 && single ? [{ key, date: single.date }] : [];
+    }),
   };
 }
 
