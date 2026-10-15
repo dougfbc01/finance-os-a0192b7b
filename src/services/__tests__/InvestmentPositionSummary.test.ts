@@ -401,4 +401,21 @@ describe("Retorno econômico — distribuições e exibição", () => {
     expect(detail?.economicReturn).toBe(300);
     expect(row?.economicReturn).toBe(detail?.economicReturn);
   });
+  it.each(["DIVIDEND", "JCP", "YIELD"] as const)("expõe %s como provento sem somá-lo novamente ao retorno", (event) => {
+    const distributions = [movement({ is_historical: true }), b3Distribution(event, 100)];
+    const [row] = InvestmentServiceImpl.rows([asset()], distributions);
+    expect(row?.accumulatedIncome).toBe(100);
+    expect(row?.economicReturn).toBe(InvestmentServiceImpl.positionSummary(asset(), distributions)?.economicReturn);
+  });
+  it("inclui outros rendimentos registrados e ignora exclusões e eventos repetidos", () => {
+    const income = b3Distribution("DIVIDEND", 10);
+    const records = [income, income, movement({ amount: 7, tags: ["op:RENDIMENTO"], quantity: null }), b3Distribution("JCP", 3), { ...b3Distribution("YIELD", 100), deleted_at: "2026-03-01" }];
+    expect(InvestmentServiceImpl.accumulatedIncome("asset-1", records)).toBe(20);
+  });
+  it("não duplica provento B3 conciliado nem considera eventos corporativos", () => {
+    const income = { ...b3Distribution("DIVIDEND", 10), account_id: "bank", duplicate_hash: "distribution" };
+    const bankCopy = { ...income, id: "bank-copy", is_historical: false, tags: ["op:RENDIMENTO"] };
+    const corporate = movement({ amount: 100, tags: ["source:B3", "b3:event:BONUS", "op:RENDIMENTO"], is_historical: true });
+    expect(InvestmentServiceImpl.accumulatedIncome("asset-1", [income, bankCopy, corporate])).toBe(10);
+  });
 });
