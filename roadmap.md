@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Corrigir rentabilidade histórica sem avaliação comprovada e explicar observações isoladas, sem interpolar lacunas.
-- [ ] Ocultar Instituição e exibir proventos acumulados por ativo e grupo, reutilizando distribuições existentes sem alterar retorno econômico.
-- [ ] Validar testes, telas autenticadas e resultado automático de tipos/build.
+- [x] Corrigir rentabilidade histórica sem avaliação comprovada e explicar observações isoladas, sem interpolar lacunas.
+- [x] Ocultar Instituição e exibir proventos acumulados por ativo e grupo, reutilizando distribuições existentes sem alterar retorno econômico.
+- [x] Validar 100 testes, telas autenticadas com 55 investimentos, typecheck separado e build automático OK.
 
 - [x] Corrigir séries históricas inválidas e explicações dos dados ausentes na Análise.
 - [x] Adicionar busca, filtro por tipo e ordenação combinados na Carteira, sem mudar valores financeiros.
