@@ -20,6 +20,7 @@ export interface InvestmentRow {
   profit: number;
   profitPercent: number;
   economicReturn: number | null;
+  accumulatedIncome: number;
 }
 
 export interface AssetDetail {
@@ -62,6 +63,26 @@ export interface InvestmentPositionSummary {
 }
 
 class InvestmentServiceImpl extends BaseService {
+  /** Registered distributions only; corporate events and repeated identities are excluded. */
+  static accumulatedIncome(assetId: string, movements: Movement[] = []): number {
+    const seen = new Set<string>();
+    const distributions = new Set(["DIVIDEND", "JCP", "YIELD"]);
+    let total = 0;
+    for (const m of movements) {
+      if (m.asset_id !== assetId || m.deleted_at || AssetValuationServiceImpl.operationOf(m) !== InvestmentOperation.RENDIMENTO) continue;
+      const tags = m.tags ?? [];
+      if (tags.includes("source:B3")) {
+        const event = tags.find((tag) => tag.startsWith("b3:event:"))?.slice("b3:event:".length);
+        if (!m.is_historical || !event || !distributions.has(event)) continue;
+      }
+      const identities = [`id:${m.id}`, ...(m.duplicate_hash ? [`hash:${m.duplicate_hash}`] : []), ...(m.external_ref ? [`ref:${m.external_ref}`] : [])];
+      if (identities.some((key) => seen.has(key))) continue;
+      identities.forEach((key) => seen.add(key));
+      total += Math.abs(Number(m.amount) || 0);
+    }
+    return Number(total.toFixed(2));
+  }
+
   /**
    * Resumo estritamente derivado da posição reconstruída e da cotação existente.
    * Ativos ACCOUNT não representam uma posição cotada e nunca entram neste cálculo.
@@ -197,6 +218,7 @@ class InvestmentServiceImpl extends BaseService {
         profit: AssetServiceImpl.profit(asset),
         profitPercent: AssetServiceImpl.profitPercent(asset),
         economicReturn: summary?.economicReturn ?? null,
+        accumulatedIncome: this.accumulatedIncome(asset.id, movements),
       };
     });
   }
