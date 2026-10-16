@@ -86,12 +86,16 @@ export function investmentHistory(params: {
       const incompleteQuantity = pastEvents.some((m) => m.asset_id === asset.id &&
         [InvestmentOperation.APORTE, InvestmentOperation.RESGATE].includes(AssetValuationServiceImpl.operationOf(m)) &&
         (m.quantity == null || !Number.isFinite(Number(m.quantity)) || Number(m.quantity) <= 0));
+      const firstEvent = [...pastEvents].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date) || a.id.localeCompare(b.id))[0];
+      const missingOpeningPosition = firstEvent && (firstEvent.asset_id !== asset.id ||
+        AssetValuationServiceImpl.operationOf(firstEvent) === InvestmentOperation.RESGATE ||
+        (firstEvent.tags ?? []).includes("qty:DECREASE"));
       if (asset.valuation_source !== AssetValuationSource.MOVEMENTS || Number(asset.opening_value) !== 0) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
         continue;
       }
-      if (incompleteQuantity || (positionEvents.length === 0 && (Number(asset.quantity) > 0 || Number(asset.acquisition_value) > 0 || Number(asset.current_value) > 0))) {
+      if (incompleteQuantity || missingOpeningPosition || (positionEvents.length === 0 && (Number(asset.quantity) > 0 || Number(asset.acquisition_value) > 0 || Number(asset.current_value) > 0))) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
         continue;

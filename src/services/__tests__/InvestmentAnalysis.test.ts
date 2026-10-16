@@ -46,6 +46,17 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     const points = investmentHistory({ assets: [asset(), asset({ id: "b" })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)], b: [price("2026-01-01", 15)] }, dates: ["2026-01-02"] });
     expect(points[0]?.value).toBe(270);
   });
+  it("saída sem aquisição anterior não comprova posição histórica zero", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement({ tags: ["op:RESGATE"] })], prices: {}, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.limitations[0]?.reason).toBe("NO_HISTORY");
+  });
+  it("liquidação e fração alteram apenas a quantidade mantida até cada data", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement(),
+      movement({ id: "transfer", transaction_date: "2026-01-02", amount: 0, quantity: 3, tags: ["op:AJUSTE_QUANTIDADE", "qty:DECREASE", "b3:event:TRANSFER_SETTLEMENT"] }),
+      movement({ id: "fraction", transaction_date: "2026-01-03", amount: 0, quantity: 0.5, tags: ["op:AJUSTE_QUANTIDADE", "qty:DECREASE", "b3:event:FRACTION"] })], prices: { a: [price("2026-01-01", 10)] }, dates: ["2026-01-01", "2026-01-02", "2026-01-03"] });
+    expect(points.map((p) => p.value)).toEqual([100, 70, 65]);
+  });
   it("nunca consolida valores de moedas diferentes", () => {
     const points = investmentHistory({ assets: [asset(), asset({ id: "b", currency: "USD" })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)], b: [price("2026-01-01", 15)] }, dates: ["2026-01-02"] });
     expect(points[0]?.value).toBeNull();

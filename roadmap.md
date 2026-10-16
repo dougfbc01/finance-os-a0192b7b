@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Corrigir evolução patrimonial diária por tipo e total consolidado usando posições e preços históricos existentes, sem totais incompletos.
-- [ ] Validar eventos de posição, lacunas, filtros e telas autenticadas; informar testes e verificações automáticas.
+- [x] Corrigir evolução patrimonial diária por tipo e total consolidado usando posições e preços históricos existentes, sem totais incompletos.
+- [x] Validar eventos de posição, lacunas, filtros e telas autenticadas; informar testes e verificações automáticas.
 
 - [x] Corrigir rentabilidade histórica sem avaliação comprovada e explicar observações isoladas, sem interpolar lacunas.
 - [x] Ocultar Instituição e exibir proventos acumulados por ativo e grupo, reutilizando distribuições existentes sem alterar retorno econômico.
