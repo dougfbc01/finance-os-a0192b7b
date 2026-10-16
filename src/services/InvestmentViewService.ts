@@ -69,6 +69,17 @@ export function investmentPeriodStart(today: string, months: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function investmentHistoryDates(from: string, to: string): string[] {
+  if (!validInvestmentRange(from, to, to)) return [];
+  const dates: string[] = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  while (cursor.toISOString().slice(0, 10) <= to) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 export function validInvestmentRange(from: string, to: string, today: string): boolean {
   const validDate = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date)
     && Number.isFinite(Date.parse(`${date}T00:00:00Z`))
