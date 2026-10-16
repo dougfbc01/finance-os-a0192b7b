@@ -6,7 +6,7 @@ import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
-import { validInvestmentRange } from "@/services/InvestmentViewService";
+import { investmentHistoryDates, validInvestmentRange } from "@/services/InvestmentViewService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const assetsQuery = useAssets(workspaceId);
@@ -32,18 +32,7 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     if (!validRange) return [];
     const assets = rawAssets.filter((a) => a.currency === currency && (`${a.asset_type}_${a.currency}` === group || group === "ALL"));
     if (assets.length === 0) return [];
-    const dates = new Set([from, to]);
-    // Monthly endpoints keep long histories legible; short periods retain daily observations.
-    const cursor = new Date(`${from}T00:00:00Z`);
-    const daily = (Date.parse(to) - Date.parse(from)) / 86400000 <= 100;
-    while (cursor.toISOString().slice(0, 10) < to) {
-      if (daily) cursor.setUTCDate(cursor.getUTCDate() + 1);
-      else cursor.setUTCMonth(cursor.getUTCMonth() + 1, 0);
-      const date = cursor.toISOString().slice(0, 10);
-      if (date >= from && date <= to) dates.add(date);
-      if (!daily) cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-    return investmentHistory({ assets, movements, prices: history.data ?? {}, dates: [...dates].sort() });
+    return investmentHistory({ assets, movements, prices: history.data ?? {}, dates: investmentHistoryDates(from, to) });
   }, [rawAssets, movements, history.data, from, to, group, currency, validRange]);
   return { points, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }

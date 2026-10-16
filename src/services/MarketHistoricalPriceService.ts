@@ -66,6 +66,9 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
 
   /** Lê os pontos já armazenados para o ativo no intervalo [from, to]. */
   async listStored(query: MarketHistoryQuery): Promise<MarketPricePoint[]> {
+    const rows: HistoryRow[] = [];
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await this.client
       .from(this.table)
       .select("ticker, price_date, close_price, open_price, high_price, low_price, volume, provider, fetched_at")
@@ -73,9 +76,14 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
       .eq("asset_id", query.assetId)
       .gte("price_date", query.from)
       .lte("price_date", query.to)
-      .order("price_date", { ascending: true });
+      .order("price_date", { ascending: true })
+      .range(offset, offset + pageSize - 1);
     if (error) this.handleError(error, "listStored");
-    return ((data ?? []) as unknown as HistoryRow[]).map((r) => this.mapRow(r));
+    const page = (data ?? []) as unknown as HistoryRow[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    }
+    return rows.map((r) => this.mapRow(r));
   }
 
   /**

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AssetType } from "@/constants/enums";
 import type { InvestmentRow } from "../InvestmentService";
 import type { InvestmentHistoryPoint } from "../InvestmentAnalysisService";
-import { historicalChartView, investmentPeriodStart, portfolioView, validInvestmentRange, type InvestmentSortKey } from "../InvestmentViewService";
+import { historicalChartView, investmentHistoryDates, investmentPeriodStart, portfolioView, validInvestmentRange, type InvestmentSortKey } from "../InvestmentViewService";
 
 const row = (id: string, name: string, type: AssetType, number: number): InvestmentRow => ({
   asset: { id, name, asset_type: type, ticker: id, institution: name, currency: "BRL", quantity: number, unit_price: number, quote: number > 0 ? { price: number } : null } as InvestmentRow["asset"],
@@ -12,6 +12,14 @@ const rows = [row("B3", "Beta", AssetType.ACAO, 20), row("A11", "Álpha", AssetT
 const point = (date: string, value: number | null, returns: Record<string, number | null>): InvestmentHistoryPoint => ({ date, value, returns, missingAssets: 0, limitations: [], carriedPrices: [] });
 
 describe("Operações de apresentação dos investimentos", () => {
+  it("mantém todas as datas do período inclusive em históricos com mais de 100 dias", () => {
+    const dates = investmentHistoryDates("2026-01-01", "2026-05-01");
+    expect(dates).toHaveLength(121);
+    expect(dates[0]).toBe("2026-01-01");
+    expect(dates.at(-1)).toBe("2026-05-01");
+    expect(dates).toContain("2026-04-15");
+    expect(investmentHistoryDates("2026-05-01", "2026-01-01")).toEqual([]);
+  });
   it("combina busca por nome, tipo e ordenação sem mutar dados", () => {
     const before = JSON.stringify(rows);
     expect(portfolioView(rows, { search: "a", type: AssetType.ACAO, sortKey: "name", direction: "desc" }).map((r) => r.asset.id)).toEqual(["B3"]);

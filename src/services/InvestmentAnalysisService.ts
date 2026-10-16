@@ -1,5 +1,5 @@
 // Read-only presentation adapter. Financial calculations remain in the existing services.
-import { AssetValuationSource, ASSET_TYPE_LABELS, isMarketQuotableType } from "@/constants/enums";
+import { AssetValuationSource, ASSET_TYPE_LABELS, InvestmentOperation, isMarketQuotableType } from "@/constants/enums";
 import type { Asset, Movement } from "@/models";
 import type { MarketPricePoint, MarketQuoteMap } from "@/models/MarketData";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
@@ -50,6 +50,7 @@ export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
 export interface InvestmentHistoryPoint {
   date: string;
   value: number | null;
+  valuesByGroup?: Record<string, number | null>;
   returns: Record<string, number | null>;
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
@@ -78,7 +79,23 @@ export function investmentHistory(params: {
     const carriedPrices: InvestmentHistoryPoint["carriedPrices"] = [];
     for (const asset of assets) {
       const key = investmentGroupKey(asset);
+      const positionEvents = params.movements.filter((m) => !m.deleted_at &&
+        (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)) &&
+        [InvestmentOperation.APORTE, InvestmentOperation.RESGATE, InvestmentOperation.AJUSTE_QUANTIDADE].includes(AssetValuationServiceImpl.operationOf(m)));
+      const pastEvents = positionEvents.filter((m) => m.transaction_date <= date);
+      const incompleteQuantity = pastEvents.some((m) => m.asset_id === asset.id &&
+        [InvestmentOperation.APORTE, InvestmentOperation.RESGATE].includes(AssetValuationServiceImpl.operationOf(m)) &&
+        (m.quantity == null || !Number.isFinite(Number(m.quantity)) || Number(m.quantity) <= 0));
+      const firstEvent = [...pastEvents].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date) || a.id.localeCompare(b.id))[0];
+      const missingOpeningPosition = firstEvent && (firstEvent.asset_id !== asset.id ||
+        AssetValuationServiceImpl.operationOf(firstEvent) === InvestmentOperation.RESGATE ||
+        (firstEvent.tags ?? []).includes("qty:DECREASE"));
       if (asset.valuation_source !== AssetValuationSource.MOVEMENTS || Number(asset.opening_value) !== 0) {
+        missing.set(key, (missing.get(key) ?? 0) + 1);
+        limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
+        continue;
+      }
+      if (incompleteQuantity || missingOpeningPosition || (positionEvents.length === 0 && (Number(asset.quantity) > 0 || Number(asset.acquisition_value) > 0 || Number(asset.current_value) > 0))) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
         continue;
@@ -116,20 +133,31 @@ export function investmentHistory(params: {
         ? { ...asset, current_value: 0, effective_value: 0, acquisition_value: 0, effective_acquisition: 0 }
         : asset,
     );
-    const projected = MarketQuotationServiceImpl.applyQuotes(effective, quotes);
+    // Quote maps are keyed by ticker, but stored histories belong to individual assets.
+    const projected = effective.flatMap((asset) => {
+      const price = sortedPrices.get(asset.id)?.filter((p) => p.date <= date).at(-1);
+      const ticker = asset.ticker?.trim().toUpperCase();
+      const result = ticker ? quotes[ticker] : undefined;
+      const ownQuotes: MarketQuoteMap = ticker && price && result?.quote
+        ? { [ticker]: { ...result, quote: { ...result.quote, price: price.close, quotedAt: `${price.date}T00:00:00Z` } } }
+        : {};
+      return MarketQuotationServiceImpl.applyQuotes([asset], ownQuotes);
+    });
     const rows = InvestmentServiceImpl.rows(projected, movements);
     const groups = summarizeInvestments(rows);
     const returns: Record<string, number | null> = {};
+    const valuesByGroup: Record<string, number | null> = {};
     for (const asset of assets) {
       const key = investmentGroupKey(asset);
       const group = groups.find((g) => g.key === key);
       // Same position profitability used by the current portfolio; no TIR or new return formula.
       returns[key] = missing.has(key) || unknownCost.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
+      valuesByGroup[key] = missing.has(key) ? null : group?.current ?? 0;
     }
     const missingAssets = Array.from(missing.values()).reduce((a, b) => a + b, 0);
     return {
-      date, returns, missingAssets, limitations, carriedPrices,
-      value: missingAssets > 0 ? null : Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2)),
+      date, returns, valuesByGroup, missingAssets, limitations, carriedPrices,
+      value: missingAssets > 0 || new Set(assets.map((a) => a.currency)).size > 1 ? null : Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2)),
     };
   });
 }
