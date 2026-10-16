@@ -153,6 +153,18 @@ describe("Sprint 4.12 — frequência das cotações", () => {
 });
 
 describe("Sprint 4.12 — histórico de mercado", () => {
+  it("lê todas as páginas de cotações históricas sem truncar a série", async () => {
+    const svc = new MarketHistoricalPriceServiceImpl();
+    const row = { ticker: "TEST3", price_date: "2026-01-01", close_price: 10, open_price: null, high_price: null, low_price: null, volume: null, provider: "test", fetched_at: "2026-01-01" };
+    const range = vi.fn().mockResolvedValueOnce({ data: Array.from({ length: 500 }, () => row), error: null }).mockResolvedValueOnce({ data: [{ ...row, price_date: "2026-10-01", close_price: 20 }], error: null });
+    const query = { select: () => query, eq: () => query, gte: () => query, lte: () => query, order: () => query, range };
+    // @ts-expect-error controlled client stub
+    svc.client = { from: () => query };
+    const result = await svc.listStored({ workspaceId: "w", assetId: "a", ticker: "TEST3", from: "2026-01-01", to: "2026-10-01" });
+    expect(result).toHaveLength(501);
+    expect(result.at(-1)?.close).toBe(20);
+    expect(range.mock.calls).toEqual([[0, 499], [500, 999]]);
+  });
   const range = { from: "2026-08-01", to: "2026-08-05" };
 
   function providerWithHistory(

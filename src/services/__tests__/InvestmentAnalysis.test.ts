@@ -12,6 +12,45 @@ const movement = (overrides: Partial<Movement> = {}): Movement => ({ id: "m", wo
 const price = (date: string, close: number): MarketPricePoint => ({ ticker: "TEST3", date, close, open: null, high: null, low: null, volume: null, provider: "test", fetchedAt: date });
 
 describe("Análise de investimentos reutiliza regras existentes", () => {
+  it("reconstrói compras, desdobro, bonificação, grupamento e venda sem compras futuras", () => {
+    const events = [movement(),
+      movement({ id: "split", transaction_date: "2026-01-02", amount: 0, quantity: 10, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE", "b3:event:SPLIT"] }),
+      movement({ id: "bonus", transaction_date: "2026-01-03", amount: 0, quantity: 2, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE", "b3:event:BONUS"] }),
+      movement({ id: "group", transaction_date: "2026-01-04", amount: 0, quantity: 11, tags: ["op:AJUSTE_QUANTIDADE", "qty:SET", "b3:event:REVERSE_SPLIT"] }),
+      movement({ id: "sale", transaction_date: "2026-01-05", amount: 40, quantity: 4, tags: ["op:RESGATE"] }),
+      movement({ id: "future", transaction_date: "2026-02-01", quantity: 100 })];
+    const points = investmentHistory({ assets: [asset({ quantity: 107 })], movements: events, prices: { a: [price("2026-01-01", 10)] }, dates: ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"] });
+    expect(points.map((p) => p.value)).toEqual([100, 200, 220, 110, 70]);
+  });
+  it.each(["REDEMPTION", "MATURITY"])("%s encerra a posição sem exigir preço após a saída", (event) => {
+    const points = investmentHistory({ assets: [asset({ quantity: 10 })], movements: [movement(), movement({ id: "exit", transaction_date: "2026-01-02", tags: ["op:RESGATE", `b3:event:${event}`] })], prices: {}, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBe(0);
+  });
+  it("preserva série completa por tipo sem publicar soma incompleta como total", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b", asset_type: AssetType.FII })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
+    expect(points[0]?.valuesByGroup).toEqual({ ACAO_BRL: 120, FII_BRL: null });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.limitations).toContainEqual({ assetId: "b", name: "Ação", reason: "NO_PRICE" });
+  });
+  it("não considera cadastro sem eventos como posição histórica zero", () => {
+    const points = investmentHistory({ assets: [asset({ quantity: 5 })], movements: [], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
+    expect(points[0]).toMatchObject({ value: null, missingAssets: 1 });
+    expect(points[0]?.limitations[0]?.reason).toBe("NO_HISTORY");
+  });
+  it("compra sem quantidade bloqueia patrimônio, sem inferir quantidade do custo", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement({ quantity: null })], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.limitations[0]?.reason).toBe("NO_HISTORY");
+  });
+  it("cotações de dois ativos com o mesmo ticker permanecem independentes", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b" })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)], b: [price("2026-01-01", 15)] }, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBe(270);
+  });
+  it("nunca consolida valores de moedas diferentes", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b", currency: "USD" })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)], b: [price("2026-01-01", 15)] }, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.valuesByGroup).toEqual({ ACAO_BRL: 120, ACAO_USD: 150 });
+  });
   it("agrupa por tipo e soma valores e retorno econômico sem duplicar rendimento conciliado", () => {
     const movements = [movement(), movement({ id: "yield", type: MovementType.DIVIDEND, tags: ["source:B3", "b3:event:DIVIDEND", "op:RENDIMENTO"], amount: 5, quantity: null, account_id: "bank" })];
     const projected = MarketQuotationServiceImpl.applyQuotes(AssetValuationServiceImpl.effectiveAssets([asset()], movements), { TEST3: { status: "FOUND", ticker: "TEST3", message: null, quote: { ticker: "TEST3", price: 12, currency: "BRL", quotedAt: null, change: null, changePercent: null, marketState: null, provider: "test" } } });
