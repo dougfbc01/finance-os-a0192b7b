@@ -156,6 +156,31 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
       fromStorage: false,
     };
   }
+
+  /**
+   * Explicit user request: complete the stored history of several assets.
+   * Each asset is fetched independently; existing rows are never altered.
+   */
+  async completeHistory(
+    workspaceId: UUID,
+    assets: { id: UUID; ticker: string | null }[],
+    from: string,
+    to: string,
+  ): Promise<{ ticker: string; status: MarketHistorySeries["status"]; points: number; message: string | null }[]> {
+    const queue = assets.filter((a) => normalizeTicker(a.ticker ?? ""));
+    const results: { ticker: string; status: MarketHistorySeries["status"]; points: number; message: string | null }[] = [];
+    const worker = async () => {
+      for (let asset = queue.shift(); asset; asset = queue.shift()) {
+        const ticker = normalizeTicker(asset.ticker ?? "");
+        const series = await this.getHistory({ workspaceId, assetId: asset.id, ticker, from, to }).catch(() => null);
+        results.push(series
+          ? { ticker, status: series.status, points: series.points.length, message: series.message }
+          : { ticker, status: "ERROR", points: 0, message: "Falha ao consultar o histórico." });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
+    return results;
+  }
 }
 
 export const MarketHistoricalPriceService = new MarketHistoricalPriceServiceImpl();

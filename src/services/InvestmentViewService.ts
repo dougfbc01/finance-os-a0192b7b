@@ -59,6 +59,38 @@ export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys:
   };
 }
 
+/** Wealth series keep complete and calculable values apart; gaps stay null. */
+export function wealthChartView(points: InvestmentHistoryPoint[], key: string) {
+  const data = points.map((p) => {
+    const complete = key === "TOTAL" ? p.value : p.valuesByGroup?.[key];
+    const calculable = key === "TOTAL" ? p.calculableValue : p.calculableByGroup?.[key];
+    const missing = key === "TOTAL" ? p.missingAssets : p.missingByGroup?.[key] ?? 0;
+    return {
+      date: p.date,
+      complete: finite(complete) ? complete : null,
+      calculable: finite(calculable) && missing > 0 ? calculable : null,
+      missing,
+    };
+  });
+  return {
+    data,
+    completeDates: data.filter((d) => d.complete !== null).length,
+    calculableDates: data.filter((d) => d.calculable !== null).length,
+    unavailableDates: data.filter((d) => d.complete === null && d.calculable === null).length,
+  };
+}
+
+/** Per-asset gap summary across the period, for explaining missing data. */
+export function limitationSummary(points: InvestmentHistoryPoint[]) {
+  const map = new Map<string, { assetId: string; name: string; reason: InvestmentHistoryPoint["limitations"][number]["reason"]; dates: number; first: string; last: string }>();
+  for (const p of points) for (const l of p.limitations) {
+    const k = `${l.assetId}:${l.reason}`;
+    const cur = map.get(k);
+    if (cur) { cur.dates += 1; cur.last = p.date; } else map.set(k, { ...l, dates: 1, first: p.date, last: p.date });
+  }
+  return [...map.values()];
+}
+
 export function investmentPeriodStart(today: string, months: number): string {
   const date = new Date(`${today}T12:00:00Z`);
   const day = date.getUTCDate();

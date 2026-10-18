@@ -376,11 +376,12 @@ function brapiRangeParam(from: string, to: string): string {
 export async function fetchBrapiHistorical(
   rawTicker: string,
   range: { from: string; to: string },
+  rangeOverride?: string,
 ): Promise<BrapiHistoricalResponse> {
   const ticker = rawTicker.trim().toUpperCase();
   const token = process.env["BRAPI_TOKEN"];
   const url = new URL(`https://brapi.dev/api/quote/${encodeURIComponent(ticker)}`);
-  url.searchParams.set("range", brapiRangeParam(range.from, range.to));
+  url.searchParams.set("range", rangeOverride ?? brapiRangeParam(range.from, range.to));
   url.searchParams.set("interval", "1d");
   if (token) url.searchParams.set("token", token);
 
@@ -401,6 +402,21 @@ export async function fetchBrapiHistorical(
     }
     if (res.status === 404) {
       return { status: "NOT_FOUND", ticker, points: [], message: "Ativo não encontrado." };
+    }
+    if (res.status === 400 && !rangeOverride) {
+      // The provider plan may cap the history window; fetch the largest allowed real range.
+      const body = (await res.json().catch(() => null)) as { code?: string } | null;
+      if (body?.code === "INVALID_RANGE") {
+        const order = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"];
+        const message = String((body as { message?: unknown }).message ?? "");
+        const allowed = order.filter((r) => new RegExp(`(^|[\\s,:])${r}(?=[,.\\s]|$)`).test(message.split("permitidos:")[1] ?? ""));
+        const fallback = allowed.at(-1) ?? "3mo";
+        clearTimeout(timer);
+        const limited = await fetchBrapiHistorical(ticker, range, fallback);
+        return limited.status === "OK"
+          ? { ...limited, message: `O plano do provider limita o histórico a ${fallback}; datas anteriores permanecem sem cotação.` }
+          : limited;
+      }
     }
     if (!res.ok) {
       return {
