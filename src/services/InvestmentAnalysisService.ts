@@ -49,8 +49,13 @@ export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
 
 export interface InvestmentHistoryPoint {
   date: string;
+  /** Complete portfolio value; null whenever any asset lacks evidence on this date. */
   value: number | null;
   valuesByGroup?: Record<string, number | null>;
+  /** Sum of only the positions valued with evidence; never presented as the full portfolio. */
+  calculableValue?: number | null;
+  calculableByGroup?: Record<string, number | null>;
+  missingByGroup?: Record<string, number>;
   returns: Record<string, number | null>;
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
@@ -145,19 +150,27 @@ export function investmentHistory(params: {
     });
     const rows = InvestmentServiceImpl.rows(projected, movements);
     const groups = summarizeInvestments(rows);
+    const held = new Set(effective.filter((a) => a.position.quantity > 0 || Number(a.effective_value) > 0).map((a) => investmentGroupKey(a)));
     const returns: Record<string, number | null> = {};
     const valuesByGroup: Record<string, number | null> = {};
+    const calculableByGroup: Record<string, number | null> = {};
+    const missingByGroup: Record<string, number> = Object.fromEntries(missing);
     for (const asset of assets) {
       const key = investmentGroupKey(asset);
       const group = groups.find((g) => g.key === key);
       // Same position profitability used by the current portfolio; no TIR or new return formula.
       returns[key] = missing.has(key) || unknownCost.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
       valuesByGroup[key] = missing.has(key) ? null : group?.current ?? 0;
+      // A group whose only held positions lack evidence has no calculable value, not zero.
+      calculableByGroup[key] = missing.has(key) && !held.has(key) ? null : group?.current ?? 0;
     }
     const missingAssets = Array.from(missing.values()).reduce((a, b) => a + b, 0);
+    const mixedCurrency = new Set(assets.map((a) => a.currency)).size > 1;
+    const calculableTotal = Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2));
     return {
-      date, returns, valuesByGroup, missingAssets, limitations, carriedPrices,
-      value: missingAssets > 0 || new Set(assets.map((a) => a.currency)).size > 1 ? null : Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2)),
+      date, returns, valuesByGroup, calculableByGroup, missingByGroup, missingAssets, limitations, carriedPrices,
+      value: missingAssets > 0 || mixedCurrency ? null : calculableTotal,
+      calculableValue: mixedCurrency || (missingAssets > 0 && held.size === 0) ? null : calculableTotal,
     };
   });
 }
