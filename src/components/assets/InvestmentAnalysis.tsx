@@ -12,7 +12,7 @@ import { summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
 import type { Movement } from "@/models";
 import { formatCurrency } from "@/lib/format";
-import { historicalChartView, investmentPeriodStart, validInvestmentRange } from "@/services/InvestmentViewService";
+import { historicalChartView, investmentPeriodStart, limitationSummary, validInvestmentRange, wealthChartView } from "@/services/InvestmentViewService";
 
 const colors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 const dateLabel = (v: string) => new Date(`${v}T12:00:00Z`).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
@@ -47,13 +47,18 @@ export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspace
   const composition = groups.filter((g) => g.current > 0);
   const wealthSeries = selectedGroup !== "ALL" ? [{ key: selectedGroup, label: groups.find((g) => g.key === selectedGroup)?.label ?? "Grupo" }]
     : wealthMode === "TOTAL" ? [{ key: "TOTAL", label: "Total consolidado" }] : groups;
-  const wealthCharts = wealthSeries.map((series) => ({ ...series, data: analysis.points.map((p) => ({ date: p.date, value: series.key === "TOTAL" ? p.value : p.valuesByGroup?.[series.key] ?? null })) }));
+  const wealthCharts = wealthSeries.map((series) => ({ ...series, ...wealthChartView(analysis.points, series.key) }));
   const hasReturns = returnGroups.length > 0;
   const incomplete = analysis.points.some((p) => p.missingAssets > 0);
   const validRange = validInvestmentRange(range.from, range.to, today);
-  const limitations = [...new Map(analysis.points.flatMap((p) => p.limitations).map((l) => [`${l.assetId}:${l.reason}`, l])).values()];
+  const limitations = limitationSummary(analysis.points);
   const missingDates = analysis.points.filter((p) => p.missingAssets > 0).length;
+  const completeDates = analysis.points.length - missingDates;
+  const calculableDates = analysis.points.filter((p) => p.missingAssets > 0 && typeof p.calculableValue === "number").length;
   const carriedPrices = analysis.points.some((p) => p.carriedPrices.length > 0);
+  const fmtDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("pt-BR");
+  const fetchResult = analysis.completeHistory.data;
+  const providerNotes = [...new Set((fetchResult ?? []).map((r) => r.message).filter((m): m is string => !!m))];
   const groupColor = (key: string) => colors[Math.max(0, groups.findIndex((g) => g.key === key)) % colors.length];
   return <section className="space-y-6" aria-label="Análise de investimentos">
     <div className="flex flex-wrap items-end gap-3 border-b pb-5">
