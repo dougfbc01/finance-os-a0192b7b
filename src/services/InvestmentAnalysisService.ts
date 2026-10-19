@@ -150,7 +150,6 @@ export function investmentHistory(params: {
     });
     const rows = InvestmentServiceImpl.rows(projected, movements);
     const groups = summarizeInvestments(rows);
-    if ((globalThis as any).__DIAG === date) console.log("ROWS", rows.filter((r) => r.current !== 0).map((r) => [r.asset.ticker, r.asset.asset_type, r.current, (r.asset as any).position?.quantity]));
     const held = new Set(effective.filter((a) => a.position.quantity > 0 || Number(a.effective_value) > 0).map((a) => investmentGroupKey(a)));
     const returns: Record<string, number | null> = {};
     const valuesByGroup: Record<string, number | null> = {};
