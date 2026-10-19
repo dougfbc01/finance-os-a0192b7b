@@ -1,3 +1,4 @@
+(globalThis as any).__DIAG = "2025-11-15";
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { investmentHistory } from "@/services/InvestmentAnalysisService";
