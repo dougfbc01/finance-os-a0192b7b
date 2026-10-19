@@ -46,7 +46,7 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
   });
   it("renda fixa já resgatada com ganho não reduz o patrimônio calculável", () => {
     const points = investmentHistory({ assets: [asset(), asset({ id: "t", asset_type: AssetType.TESOURO, ticker: null })],
-      movements: [movement(), movement({ id: "t-in", asset_id: "t", amount: 100, quantity: null }), movement({ id: "t-out", asset_id: "t", amount: 156.71, quantity: null, transaction_date: "2026-01-02", tags: ["op:RESGATE"] })],
+      movements: [movement(), movement({ id: "t-in", asset_id: "t", amount: 100, quantity: 1 }), movement({ id: "t-out", asset_id: "t", amount: 156.71, quantity: 1, transaction_date: "2026-01-02", tags: ["op:RESGATE"] })],
       prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-03"] });
     expect(points[0]?.calculableByGroup?.TESOURO_BRL ?? 0).toBeGreaterThanOrEqual(0);
     expect(points[0]?.calculableValue).toBe(120);

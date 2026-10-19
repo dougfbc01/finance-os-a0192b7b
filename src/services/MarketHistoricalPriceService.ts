@@ -141,7 +141,7 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
     if (result.status === "OK" && result.points.length > 0) {
       await this.store(query, result.points);
       const merged = await this.listStored(query);
-      return { status: "OK", points: merged, message: null, fromStorage: false };
+      return { status: "OK", points: merged, message: result.message, fromStorage: false };
     }
 
     if (stored.length > 0) {
