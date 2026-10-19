@@ -18,3 +18,8 @@ const reasons = new Map<string,Set<string>>();
 for (const p of pts) for (const l of p.limitations) { const k=l.reason; (reasons.get(k) ?? reasons.set(k,new Set()).get(k)!).add(l.name); }
 for (const [k,v] of reasons) console.log(k, v.size, [...v].join(", "));
 for (const d of ["2025-10-16","2026-03-01","2026-07-10","2026-10-16"]) { const p = pts.find(x=>x.date===d)!; console.log(d, p.value, p.calculableValue, JSON.stringify(p.calculableByGroup), p.missingAssets); }
+const { AssetValuationServiceImpl } = await import("@/services/AssetValuationService");
+const d0 = "2025-11-15"; const mv = movements.filter((m:any)=>!m.deleted_at && m.transaction_date<=d0);
+const p0 = pts.find(x=>x.date===d0)!; const lim = new Set(p0.limitations.filter(l=>l.reason!=="UNKNOWN_COST").map(l=>l.assetId));
+for (const a of inv) { if (lim.has(a.id)) continue; const pos = AssetValuationServiceImpl.positionOf(a.id, mv); const pr=(prices[a.id]??[]).filter(p=>p.date<=d0).sort((x,y)=>x.date.localeCompare(y.date)).at(-1); if (pos.quantity>0) console.log("HELD", a.ticker, a.asset_type, pos.quantity, pr?.date, pr?.close); }
+console.log(p0.calculableValue, JSON.stringify(p0.calculableByGroup));
