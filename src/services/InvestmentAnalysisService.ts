@@ -134,7 +134,8 @@ export function investmentHistory(params: {
       }
     }
     const effective = AssetValuationServiceImpl.effectiveAssets(eligible, movements).map((asset) =>
-      isMarketQuotableType(asset.asset_type) && asset.position.quantity === 0
+      // A closed position holds no wealth; a redemption gain must not appear as negative patrimony.
+      (isMarketQuotableType(asset.asset_type) ? asset.position.quantity === 0 : asset.position.quantity <= 0 && asset.position.cost <= 0)
         ? { ...asset, current_value: 0, effective_value: 0, acquisition_value: 0, effective_acquisition: 0 }
         : asset,
     );
