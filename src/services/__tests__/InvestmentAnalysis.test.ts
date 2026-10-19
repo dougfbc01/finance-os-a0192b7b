@@ -44,6 +44,13 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     expect(points[0]?.calculableValue).toBeNull();
     expect(points[0]?.calculableByGroup).toEqual({ ACAO_BRL: null });
   });
+  it("renda fixa já resgatada com ganho não reduz o patrimônio calculável", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "t", asset_type: AssetType.TESOURO, ticker: null })],
+      movements: [movement(), movement({ id: "t-in", asset_id: "t", amount: 100, quantity: 1 }), movement({ id: "t-out", asset_id: "t", amount: 156.71, quantity: 1, transaction_date: "2026-01-02", tags: ["op:RESGATE"] })],
+      prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-03"] });
+    expect(points[0]?.calculableByGroup?.TESOURO_BRL ?? 0).toBeGreaterThanOrEqual(0);
+    expect(points[0]?.calculableValue).toBe(120);
+  });
   it("não considera cadastro sem eventos como posição histórica zero", () => {
     const points = investmentHistory({ assets: [asset({ quantity: 5 })], movements: [], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
     expect(points[0]).toMatchObject({ value: null, missingAssets: 1 });

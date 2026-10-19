@@ -134,7 +134,8 @@ export function investmentHistory(params: {
       }
     }
     const effective = AssetValuationServiceImpl.effectiveAssets(eligible, movements).map((asset) =>
-      isMarketQuotableType(asset.asset_type) && asset.position.quantity === 0
+      // A closed position holds no wealth; a redemption gain must not appear as negative patrimony.
+      (isMarketQuotableType(asset.asset_type) ? asset.position.quantity === 0 : asset.position.quantity <= 0 && asset.position.cost <= 0)
         ? { ...asset, current_value: 0, effective_value: 0, acquisition_value: 0, effective_acquisition: 0 }
         : asset,
     );
@@ -162,7 +163,7 @@ export function investmentHistory(params: {
       returns[key] = missing.has(key) || unknownCost.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
       valuesByGroup[key] = missing.has(key) ? null : group?.current ?? 0;
       // A group whose only held positions lack evidence has no calculable value, not zero.
-      calculableByGroup[key] = missing.has(key) && !held.has(key) ? null : group?.current ?? 0;
+      calculableByGroup[key] = missing.has(key) && !held.has(key) ? null : Number((group?.current ?? 0).toFixed(2));
     }
     const missingAssets = Array.from(missing.values()).reduce((a, b) => a + b, 0);
     const mixedCurrency = new Set(assets.map((a) => a.currency)).size > 1;

@@ -47,3 +47,5 @@
 - [x] Restringir as sugestões ao lote aberto, sem reconciliação automática ou terceiro movimento.
 - [x] Validar confirmação, rejeição, neutralidade financeira e executar testes focados e typecheck.
 - [x] Cotações: última cotação salva por ativo, atualização isolada (ativo ou todos), sem cooldown temporariamente.
+
+- [x] Evolução histórica: patrimônio parcial separado do completo, limite de período do provedor tratado e posições encerradas zeradas
