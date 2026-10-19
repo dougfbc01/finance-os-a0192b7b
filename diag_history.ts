@@ -13,8 +13,8 @@ for (const p of await all("market_price_history")) (prices[p.asset_id] ??= []).p
 const inv = InvestmentServiceImpl.filterInvestments(assets).filter(a=>a.currency==="BRL");
 const dates = investmentHistoryDates("2025-10-16","2026-10-16");
 const pts = investmentHistory({ assets: inv, movements, prices, dates });
-console.log("assets", inv.length, "movs", movements.length, "nullTotal", pts.filter(p=>p.value==null).length, "/", pts.length);
+console.log("assets", inv.length, "movs", movements.length, "nullTotal", pts.filter(p=>p.value==null).length, "calc", pts.filter(p=>p.calculableValue!=null).length, "/", pts.length);
 const reasons = new Map<string,Set<string>>();
 for (const p of pts) for (const l of p.limitations) { const k=l.reason; (reasons.get(k) ?? reasons.set(k,new Set()).get(k)!).add(l.name); }
 for (const [k,v] of reasons) console.log(k, v.size, [...v].join(", "));
-for (const d of ["2025-10-16","2026-03-01","2026-07-10","2026-10-16"]) { const p = pts.find(x=>x.date===d)!; console.log(d, p.value, JSON.stringify(p.valuesByGroup), p.missingAssets); }
+for (const d of ["2025-10-16","2026-03-01","2026-07-10","2026-10-16"]) { const p = pts.find(x=>x.date===d)!; console.log(d, p.value, p.calculableValue, JSON.stringify(p.calculableByGroup), p.missingAssets); }
