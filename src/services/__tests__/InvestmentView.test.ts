@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AssetType } from "@/constants/enums";
 import type { InvestmentRow } from "../InvestmentService";
 import type { InvestmentHistoryPoint } from "../InvestmentAnalysisService";
-import { historicalChartView, investmentHistoryDates, investmentPeriodStart, portfolioView, validInvestmentRange, type InvestmentSortKey } from "../InvestmentViewService";
+import { historicalChartView, investmentHistoryDates, investmentPeriodStart, limitationSummary, portfolioView, validInvestmentRange, wealthChartView, type InvestmentSortKey } from "../InvestmentViewService";
 
 const row = (id: string, name: string, type: AssetType, number: number): InvestmentRow => ({
   asset: { id, name, asset_type: type, ticker: id, institution: name, currency: "BRL", quantity: number, unit_price: number, quote: number > 0 ? { price: number } : null } as InvestmentRow["asset"],
@@ -57,6 +57,21 @@ describe("Operações de apresentação dos investimentos", () => {
     const chart = historicalChartView([point("2026-02-01", 100, { A: 5, B: 10 })], ["B"]);
     expect(chart.returnKeys).toEqual(["B"]);
     expect(chart.data).toEqual([{ date: "2026-02-01", value: 100, B: 10 }]);
+  });
+  it("mantém patrimônio completo e parcial em séries separadas, com lacunas nulas", () => {
+    const pts: InvestmentHistoryPoint[] = [
+      { ...point("2026-01-01", null, {}), calculableValue: null, missingAssets: 1 },
+      { ...point("2026-01-02", null, {}), calculableValue: 80, missingAssets: 2 },
+      { ...point("2026-01-03", 150, {}), calculableValue: 150 },
+    ];
+    const view = wealthChartView(pts, "TOTAL");
+    expect(view.data.map((d) => [d.complete, d.calculable])).toEqual([[null, null], [null, 80], [150, null]]);
+    expect(view).toMatchObject({ completeDates: 1, calculableDates: 1, unavailableDates: 1 });
+  });
+  it("resume datas faltantes por ativo e motivo", () => {
+    const lim = { assetId: "x", name: "X", reason: "NO_PRICE" as const };
+    const pts = [{ ...point("2026-01-01", null, {}), limitations: [lim] }, { ...point("2026-01-02", null, {}), limitations: [lim] }];
+    expect(limitationSummary(pts)).toEqual([{ ...lim, dates: 2, first: "2026-01-01", last: "2026-01-02" }]);
   });
   it("identifica um ponto isolado válido sem preencher as lacunas", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);

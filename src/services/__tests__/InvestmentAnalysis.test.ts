@@ -32,6 +32,18 @@ describe("Análise de investimentos reutiliza regras existentes", () => {
     expect(points[0]?.value).toBeNull();
     expect(points[0]?.limitations).toContainEqual({ assetId: "b", name: "Ação", reason: "NO_PRICE" });
   });
+  it("separa patrimônio calculável do completo quando faltam cotações de outros ativos", () => {
+    const points = investmentHistory({ assets: [asset(), asset({ id: "b", asset_type: AssetType.FII })], movements: [movement(), movement({ id: "b", asset_id: "b" })], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
+    expect(points[0]?.value).toBeNull();
+    expect(points[0]?.calculableValue).toBe(120);
+    expect(points[0]?.calculableByGroup).toEqual({ ACAO_BRL: 120, FII_BRL: null });
+    expect(points[0]?.missingByGroup).toEqual({ FII_BRL: 1 });
+  });
+  it("não apresenta zero calculável quando nenhuma posição mantida tem cotação", () => {
+    const points = investmentHistory({ assets: [asset()], movements: [movement()], prices: {}, dates: ["2026-01-02"] });
+    expect(points[0]?.calculableValue).toBeNull();
+    expect(points[0]?.calculableByGroup).toEqual({ ACAO_BRL: null });
+  });
   it("não considera cadastro sem eventos como posição histórica zero", () => {
     const points = investmentHistory({ assets: [asset({ quantity: 5 })], movements: [], prices: { a: [price("2026-01-01", 12)] }, dates: ["2026-01-02"] });
     expect(points[0]).toMatchObject({ value: null, missingAssets: 1 });
