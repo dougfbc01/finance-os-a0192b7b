@@ -162,7 +162,7 @@ export function investmentHistory(params: {
       returns[key] = missing.has(key) || unknownCost.has(key) || !group || group.invested <= 0 ? null : group.profitPercent;
       valuesByGroup[key] = missing.has(key) ? null : group?.current ?? 0;
       // A group whose only held positions lack evidence has no calculable value, not zero.
-      calculableByGroup[key] = missing.has(key) && !held.has(key) ? null : group?.current ?? 0;
+      calculableByGroup[key] = missing.has(key) && !held.has(key) ? null : Number((group?.current ?? 0).toFixed(2));
     }
     const missingAssets = Array.from(missing.values()).reduce((a, b) => a + b, 0);
     const mixedCurrency = new Set(assets.map((a) => a.currency)).size > 1;
