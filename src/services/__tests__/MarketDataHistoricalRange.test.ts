@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchBrapiHistorical } from "../marketData.server";
+import { fetchBrapiHistorical } from "@/lib/marketData.server";
 
 afterEach(() => vi.unstubAllGlobals());
 
