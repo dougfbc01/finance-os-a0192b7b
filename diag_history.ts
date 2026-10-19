@@ -23,3 +23,4 @@ const d0 = "2025-11-15"; const mv = movements.filter((m:any)=>!m.deleted_at && m
 const p0 = pts.find(x=>x.date===d0)!; const lim = new Set(p0.limitations.filter(l=>l.reason!=="UNKNOWN_COST").map(l=>l.assetId));
 for (const a of inv) { if (lim.has(a.id)) continue; const pos = AssetValuationServiceImpl.positionOf(a.id, mv); const pr=(prices[a.id]??[]).filter(p=>p.date<=d0).sort((x,y)=>x.date.localeCompare(y.date)).at(-1); if (pos.quantity>0) console.log("HELD", a.ticker, a.asset_type, pos.quantity, pr?.date, pr?.close); }
 console.log(p0.calculableValue, JSON.stringify(p0.calculableByGroup));
+for (const a of inv) { const pos = AssetValuationServiceImpl.positionOf(a.id, mv); if (pos.quantity < 0) console.log("NEG", a.ticker, a.asset_type, pos.quantity); }
