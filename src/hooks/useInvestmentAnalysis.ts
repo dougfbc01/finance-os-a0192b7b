@@ -6,7 +6,7 @@ import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
-import { investmentHistoryDates, validInvestmentRange } from "@/services/InvestmentViewService";
+import { investmentMonthlyDates, validInvestmentRange } from "@/services/InvestmentViewService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const queryClient = useQueryClient();
