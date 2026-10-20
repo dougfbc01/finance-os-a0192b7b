@@ -112,6 +112,22 @@ export function investmentHistoryDates(from: string, to: string): string[] {
   return dates;
 }
 
+/** First weekday of each month inside [from, to], plus `to` itself; never a future date. */
+export function investmentMonthlyDates(from: string, to: string): string[] {
+  if (!validInvestmentRange(from, to, to)) return [];
+  const dates: string[] = [];
+  const cursor = new Date(`${from.slice(0, 7)}-01T00:00:00Z`);
+  while (cursor.toISOString().slice(0, 10) <= to) {
+    const day = new Date(cursor);
+    while (day.getUTCDay() === 0 || day.getUTCDay() === 6) day.setUTCDate(day.getUTCDate() + 1);
+    const iso = day.toISOString().slice(0, 10);
+    if (iso >= from && iso <= to) dates.push(iso);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  if (dates.at(-1) !== to) dates.push(to);
+  return dates;
+}
+
 export function validInvestmentRange(from: string, to: string, today: string): boolean {
   const validDate = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date)
     && Number.isFinite(Date.parse(`${date}T00:00:00Z`))

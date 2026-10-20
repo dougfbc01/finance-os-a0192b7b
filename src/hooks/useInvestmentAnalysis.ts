@@ -6,7 +6,7 @@ import { investmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
-import { investmentHistoryDates, validInvestmentRange } from "@/services/InvestmentViewService";
+import { investmentMonthlyDates, validInvestmentRange } from "@/services/InvestmentViewService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const queryClient = useQueryClient();
@@ -30,17 +30,23 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
-  // Provider is queried only on explicit request; stored quotes of other assets are never changed.
+  // Provider is queried only on explicit request; one quote per asset/month from its first movement until today.
   const completeHistory = useMutation({
     mutationFn: async () => {
       if (!workspaceId) return [];
-      return MarketHistoricalPriceService.completeHistory(workspaceId, scoped.filter((a) => a.ticker).map((a) => ({ id: a.id, ticker: a.ticker })), from, to);
+      const today = new Date().toISOString().slice(0, 10);
+      const targets = scoped.filter((a) => a.ticker).flatMap((a) => {
+        const first = movements.filter((m) => !m.deleted_at && (m.asset_id === a.id || (m.tags ?? []).includes(`cost:SOURCE:${a.id}`)))
+          .map((m) => m.transaction_date).sort()[0];
+        return first ? [{ id: a.id, ticker: a.ticker, from: first }] : [];
+      });
+      return MarketHistoricalPriceService.completeMonthlyHistory(workspaceId, targets, today);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["investment-analysis-prices", workspaceId] }),
   });
   const points = useMemo(() => {
     if (!validRange || scoped.length === 0) return [];
-    return investmentHistory({ assets: scoped, movements, prices: history.data ?? {}, dates: investmentHistoryDates(from, to) });
+    return investmentHistory({ assets: scoped, movements, prices: history.data ?? {}, dates: investmentMonthlyDates(from, to) });
   }, [scoped, movements, history.data, from, to, validRange]);
   return { points, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }
