@@ -181,6 +181,47 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
     await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
     return results;
   }
+
+  /**
+   * Explicit user request: store one quote per asset/month (first available
+   * trading session of each month) from the asset's first movement until `to`.
+   * Existing rows are never replaced; provider errors store nothing.
+   */
+  async completeMonthlyHistory(
+    workspaceId: UUID,
+    assets: { id: UUID; ticker: string | null; from: string }[],
+    to: string,
+  ): Promise<{ ticker: string; status: MarketHistorySeries["status"]; points: number; message: string | null }[]> {
+    const queue = assets.filter((a) => normalizeTicker(a.ticker ?? "") && a.from <= to);
+    const results: { ticker: string; status: MarketHistorySeries["status"]; points: number; message: string | null }[] = [];
+    const worker = async () => {
+      for (let asset = queue.shift(); asset; asset = queue.shift()) {
+        const ticker = normalizeTicker(asset.ticker ?? "");
+        try {
+          const result = await MarketDataService.getHistoricalPrices(ticker, { from: asset.from, to });
+          const monthly = result.status === "OK" ? firstSessionPerMonth(result.points) : [];
+          if (monthly.length > 0) await this.store({ workspaceId, assetId: asset.id, ticker, from: asset.from, to }, monthly);
+          results.push({ ticker, status: monthly.length > 0 ? "OK" : result.status === "OK" ? "NO_DATA" : result.status, points: monthly.length, message: result.message });
+        } catch {
+          results.push({ ticker, status: "ERROR", points: 0, message: "Falha ao consultar o histórico." });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
+    return results;
+  }
+}
+
+/** First valid trading session of each month; invalid closes are discarded, never stored. */
+export function firstSessionPerMonth(points: MarketPricePoint[]): MarketPricePoint[] {
+  const byMonth = new Map<string, MarketPricePoint>();
+  for (const p of points) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date) || !Number.isFinite(p.close) || p.close <= 0) continue;
+    const month = p.date.slice(0, 7);
+    const current = byMonth.get(month);
+    if (!current || p.date < current.date) byMonth.set(month, p);
+  }
+  return [...byMonth.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export const MarketHistoricalPriceService = new MarketHistoricalPriceServiceImpl();
