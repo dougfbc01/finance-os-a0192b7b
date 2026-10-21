@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssets } from "./useAssets";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
-import { investmentHistory } from "@/services/InvestmentAnalysisService";
+import { investmentMonthlyBase, monthlyInvestmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
-import { investmentMonthlyDates, validInvestmentRange } from "@/services/InvestmentViewService";
+import { validInvestmentRange } from "@/services/InvestmentViewService";
 
 export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string) {
   const queryClient = useQueryClient();
@@ -44,9 +44,10 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["investment-analysis-prices", workspaceId] }),
   });
-  const points = useMemo(() => {
+  const monthlyBase = useMemo(() => {
     if (!validRange || scoped.length === 0) return [];
-    return investmentHistory({ assets: scoped, movements, prices: history.data ?? {}, dates: investmentMonthlyDates(from, to) });
+    return investmentMonthlyBase({ assets: scoped, movements, prices: history.data ?? {}, from, to });
   }, [scoped, movements, history.data, from, to, validRange]);
-  return { points, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
+  const points = useMemo(() => monthlyInvestmentHistory(monthlyBase, from, to), [monthlyBase, from, to]);
+  return { points, monthlyBase, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }
