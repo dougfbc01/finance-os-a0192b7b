@@ -284,6 +284,25 @@ describe("Sprint 4.17B — posição histórica e retorno econômico", () => {
     expect(MovementServiceImpl.impactOnAccount(conversion, "account-1")).toBe(0);
   });
 
+  it("PETZ3 → C9BS3 → AUAU3 1:1 com parcela em dinheiro C9BS4, sem duplicar ações nem custo", () => {
+    const base = { type: MovementType.ADJUSTMENT, is_historical: true, account_id: null, amount: 0, quantity: 3, transaction_date: "2026-01-06" };
+    const movements = [
+      movement({ id: "p1", asset_id: "PETZ3", amount: 0, quantity: 3, type: MovementType.ADJUSTMENT, is_historical: true, account_id: null, transaction_date: "2021-11-16",
+        tags: ["source:B3", "b3:event:TRANSFER_SETTLEMENT", "op:AJUSTE_QUANTIDADE", "qty:INCREASE", "cost:CARRIED", "cost:BASIS:69.24"] }),
+      movement({ ...base, id: "c1", asset_id: "C9BS3", tags: ["source:B3", "b3:event:INCORPORATION", "op:AJUSTE_QUANTIDADE", "qty:SET", "cost:CARRIED", "cost:SOURCE:PETZ3"] }),
+      movement({ ...base, id: "c2", asset_id: "C9BS4", tags: ["source:B3", "b3:event:INCORPORATION", "op:AJUSTE_QUANTIDADE", "qty:SET"] }),
+      movement({ ...base, id: "d1", asset_id: "AUAU3", tags: ["source:B3", "b3:event:INCORPORATION", "op:AJUSTE_QUANTIDADE", "qty:SET", "cost:CARRIED", "cost:SOURCE:C9BS3"] }),
+      movement({ id: "r1", asset_id: "C9BS4", amount: 2.13, quantity: 3, unit_price: 0.711, type: MovementType.INVESTMENT, is_historical: true, account_id: null, transaction_date: "2026-01-23",
+        tags: ["source:B3", "b3:event:REDEMPTION", "op:RESGATE"] }),
+    ];
+    const pos = (id: string) => InvestmentServiceImpl.positionSummary(asset({ id }), movements);
+    expect(pos("PETZ3")).toMatchObject({ quantity: 0, historicalCost: 0 });
+    expect(pos("C9BS3")).toMatchObject({ quantity: 0, historicalCost: 0 });
+    expect(pos("AUAU3")).toMatchObject({ quantity: 3, historicalCost: 69.24 });
+    expect(pos("C9BS4")).toMatchObject({ quantity: 0, realizedValue: 2.13 });
+    for (const m of movements) expect(MovementServiceImpl.impactOnAccount(m, "account-1")).toBe(0);
+  });
+
   it("mantém custo zero quando a conversão não informa origem confiável", () => {
     const conversion = movement({
       amount: 0,
