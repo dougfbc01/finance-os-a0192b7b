@@ -256,7 +256,8 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
   const months = [...new Set(base.map((r) => r.month))].sort();
   return months.flatMap((month) => {
     const members = base.filter((r) => r.month === month);
-    const date = members.map((r) => r.referenceDate).sort()[0];
+    // A monthly aggregate must never be dated before any price/position it contains.
+    const date = members.map((r) => r.referenceDate).sort().at(-1);
     if (!date || date < from || date > to) return [];
     const rows = members.flatMap((r) => r.totalValue === null ? [] : r.projection.assetRows ?? []);
     const groups = summarizeInvestments(rows);
