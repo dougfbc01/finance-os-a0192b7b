@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Criar base mensal por ativo com posição histórica, data real da cotação e status, alimentando os gráficos existentes.
+- [ ] Validar meses sem preços, posições encerradas, eventos e gráficos com testes e dados reais, sem gravações financeiras.
+
 - [x] Corrigir evolução patrimonial diária por tipo e total consolidado usando posições e preços históricos existentes, sem totais incompletos.
 - [x] Validar eventos de posição, lacunas, filtros e telas autenticadas; informar testes e verificações automáticas.
 

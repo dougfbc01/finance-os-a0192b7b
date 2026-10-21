@@ -5,6 +5,7 @@ import type { MarketPricePoint, MarketQuoteMap } from "@/models/MarketData";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
 import { InvestmentServiceImpl, type InvestmentRow } from "./InvestmentService";
 import { MarketQuotationServiceImpl } from "./MarketQuotationService";
+import { validInvestmentRange } from "./InvestmentViewService";
 
 export interface InvestmentGroup {
   key: string;
@@ -60,6 +61,8 @@ export interface InvestmentHistoryPoint {
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
   carriedPrices: { assetId: string; priceDate: string }[];
+  /** Evidenced rows, reused by the monthly projection without new financial formulas. */
+  assetRows?: InvestmentRow[];
 }
 
 /** Rebuild an as-of-date projection; never use a future quote or today's manual valuation. */
@@ -169,9 +172,119 @@ export function investmentHistory(params: {
     const mixedCurrency = new Set(assets.map((a) => a.currency)).size > 1;
     const calculableTotal = Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2));
     return {
-      date, returns, valuesByGroup, calculableByGroup, missingByGroup, missingAssets, limitations, carriedPrices,
+      date, returns, valuesByGroup, calculableByGroup, missingByGroup, missingAssets, limitations, carriedPrices, assetRows: rows,
       value: missingAssets > 0 || mixedCurrency ? null : calculableTotal,
       calculableValue: mixedCurrency || (missingAssets > 0 && held.size === 0) ? null : calculableTotal,
     };
+  });
+}
+
+export type MonthlyPositionStatus = "OK" | "STALE_PRICE" | "CLOSED" | "NO_PRICE" | "NO_HISTORY" | "NO_VALUATION";
+export interface InvestmentMonthlyRow {
+  assetId: string;
+  name: string;
+  ticker: string | null;
+  month: string;
+  referenceDate: string;
+  quantity: number | null;
+  unitQuote: number | null;
+  quoteDate: string | null;
+  totalValue: number | null;
+  status: MonthlyPositionStatus;
+  currency: string;
+  group: string;
+  /** The existing services' projection, not a second financial calculation. */
+  projection: InvestmentHistoryPoint;
+}
+
+/** Read-only monthly ledger. A stored session is evidence, not an inferred exchange calendar. */
+export function investmentMonthlyBase(params: {
+  assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+}): InvestmentMonthlyRow[] {
+  if (!validInvestmentRange(params.from, params.to, params.to)) return [];
+  const result: InvestmentMonthlyRow[] = [];
+  for (const asset of InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at)) {
+    const related = params.movements.filter((m) => !m.deleted_at &&
+      (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)));
+    const first = related.map((m) => m.transaction_date).sort()[0];
+    // With no movement, the start is unknown; retain a visible limitation in the requested range.
+    const start = first ?? params.from;
+    if (!validInvestmentRange(start, params.to, params.to)) continue;
+    const prices = [...(params.prices[asset.id] ?? [])].filter((p) =>
+      validInvestmentRange(p.date, p.date, params.to) && Number.isFinite(p.close) && p.close > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
+    while (cursor.toISOString().slice(0, 10) <= params.to) {
+      const month = cursor.toISOString().slice(0, 7);
+      const session = prices.find((p) => p.date.slice(0, 7) === month);
+      const fallback = new Date(cursor);
+      while ([0, 6].includes(fallback.getUTCDay())) fallback.setUTCDate(fallback.getUTCDate() + 1);
+      // No recorded session: a weekday reference carries only an earlier quote, never a future one.
+      const referenceDate = session?.date ?? fallback.toISOString().slice(0, 10);
+      if (referenceDate <= params.to) {
+        const projection = investmentHistory({ assets: [asset], movements: params.movements,
+          prices: { [asset.id]: prices }, dates: [referenceDate] })[0];
+        if (projection) {
+          const noHistory = !first || projection.limitations.some((l) => l.reason === "NO_HISTORY");
+          const quantity = noHistory ? null : AssetValuationServiceImpl.positionOf(asset.id,
+            params.movements.filter((m) => !m.deleted_at && m.transaction_date <= referenceDate)).quantity;
+          const quote = prices.filter((p) => p.date <= referenceDate).at(-1);
+          const missingValuation = projection.limitations.some((l) => l.reason === "NO_VALUATION");
+          const status: MonthlyPositionStatus = noHistory ? "NO_HISTORY" : missingValuation ? "NO_VALUATION"
+            : quantity === 0 ? "CLOSED" : !quote || !asset.ticker ? "NO_PRICE"
+            : quote.date.slice(0, 7) !== month ? "STALE_PRICE" : "OK";
+          // Even an empty cadastro without events cannot establish a historical zero position.
+          if (!first && !projection.limitations.some((l) => l.reason === "NO_HISTORY")) {
+            projection.limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
+            projection.assetRows = [];
+          }
+          result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, month, referenceDate,
+            quantity, unitQuote: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.close : null,
+            quoteDate: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.date : null,
+            totalValue: noHistory ? null : projection.value, status, currency: asset.currency,
+            group: investmentGroupKey(asset), projection });
+        }
+      }
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+  }
+  return result.sort((a, b) => a.month.localeCompare(b.month) || a.name.localeCompare(b.name) || a.assetId.localeCompare(b.assetId));
+}
+
+/** Charts consume the monthly ledger; aggregation still uses the existing investment totals. */
+export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: string, to: string): InvestmentHistoryPoint[] {
+  const months = [...new Set(base.map((r) => r.month))].sort();
+  return months.flatMap((month) => {
+    const members = base.filter((r) => r.month === month);
+    // A monthly aggregate must never be dated before any price/position it contains.
+    const date = members.map((r) => r.referenceDate).sort().at(-1);
+    if (!date || date < from || date > to) return [];
+    const rows = members.flatMap((r) => r.totalValue === null ? [] : r.projection.assetRows ?? []);
+    const groups = summarizeInvestments(rows);
+    const missingByGroup: Record<string, number> = {};
+    const valuesByGroup: Record<string, number | null> = {};
+    const calculableByGroup: Record<string, number | null> = {};
+    const returns: Record<string, number | null> = {};
+    for (const key of new Set(members.map((r) => r.group))) {
+      const scoped = members.filter((r) => r.group === key);
+      const missing = scoped.filter((r) => r.totalValue === null).length;
+      const group = groups.find((g) => g.key === key);
+      const evidencedHeld = scoped.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
+      const unknownCost = scoped.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
+      missingByGroup[key] = missing;
+      valuesByGroup[key] = missing ? null : group?.current ?? 0;
+      calculableByGroup[key] = missing && !evidencedHeld ? null : group?.current ?? 0;
+      returns[key] = missing || unknownCost || !group || group.invested <= 0 ? null : group.profitPercent;
+    }
+    const missingAssets = members.filter((r) => r.totalValue === null).length;
+    const mixedCurrency = new Set(members.map((r) => r.currency)).size > 1;
+    const total = Number(rows.reduce((sum, r) => sum + r.current, 0).toFixed(2));
+    const evidencedHeld = members.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
+    return [{ date, value: missingAssets || mixedCurrency ? null : total,
+      calculableValue: mixedCurrency || (missingAssets && !evidencedHeld) ? null : total,
+      valuesByGroup, calculableByGroup, missingByGroup, returns, missingAssets,
+      limitations: members.flatMap((r) => r.projection.limitations),
+      carriedPrices: members.filter((r) => r.status === "STALE_PRICE" && r.quoteDate)
+        .map((r) => ({ assetId: r.assetId, priceDate: r.quoteDate ?? "" })) }];
   });
 }
