@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Ajustar somente a visualização histórica: cobertura visível de cada mês usando a projeção da monthlyBase existente; preservar pontos parciais separados, completos, rentabilidade e composição.
+- [x] Validar 105 testes históricos e tela autenticada sem gravações; build automático OK. Typecheck separado não executado (verificação manual vedada pelo ambiente).
+
 - [x] Investigar salto pela base mensal real: R$ 1.060,02 em maio, R$ 4.225,94 em junho e R$ 11.123,07 em julho; novas cotações incluem 7 e 29 posições já existentes.
 - [x] Separar mudanças de cobertura: patrimônio parcial em pontos independentes, completo apenas sem faltas e detalhes por ativo; cálculos e dados financeiros preservados.
 - [x] Validar 107 testes históricos, tela autenticada com 12 pontos parciais e 7 grupos e filtros; typecheck e build automáticos OK.

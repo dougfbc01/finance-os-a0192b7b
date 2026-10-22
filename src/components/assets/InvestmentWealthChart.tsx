@@ -17,7 +17,7 @@ function WealthTooltip({ active, payload, currency }: {
   return <div className="max-w-80 space-y-2 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-md">
     <p className="font-medium">{fullDate(point.date)}</p>
     <p>{point.complete !== null ? "Patrimônio completo" : "Patrimônio parcial"}: {value !== null ? formatCurrency(value, currency) : "—"}</p>
-    <p>{point.valuedAssets} posições avaliadas · {point.missing} ativos sem dados</p>
+    <p>Cobertura do mês: {point.valuedAssets} posições avaliadas · {point.missing} ativos sem avaliação</p>
     {point.missingNames.length > 0 && <p>Sem avaliação: {point.missingNames.join(", ")}</p>}
     {point.staleNames.length > 0 && <p>Cotação anterior: {point.staleNames.join(", ")}</p>}
     {point.coverageAdded.length > 0 && <p>Passaram a ter avaliação: {point.coverageAdded.join(", ")}. A inclusão não representa ganho.</p>}
@@ -28,7 +28,7 @@ function WealthTooltip({ active, payload, currency }: {
 export function InvestmentWealthChart({ series, currency, color }: { series: WealthSeries; currency: string; color: string }) {
   return <div className="min-w-0 space-y-2">
     <h2 className="text-base font-semibold">Evolução do patrimônio investido · {series.label} · {currency}</h2>
-    <p className="text-xs text-muted-foreground">Completo em {series.completeDates} datas · parcial em {series.calculableDates} · sem dados em {series.unavailableDates}</p>
+    <p className="text-xs text-muted-foreground">Completo em {series.completeDates} meses · parcial em {series.calculableDates} · sem dados em {series.unavailableDates}</p>
     <div className="h-72" role="img" aria-label={`Gráfico de evolução do patrimônio investido — ${series.label}`}>
       {series.completeDates + series.calculableDates > 0 ? <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={series.data} margin={{ top: 10, right: 15, left: 15, bottom: 5 }}>
@@ -37,12 +37,26 @@ export function InvestmentWealthChart({ series, currency, color }: { series: Wea
           <YAxis tickFormatter={(v) => formatCurrency(v, currency)} width={90} fontSize={11} />
           <Tooltip content={<WealthTooltip currency={currency} />} />
           <Legend />
-          <Line dataKey="complete" name="Completo" stroke={color} strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
-          <Scatter dataKey="calculable" name="Parcial · cobertura variável" fill="var(--muted-foreground)" line={false} isAnimationActive={false} />
+          {series.completeDates > 0 && <Line dataKey="complete" name="Completo" stroke={color} strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />}
+          {series.calculableDates > 0 && <Scatter dataKey="calculable" name="Parcial · cobertura variável" fill="var(--muted-foreground)" line={false} isAnimationActive={false} />}
         </ComposedChart>
       </ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y px-4 text-center text-sm text-muted-foreground">Nenhuma posição deste grupo tem cotação ou avaliação no período. Consulte os dados faltantes acima.</div>}
     </div>
+    {series.completeDates === 0 && <p className="text-xs text-muted-foreground">Patrimônio completo indisponível: nenhum mês reúne avaliação de todos os ativos relevantes.</p>}
     {series.calculableDates > 0 && <p className="text-xs text-muted-foreground">Os pontos parciais incluem apenas posições com avaliação e não representam a carteira inteira. Mudanças de cobertura não são ganhos ou perdas; variações de patrimônio também podem incluir compras, vendas e eventos.</p>}
+    {series.data.length > 0 && <div className="space-y-2 pt-2" aria-label={`Cobertura mensal de avaliações — ${series.label}`}>
+      <h3 className="text-sm font-medium">Cobertura de cada mês</h3>
+      <ul className="divide-y border-y">{series.data.map((point) => <li key={point.date} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1 py-2 text-xs sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)]">
+        <span className="font-medium" title={fullDate(point.date)}>{dateLabel(point.date)}</span>
+        <span className="min-w-0 break-words tabular-nums">
+          {point.complete !== null ? `Completo · ${formatCurrency(point.complete, currency)}` : point.calculable !== null ? `Parcial · ${formatCurrency(point.calculable, currency)}` : "Patrimônio indisponível"}
+        </span>
+        <span className="col-start-2 min-w-0 break-words text-muted-foreground sm:col-start-auto">
+          {point.valuedAssets} avaliadas · {point.missing} sem avaliação
+          {point.staleNames.length > 0 && <span className="block">{point.staleNames.length} com cotação anterior</span>}
+        </span>
+      </li>)}</ul>
+    </div>}
     {series.coverageChanges.length > 0 && <details className="text-sm text-muted-foreground">
       <summary className="cursor-pointer">Mudanças na cobertura de avaliações ({series.coverageChanges.length})</summary>
       <ul className="mt-2 space-y-2">{series.coverageChanges.map((change) => <li key={change.date}>
