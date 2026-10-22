@@ -3,6 +3,7 @@ import { AssetType, AssetValuationSource, MovementType, MovementStatus } from "@
 import type { Asset, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { investmentMonthlyBase, monthlyInvestmentHistory } from "../InvestmentAnalysisService";
+import { wealthChartView } from "../InvestmentViewService";
 
 const asset: Asset = { id: "a", workspace_id: "w", name: "A", asset_type: AssetType.ACAO, ticker: "TEST3", institution: null, currency: "BRL", quantity: 100, unit_price: 10, current_value: 1000, acquisition_value: 1000, acquisition_date: null, is_active: true, notes: null, valuation_source: AssetValuationSource.MOVEMENTS, account_id: null, opening_value: 0, created_at: "", updated_at: "", deleted_at: null };
 const movement = (override: Partial<Movement> = {}): Movement => ({ id: "buy", workspace_id: "w", account_id: null, transfer_account_id: null, category_id: null, subcategory_id: null, card_id: null, asset_id: "a", import_id: null, transfer_group_id: null, type: MovementType.INVESTMENT, status: MovementStatus.CLEARED, description: "Compra", notes: null, amount: 100, transaction_date: "2026-01-02", competence_date: null, due_date: null, tags: ["op:APORTE"], attachments: [], created_at: "", updated_at: "", deleted_at: null, duplicate_hash: null, invoice_id: null, is_historical: true, quantity: 10, unit_price: 10, external_ref: null, ...override });
@@ -55,5 +56,39 @@ describe("Base mensal histórica somente leitura", () => {
     const point = monthlyInvestmentHistory(rows, "2026-01-01", "2026-01-20")[0];
     expect(point).toMatchObject({ date: "2026-01-05", value: 250 });
     expect(rows.every((r) => r.referenceDate <= (point?.date ?? "") && (r.quoteDate ?? "") <= (point?.date ?? ""))).toBe(true);
+  });
+  it("identifica entrada tardia de cotação sem alterar os valores parciais de 1 mil e 11 mil", () => {
+    const rows = investmentMonthlyBase({ assets: [asset, { ...asset, id: "b", ticker: "LATE3" }, { ...asset, id: "missing" }],
+      movements: [movement({ transaction_date: "2026-01-01" }), movement({ id: "b", asset_id: "b", transaction_date: "2026-01-01" }), movement({ id: "missing", asset_id: "missing", transaction_date: "2026-01-01" })],
+      prices: { a: [price("2026-01-02", 100)], b: [price("2026-02-02", 1000)] }, from: "2026-01-01", to: "2026-02-20" });
+    const before = structuredClone(rows);
+    const points = monthlyInvestmentHistory(rows, "2026-01-01", "2026-02-20");
+    const view = wealthChartView(points, "TOTAL", rows);
+    expect(view.data.map((r) => [r.complete, r.calculable])).toEqual([[null, 1000], [null, 11000]]);
+    expect(view.coverageChanges).toEqual([{ date: "2026-02-02", added: ["LATE3"], removed: [] }]);
+    expect(view.data.map((r) => r.valuedAssets)).toEqual([1, 2]);
+    expect(rows).toEqual(before);
+  });
+  it("não classifica compra nova, encerramento ou cotação carregada como mudança de cobertura", () => {
+    const rows = investmentMonthlyBase({ assets: [asset, { ...asset, id: "b" }],
+      movements: [movement({ transaction_date: "2026-01-01" }), movement({ id: "sale", transaction_date: "2026-02-01", tags: ["op:RESGATE"] }), movement({ id: "b", asset_id: "b", transaction_date: "2026-02-01" })],
+      prices: { a: [price("2026-01-02", 12)], b: [price("2026-02-02", 15)] }, from: "2026-01-01", to: "2026-03-20" });
+    const view = wealthChartView(monthlyInvestmentHistory(rows, "2026-01-01", "2026-03-20"), "TOTAL", rows);
+    expect(view.coverageChanges).toEqual([]);
+    expect(view.data.map((r) => r.complete)).toEqual([120, 150, 150]);
+    expect(view.data[2]?.staleNames).toEqual(["TEST3"]);
+  });
+  it("acompanha identidades mesmo com igual número de faltas e respeita o grupo", () => {
+    const rows = base().filter((r) => r.month !== "2026-03");
+    const unavailable = rows.map((r) => ({ ...r, assetId: "b", ticker: "B11", group: "FII_BRL", totalValue: null, status: "NO_PRICE" as const }));
+    rows[1] = { ...rows[1], totalValue: null, status: "NO_PRICE" };
+    const second = unavailable[1];
+    if (!second) throw new Error("Missing fixture month");
+    unavailable[1] = { ...second, totalValue: 120 };
+    const ledger = [...rows, ...unavailable];
+    const points = [{ date: "2026-01-02", value: null, calculableValue: 120, missingAssets: 1, returns: {}, limitations: [], carriedPrices: [] },
+      { date: "2026-02-02", value: null, calculableValue: 120, missingAssets: 1, returns: {}, limitations: [], carriedPrices: [] }];
+    expect(wealthChartView(points, "TOTAL", ledger).coverageChanges).toEqual([{ date: "2026-02-02", added: ["B11"], removed: ["TEST3"] }]);
+    expect(wealthChartView(points, "FII_BRL", ledger).coverageChanges).toEqual([{ date: "2026-02-02", added: ["B11"], removed: [] }]);
   });
 });
