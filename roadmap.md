@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Investigar salto de aproximadamente R$ 1 mil para R$ 11 mil pela base mensal real, antes de modificar a apresentação.
+- [ ] Separar mudanças de cobertura nos gráficos e preservar valores completos/parciais sem alterar cálculos ou dados financeiros.
+- [ ] Executar testes históricos e conferir a tela autenticada e verificações automáticas.
+
 - [x] Criar base mensal por ativo com posição histórica, data real da cotação e status, alimentando os gráficos existentes.
 - [x] Validar meses sem preços, posições encerradas, eventos e gráficos: 126 testes aprovados e conferência autenticada de 2.524 registros / 55 ativos, sem gravações financeiras; build automático OK.
 
