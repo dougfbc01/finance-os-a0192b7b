@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Investigar salto de aproximadamente R$ 1 mil para R$ 11 mil pela base mensal real, antes de modificar a apresentação.
-- [ ] Separar mudanças de cobertura nos gráficos e preservar valores completos/parciais sem alterar cálculos ou dados financeiros.
-- [ ] Executar testes históricos e conferir a tela autenticada e verificações automáticas.
+- [x] Investigar salto pela base mensal real: R$ 1.060,02 em maio, R$ 4.225,94 em junho e R$ 11.123,07 em julho; novas cotações incluem 7 e 29 posições já existentes.
+- [x] Separar mudanças de cobertura: patrimônio parcial em pontos independentes, completo apenas sem faltas e detalhes por ativo; cálculos e dados financeiros preservados.
+- [x] Validar 107 testes históricos, tela autenticada com 12 pontos parciais e 7 grupos e filtros; typecheck e build automáticos OK.
 
 - [x] Criar base mensal por ativo com posição histórica, data real da cotação e status, alimentando os gráficos existentes.
 - [x] Validar meses sem preços, posições encerradas, eventos e gráficos: 126 testes aprovados e conferência autenticada de 2.524 registros / 55 ativos, sem gravações financeiras; build automático OK.

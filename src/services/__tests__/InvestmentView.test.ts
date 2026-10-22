@@ -73,6 +73,11 @@ describe("Operações de apresentação dos investimentos", () => {
     const pts = [{ ...point("2026-01-01", null, {}), limitations: [lim] }, { ...point("2026-01-02", null, {}), limitations: [lim] }];
     expect(limitationSummary(pts)).toEqual([{ ...lim, dates: 2, first: "2026-01-01", last: "2026-01-02" }]);
   });
+  it("nunca exibe patrimônio completo quando ainda há ativos sem avaliação", () => {
+    const pts = [{ ...point("2026-01-01", 11000, {}), missingAssets: 1, calculableValue: 11000 }];
+    expect(wealthChartView(pts, "TOTAL").data[0]).toMatchObject({ complete: null, calculable: 11000 });
+    expect(wealthChartView(pts, "TOTAL").completeDates).toBe(0);
+  });
   it("identifica um ponto isolado válido sem preencher as lacunas", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);
     expect(chart.isolatedReturns).toEqual([{ key: "A", date: "2026-01-02" }]);
