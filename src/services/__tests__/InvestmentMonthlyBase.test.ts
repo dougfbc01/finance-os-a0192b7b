@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { AssetType, AssetValuationSource, MovementType, MovementStatus } from "@/constants/enums";
 import type { Asset, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
-import { investmentMonthlyBase, monthlyInvestmentHistory } from "../InvestmentAnalysisService";
+import { investmentMonthlyBase, monthlyInvestmentHistory, type InvestmentMonthlyRow } from "../InvestmentAnalysisService";
 import { wealthChartView } from "../InvestmentViewService";
 
 const asset: Asset = { id: "a", workspace_id: "w", name: "A", asset_type: AssetType.ACAO, ticker: "TEST3", institution: null, currency: "BRL", quantity: 100, unit_price: 10, current_value: 1000, acquisition_value: 1000, acquisition_date: null, is_active: true, notes: null, valuation_source: AssetValuationSource.MOVEMENTS, account_id: null, opening_value: 0, created_at: "", updated_at: "", deleted_at: null };
@@ -80,7 +80,7 @@ describe("Base mensal histórica somente leitura", () => {
   });
   it("acompanha identidades mesmo com igual número de faltas e respeita o grupo", () => {
     const rows = base().filter((r) => r.month !== "2026-03");
-    const unavailable = rows.map((r) => ({ ...r, assetId: "b", ticker: "B11", group: "FII_BRL", totalValue: null, status: "NO_PRICE" as const }));
+    const unavailable: InvestmentMonthlyRow[] = rows.map((r) => ({ ...r, assetId: "b", ticker: "B11", group: "FII_BRL", totalValue: null, status: "NO_PRICE" as const }));
     rows[1] = { ...rows[1], totalValue: null, status: "NO_PRICE" };
     const second = unavailable[1];
     if (!second) throw new Error("Missing fixture month");
