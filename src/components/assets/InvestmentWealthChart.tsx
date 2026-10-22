@@ -37,11 +37,12 @@ export function InvestmentWealthChart({ series, currency, color }: { series: Wea
           <YAxis tickFormatter={(v) => formatCurrency(v, currency)} width={90} fontSize={11} />
           <Tooltip content={<WealthTooltip currency={currency} />} />
           <Legend />
-          <Line dataKey="complete" name="Completo" stroke={color} strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
-          <Scatter dataKey="calculable" name="Parcial · cobertura variável" fill="var(--muted-foreground)" line={false} isAnimationActive={false} />
+          {series.completeDates > 0 && <Line dataKey="complete" name="Completo" stroke={color} strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />}
+          {series.calculableDates > 0 && <Scatter dataKey="calculable" name="Parcial · cobertura variável" fill="var(--muted-foreground)" line={false} isAnimationActive={false} />}
         </ComposedChart>
       </ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y px-4 text-center text-sm text-muted-foreground">Nenhuma posição deste grupo tem cotação ou avaliação no período. Consulte os dados faltantes acima.</div>}
     </div>
+    {series.completeDates === 0 && <p className="text-xs text-muted-foreground">Patrimônio completo indisponível: nenhum mês reúne avaliação de todos os ativos relevantes.</p>}
     {series.calculableDates > 0 && <p className="text-xs text-muted-foreground">Os pontos parciais incluem apenas posições com avaliação e não representam a carteira inteira. Mudanças de cobertura não são ganhos ou perdas; variações de patrimônio também podem incluir compras, vendas e eventos.</p>}
     {series.data.length > 0 && <div className="space-y-2 pt-2" aria-label={`Cobertura mensal de avaliações — ${series.label}`}>
       <h3 className="text-sm font-medium">Cobertura de cada mês</h3>
