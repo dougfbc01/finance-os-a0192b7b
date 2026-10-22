@@ -1,7 +1,7 @@
 // Read-only view operations: never recalculate or persist financial values.
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import type { InvestmentRow } from "./InvestmentService";
-import type { InvestmentHistoryPoint } from "./InvestmentAnalysisService";
+import type { InvestmentHistoryPoint, InvestmentMonthlyRow } from "./InvestmentAnalysisService";
 
 export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn" | "accumulatedIncome";
 export type InvestmentSortDirection = "asc" | "desc";
@@ -60,20 +60,36 @@ export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys:
 }
 
 /** Wealth series keep complete and calculable values apart; gaps stay null. */
-export function wealthChartView(points: InvestmentHistoryPoint[], key: string) {
+export function wealthChartView(points: InvestmentHistoryPoint[], key: string, monthlyBase: InvestmentMonthlyRow[] = []) {
+  let previousRows: InvestmentMonthlyRow[] | undefined;
+  const coverageChanges: { date: string; added: string[]; removed: string[] }[] = [];
   const data = points.map((p) => {
     const complete = key === "TOTAL" ? p.value : p.valuesByGroup?.[key];
     const calculable = key === "TOTAL" ? p.calculableValue : p.calculableByGroup?.[key];
     const missing = key === "TOTAL" ? p.missingAssets : p.missingByGroup?.[key] ?? 0;
+    const rows = monthlyBase.filter((r) => r.month === p.date.slice(0, 7) && (key === "TOTAL" || r.group === key));
+    const label = (r: InvestmentMonthlyRow) => r.ticker || r.name;
+    const added = rows.filter((r) => finite(r.totalValue) && (r.quantity ?? 0) > 0 && previousRows?.some((prior) =>
+      prior.assetId === r.assetId && !finite(prior.totalValue) && (prior.quantity === null || prior.quantity > 0))).map(label);
+    const removed = rows.filter((r) => !finite(r.totalValue) && (r.quantity === null || r.quantity > 0) && previousRows?.some((prior) =>
+      prior.assetId === r.assetId && finite(prior.totalValue) && (prior.quantity ?? 0) > 0)).map(label);
+    if (added.length || removed.length) coverageChanges.push({ date: p.date, added, removed });
+    previousRows = rows;
     return {
       date: p.date,
-      complete: finite(complete) ? complete : null,
+      complete: missing === 0 && finite(complete) ? complete : null,
       calculable: finite(calculable) && missing > 0 ? calculable : null,
       missing,
+      valuedAssets: rows.filter((r) => finite(r.totalValue) && (r.quantity ?? 0) > 0).length,
+      missingNames: rows.filter((r) => !finite(r.totalValue)).map(label),
+      staleNames: rows.filter((r) => r.status === "STALE_PRICE" && (r.quantity ?? 0) > 0).map(label),
+      coverageAdded: added,
+      coverageRemoved: removed,
     };
   });
   return {
     data,
+    coverageChanges,
     completeDates: data.filter((d) => d.complete !== null).length,
     calculableDates: data.filter((d) => d.calculable !== null).length,
     unavailableDates: data.filter((d) => d.complete === null && d.calculable === null).length,
