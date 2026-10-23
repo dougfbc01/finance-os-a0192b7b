@@ -64,6 +64,7 @@ export function useMarketQuotes(assets: EffectiveAsset[], workspaceId?: string) 
           for (const a of targets) {
             qc.invalidateQueries({ queryKey: ["market-price-history", a.id] });
           }
+          qc.invalidateQueries({ queryKey: ["investment-analysis-prices", workspaceId] });
         }
       } finally {
         setPending((p) => {
