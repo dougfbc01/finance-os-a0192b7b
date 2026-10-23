@@ -24,6 +24,22 @@ export interface InvestmentGroup {
 
 export const investmentGroupKey = (asset: Asset) => `${asset.asset_type}_${asset.currency}`;
 
+/** Shared historical-position evidence guard; does not calculate a position. */
+function lacksPositionHistory(asset: Asset, movements: Movement[], date: string, requireEvent = false): boolean {
+  const events = movements.filter((m) => !m.deleted_at &&
+    (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)) &&
+    [InvestmentOperation.APORTE, InvestmentOperation.RESGATE, InvestmentOperation.AJUSTE_QUANTIDADE].includes(AssetValuationServiceImpl.operationOf(m)));
+  const past = events.filter((m) => m.transaction_date <= date);
+  const first = [...past].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date) || a.id.localeCompare(b.id))[0];
+  return asset.valuation_source !== AssetValuationSource.MOVEMENTS || Number(asset.opening_value) !== 0 ||
+    (requireEvent && events.length === 0) ||
+    past.some((m) => m.asset_id === asset.id &&
+      [InvestmentOperation.APORTE, InvestmentOperation.RESGATE].includes(AssetValuationServiceImpl.operationOf(m)) &&
+      (m.quantity == null || !Number.isFinite(Number(m.quantity)) || Number(m.quantity) <= 0)) ||
+    !!(first && (first.asset_id !== asset.id || AssetValuationServiceImpl.operationOf(first) === InvestmentOperation.RESGATE || (first.tags ?? []).includes("qty:DECREASE"))) ||
+    (events.length === 0 && (Number(asset.quantity) > 0 || Number(asset.acquisition_value) > 0 || Number(asset.current_value) > 0));
+}
+
 export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
   const grouped = new Map<string, InvestmentRow[]>();
   for (const row of rows) {
@@ -87,23 +103,7 @@ export function investmentHistory(params: {
     const carriedPrices: InvestmentHistoryPoint["carriedPrices"] = [];
     for (const asset of assets) {
       const key = investmentGroupKey(asset);
-      const positionEvents = params.movements.filter((m) => !m.deleted_at &&
-        (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)) &&
-        [InvestmentOperation.APORTE, InvestmentOperation.RESGATE, InvestmentOperation.AJUSTE_QUANTIDADE].includes(AssetValuationServiceImpl.operationOf(m)));
-      const pastEvents = positionEvents.filter((m) => m.transaction_date <= date);
-      const incompleteQuantity = pastEvents.some((m) => m.asset_id === asset.id &&
-        [InvestmentOperation.APORTE, InvestmentOperation.RESGATE].includes(AssetValuationServiceImpl.operationOf(m)) &&
-        (m.quantity == null || !Number.isFinite(Number(m.quantity)) || Number(m.quantity) <= 0));
-      const firstEvent = [...pastEvents].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date) || a.id.localeCompare(b.id))[0];
-      const missingOpeningPosition = firstEvent && (firstEvent.asset_id !== asset.id ||
-        AssetValuationServiceImpl.operationOf(firstEvent) === InvestmentOperation.RESGATE ||
-        (firstEvent.tags ?? []).includes("qty:DECREASE"));
-      if (asset.valuation_source !== AssetValuationSource.MOVEMENTS || Number(asset.opening_value) !== 0) {
-        missing.set(key, (missing.get(key) ?? 0) + 1);
-        limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
-        continue;
-      }
-      if (incompleteQuantity || missingOpeningPosition || (positionEvents.length === 0 && (Number(asset.quantity) > 0 || Number(asset.acquisition_value) > 0 || Number(asset.current_value) > 0))) {
+      if (lacksPositionHistory(asset, params.movements, date)) {
         missing.set(key, (missing.get(key) ?? 0) + 1);
         limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
         continue;
@@ -287,4 +287,97 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
       carriedPrices: members.filter((r) => r.status === "STALE_PRICE" && r.quoteDate)
         .map((r) => ({ assetId: r.assetId, priceDate: r.quoteDate ?? "" })) }];
   });
+}
+
+export interface CapitalVsMarketAssetRow {
+  assetId: string;
+  status: "MARKET" | "COST_ONLY" | "NO_HISTORY";
+  quantity: number | null;
+  cost: number | null;
+  marketValue: number | null;
+  quoteDate: string | null;
+  held: boolean;
+}
+export interface CapitalVsMarketMonth {
+  month: string;
+  date: string;
+  currency: string;
+  assets: CapitalVsMarketAssetRow[];
+  capitalTotal: number | null;
+  valorMercadoAvaliados: number | null;
+  custoAvaliados: number | null;
+  capitalSomenteCusto: number | null;
+  ganhoNaoRealizado: number | null;
+  ganhoPct: number | null;
+  ativosAvaliados: number;
+  ativosComPosicao: number;
+  cobertura: number | null;
+  ativosSemHistorico: number;
+}
+
+/** Separate month-end comparison; existing first-session ledger/charts remain unchanged. */
+export function capitalVsMarketMonthly(params: {
+  assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+}): CapitalVsMarketMonth[] {
+  if (!validInvestmentRange(params.from, params.to, params.to)) return [];
+  const assets = InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at);
+  const active = params.movements.filter((m) => !m.deleted_at);
+  const related = (asset: Asset) => active.filter((m) => m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`));
+  const first = assets.flatMap((a) => related(a).map((m) => m.transaction_date)).sort()[0];
+  if (!first || first > params.to) return [];
+  const cursor = new Date(`${first.slice(0, 7)}-01T00:00:00Z`);
+  const result: CapitalVsMarketMonth[] = [];
+  const round = (n: number) => Number(n.toFixed(2));
+  while (cursor.toISOString().slice(0, 10) <= params.to) {
+    const month = cursor.toISOString().slice(0, 7);
+    const end = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+    const date = end > params.to ? params.to : end;
+    if (date >= params.from) {
+      const past = active.filter((m) => m.transaction_date <= date);
+      for (const currency of new Set(assets.map((a) => a.currency))) {
+        const members = assets.filter((a) => a.currency === currency &&
+          (!related(a).length || related(a).some((m) => m.transaction_date <= date)));
+        if (!members.length) continue;
+        const rows: CapitalVsMarketAssetRow[] = members.map((asset) => {
+          if (lacksPositionHistory(asset, active, date, true)) return {
+            assetId: asset.id, status: "NO_HISTORY", quantity: null, cost: null, marketValue: null, quoteDate: null, held: false,
+          };
+          const position = AssetValuationServiceImpl.positionOf(asset.id, past);
+          const held = position.quantity > 0 || position.cost > 0;
+          const quote = isMarketQuotableType(asset.asset_type) && asset.ticker?.trim()
+            ? [...(params.prices[asset.id] ?? [])].filter((p) => p.date.slice(0, 7) === month &&
+              validInvestmentRange(p.date, p.date, date) && Number.isFinite(p.close) && p.close > 0)
+              .sort((a, b) => a.date.localeCompare(b.date)).at(-1) : undefined;
+          // Reuse the quotation service for quantity × price; pin its cost fallback to positionOf.
+          const effective = AssetValuationServiceImpl.effectiveAssets([{ ...asset, quantity: 0, unit_price: 0,
+            acquisition_value: 0, current_value: 0 }], past)[0];
+          const ticker = asset.ticker?.trim().toUpperCase();
+          const projected = effective && quote && ticker ? MarketQuotationServiceImpl.applyQuotes([
+            { ...effective, effective_acquisition: position.cost, acquisition_value: position.cost },
+          ], { [ticker]: { status: "FOUND", ticker, message: null, quote: {
+            ticker, price: quote.close, currency, quotedAt: `${quote.date}T00:00:00Z`, provider: quote.provider,
+            change: null, changePercent: null, marketState: null,
+          } } })[0] : undefined;
+          const marketValue = held ? projected?.market_value ?? null : 0;
+          return { assetId: asset.id, status: held && marketValue !== null ? "MARKET" : "COST_ONLY",
+            quantity: position.quantity, cost: position.cost, marketValue, quoteDate: quote?.date ?? null, held };
+        });
+        const known = rows.filter((r) => r.status !== "NO_HISTORY");
+        const market = known.filter((r) => r.status === "MARKET");
+        const held = known.filter((r) => r.held);
+        const capitalTotal = known.length ? round(known.reduce((sum, r) => sum + (r.cost ?? 0), 0)) : null;
+        const valorMercadoAvaliados = market.length ? round(market.reduce((sum, r) => sum + (r.marketValue ?? 0), 0)) : held.length === 0 && known.length ? 0 : null;
+        const custoAvaliados = valorMercadoAvaliados === null ? null : round(market.reduce((sum, r) => sum + (r.cost ?? 0), 0));
+        const ganhoNaoRealizado = valorMercadoAvaliados !== null && custoAvaliados !== null ? round(valorMercadoAvaliados - custoAvaliados) : null;
+        result.push({ month, date, currency, assets: rows, capitalTotal, valorMercadoAvaliados, custoAvaliados,
+          capitalSomenteCusto: known.length ? round(known.filter((r) => r.status === "COST_ONLY").reduce((sum, r) => sum + (r.cost ?? 0), 0)) : null,
+          ganhoNaoRealizado, ganhoPct: ganhoNaoRealizado !== null && custoAvaliados !== null && custoAvaliados > 0 ? round(ganhoNaoRealizado / custoAvaliados * 100) : null,
+          ativosAvaliados: market.length, ativosComPosicao: held.length,
+          cobertura: held.length ? market.length / held.length : null,
+          ativosSemHistorico: rows.length - known.length });
+      }
+    }
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return result;
 }

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssets } from "./useAssets";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
-import { investmentMonthlyBase, monthlyInvestmentHistory } from "@/services/InvestmentAnalysisService";
+import { capitalVsMarketMonthly, investmentMonthlyBase, monthlyInvestmentHistory } from "@/services/InvestmentAnalysisService";
 import type { Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
@@ -49,5 +49,8 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     return investmentMonthlyBase({ assets: scoped, movements, prices: history.data ?? {}, from, to });
   }, [scoped, movements, history.data, from, to, validRange]);
   const points = useMemo(() => monthlyInvestmentHistory(monthlyBase, from, to), [monthlyBase, from, to]);
-  return { points, monthlyBase, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
+  const capitalVsMarket = useMemo(() => validRange ? capitalVsMarketMonthly({
+    assets: scoped, movements, prices: history.data ?? {}, from, to,
+  }) : [], [scoped, movements, history.data, from, to, validRange]);
+  return { points, monthlyBase, capitalVsMarket, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }

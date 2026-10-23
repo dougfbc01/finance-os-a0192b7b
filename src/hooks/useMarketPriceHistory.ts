@@ -2,7 +2,7 @@
 // A consulta passa pelo MarketHistoricalPriceService, que reutiliza o que já
 // está armazenado e só chama o provider (server-side) quando necessário.
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
 import { toISODate } from "@/lib/format";
 import type { UUID } from "@/models";
@@ -45,19 +45,24 @@ export function useMarketPriceHistory(
   period: MarketHistoryPeriod,
   enabled: boolean,
 ) {
+  const queryClient = useQueryClient();
   const range = useMemo(() => periodRange(period), [period]);
   const ticker = (asset?.ticker ?? "").trim().toUpperCase();
 
   const query = useQuery({
     queryKey: ["market-price-history", asset?.id, period, range.from, range.to],
-    queryFn: () =>
-      MarketHistoricalPriceService.getHistory({
-        workspaceId: asset!.workspace_id,
-        assetId: asset!.id,
+    queryFn: async () => {
+      if (!asset) throw new Error("Ativo indisponível");
+      const result = await MarketHistoricalPriceService.getHistory({
+        workspaceId: asset.workspace_id,
+        assetId: asset.id,
         ticker,
         from: range.from,
         to: range.to,
-      }),
+      });
+      void queryClient.invalidateQueries({ queryKey: ["investment-analysis-prices", asset.workspace_id] });
+      return result;
+    },
     enabled: enabled && !!asset && !!ticker,
     staleTime: 6 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,

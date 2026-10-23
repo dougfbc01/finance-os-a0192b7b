@@ -9,6 +9,7 @@ import { RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvestmentAnalysis } from "@/hooks/useInvestmentAnalysis";
 import { InvestmentMonthlyTable } from "./InvestmentMonthlyTable";
+import { InvestmentCapitalVsMarketChart } from "./InvestmentCapitalVsMarketChart";
 import { InvestmentWealthChart } from "./InvestmentWealthChart";
 import { summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
@@ -21,7 +22,7 @@ const dateLabel = (v: string) => new Date(`${v}T12:00:00Z`).toLocaleDateString("
 
 export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspaceId: string | undefined; rows: InvestmentRow[]; movements: Movement[] }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [period, setPeriod] = useState("1A");
+  const [period, setPeriod] = useState("MAX");
   const [customFrom, setCustomFrom] = useState(today.slice(0, 4) + "-01-01");
   const [customTo, setCustomTo] = useState(today);
   const currencies = [...new Set(rows.map((r) => r.asset.currency))];
@@ -72,6 +73,7 @@ export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspace
       <Button variant="outline" size="icon" aria-label="Reler histórico salvo" title="Reler histórico salvo" onClick={() => void queryClient.invalidateQueries({ queryKey: ["investment-analysis-prices", workspaceId] })}><RefreshCw className="h-4 w-4" /></Button>
       <Button variant="outline" disabled={!validRange || analysis.completeHistory.isPending} onClick={() => analysis.completeHistory.mutate()}>{analysis.completeHistory.isPending ? "Buscando cotações…" : "Buscar cotações mensais desde a primeira movimentação"}</Button>
     </div>
+    {validRange && <InvestmentCapitalVsMarketChart rows={analysis.capitalVsMarket} currency={currency} isLoading={analysis.isLoading} error={analysis.error} />}
     {groups.length > 1 && selectedGroup === "ALL" && <fieldset className="space-y-3"><legend className="text-sm font-medium">Comparar rentabilidade</legend><div className="flex flex-wrap gap-x-5 gap-y-3">{groups.map((g) => <Label key={g.key} className="flex items-center gap-2"><Checkbox checked={!hiddenGroups.includes(g.key)} onCheckedChange={(checked) => setHiddenGroups((current) => checked === true ? current.filter((key) => key !== g.key) : [...current, g.key])} aria-label={`Comparar ${g.label}`} />{g.label}</Label>)}</div></fieldset>}
     {!validRange ? <p className="text-sm text-destructive" role="alert">Selecione um período válido até a data atual.</p> : analysis.isLoading ? <p className="text-sm text-muted-foreground">Carregando histórico…</p> : analysis.error ? <p className="text-sm text-destructive" role="alert">Não foi possível carregar o histórico salvo. Tente novamente.</p> : <>
       {fetchResult && <div className="space-y-1 text-sm text-muted-foreground" role="status"><p>Cotações consultadas para {fetchResult.length} ativos: {fetchResult.filter((r) => r.status === "OK").length} com histórico, {fetchResult.filter((r) => r.status !== "OK").length} sem retorno do provedor.</p>{providerNotes.map((m) => <p key={m}>{m}</p>)}</div>}
