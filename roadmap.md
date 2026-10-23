@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Comparativo mensal capital × mercado: projeção no fim do mês, cotações somente do mês, cobertura e comparação sobre os mesmos ativos; preservar gráficos existentes.
+- [ ] Integrar filtros e atualização automática, testar regras, conferir tela autenticada e registrar auditoria e verificações automáticas.
+
 - [x] Ajustar somente a visualização histórica: cobertura visível de cada mês usando a projeção da monthlyBase existente; preservar pontos parciais separados, completos, rentabilidade e composição.
 - [x] Validar 105 testes históricos e tela autenticada sem gravações; build automático OK. Typecheck separado não executado (verificação manual vedada pelo ambiente).
 
