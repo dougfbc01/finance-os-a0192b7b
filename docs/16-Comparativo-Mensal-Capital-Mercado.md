@@ -19,3 +19,14 @@ Movimentações atualizam pela invalidação financeira existente e dependência
 
 ## Validação
 Testes em `InvestmentCapitalVsMarket.test.ts`: compras intermediárias, preço médio, venda parcial, ausência de preço no mês, renda fixa/ticker ausente, posições encerradas, histórico insuficiente, moedas, data corrente, soma das linhas, igualdade com positionOf, capital zero e ajustes corporativos. Testes históricos anteriores protegem os gráficos existentes.
+
+## Auditoria da entrega — 23/10/2026
+- Criados: `src/components/assets/InvestmentCapitalVsMarketChart.tsx`, `src/services/__tests__/InvestmentCapitalVsMarket.test.ts` e este documento.
+- Alterados: `InvestmentAnalysisService.ts` (projeção e extração equivalente do guard existente), `useInvestmentAnalysis.ts` (exposição), `InvestmentAnalysis.tsx` (integração e MAX inicial), `useMarketQuotes.ts` e `useMarketPriceHistory.ts` (invalidação após cotações), `AGENTS.md` e `roadmap.md`.
+- Migrations, tabelas, rotas, positionOf e dados financeiros: nenhuma alteração.
+- Auditoria arquitetural: cálculos e agregações apenas no service; hook orquestra; componente apresenta. Reuso de posição, guard e cotação; entradas imutáveis testadas; gráficos anteriores protegidos pelos testes existentes.
+- 149 testes aprovados em 10 arquivos: comparativo, base mensal, análise, view, resumo de posição, cotações, armazenamento de preços, cotações mensais, investimentos históricos e intervalo do provedor.
+- Conferência autenticada em `/investimentos`: 55 investimentos, período inicial Desde o início, 60 meses na tabela (novembro/2021 a outubro/2026), filtro Ações e 3 meses (4 referências mensais), gráfico/tabela visíveis e zero erros de página. Capturas desktop conferidas. Não foram gravados movimentos nem solicitadas cotações para a conferência.
+- Atualização por movimentos: dependências e invalidação existentes preservadas; atualização após cotações: invalidação da consulta de preços adicionada. Escritas financeiras e consultas ao provedor não exercitadas na conta para não alterar dados; caminhos auditados no código.
+- Build automático: último resultado observado `build OK`. Typecheck separado: não executado por restrição do ambiente; resultado automático explícito não disponível no log. Encerramento formal aguarda esse sinal; status Em Desenvolvimento na Definition of Done.
+- Riscos conhecidos: cobertura de preços continua limitada ao histórico salvo; mercado parcial não é carteira inteira; posições sem evidência não são reparadas. Linhas de mercado/custo avaliado acompanham uma cobertura variável, explicitada na tabela e tooltip; a diferença usa somente ativos idênticos avaliados. Sem mudança nos pontos desconectados da evolução anterior.
