@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
-import { unzipSync } from "fflate";
+import { unzipSync, zipSync, strToU8 } from "fflate";
 
 const store = vi.fn();
 const listStored = vi.fn();
@@ -8,7 +8,7 @@ vi.mock("../MarketHistoricalPriceService", () => ({
   MarketHistoricalPriceService: { store: (...a: unknown[]) => store(...a), listStored: (...a: unknown[]) => listStored(...a) },
 }));
 
-import { B3QuoteHistoryImportService, CotahistAccumulator, normalizeB3Ticker, parseCotahistLine } from "../B3QuoteHistoryImportService";
+import { B3QuoteHistoryImportService, ZIP_CORRUPT_MESSAGE, unzipStream, CotahistAccumulator, normalizeB3Ticker, parseCotahistLine } from "../B3QuoteHistoryImportService";
 
 const p13 = (v: number) => String(Math.round(v * 100)).padStart(13, "0");
 function line(date: string, ticker: string, close: number, market = "010", name = "EMPRESA") {
@@ -76,7 +76,7 @@ describe("B3QuoteHistoryImportService", () => {
     expect(pv.existingCount).toBe(1);
     expect(pv.assets[0]!.toInsert.map((p) => p.date)).toEqual(["2003-03-10"]);
     store.mockResolvedValueOnce(1);
-    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 1 });
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 1, failed: [] });
     const again = acc.preview({ VALE3: ["2003-02-10", "2003-03-10"] });
     expect(again.toInsertCount).toBe(0);
     store.mockClear();
@@ -92,7 +92,7 @@ describe("B3QuoteHistoryImportService", () => {
     expect(pv.existingCount).toBe(1);
     expect(pv.assets[0]!.toInsert.map((p) => p.date)).toEqual(["2003-03-31"]);
     store.mockResolvedValueOnce(1);
-    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 1 });
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 1, failed: [] });
     expect(store.mock.calls[0]![1].map((p: { date: string }) => p.date)).toEqual(["2003-03-31"]);
   });
 
@@ -101,7 +101,7 @@ describe("B3QuoteHistoryImportService", () => {
     acc.push(line("2003-02-28", "VALE3", 10));
     const pv = acc.preview({});
     store.mockResolvedValueOnce(1);
-    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 0 });
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 0, failed: [] });
   });
 
   it("revalidates coverage at commit: a stale preview writes nothing new", async () => {
@@ -109,7 +109,7 @@ describe("B3QuoteHistoryImportService", () => {
     acc.push(line("2003-02-28", "VALE3", 10));
     const pv = acc.preview({});
     listStored.mockResolvedValue([{ date: "2003-02-05" }]);
-    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 0, ignored: 1 });
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 0, ignored: 1, failed: [] });
     expect(store).not.toHaveBeenCalled();
   });
 
@@ -131,5 +131,49 @@ describe("B3QuoteHistoryImportService", () => {
     const vale = pv.assets.find((a) => a.ticker === "VALE3")!;
     expect(vale.found[0]).toMatchObject({ date: "2003-02-12", close: 103.21 });
     expect(pv.assets.find((a) => a.ticker === "TMCP4")).toBeDefined();
+  });
+
+  it("isolates a failing asset: others are written and the failure is reported", async () => {
+    const acc = new CotahistAccumulator([target("VALE3"), target("ITSA4"), target("PETR4")]);
+    ["VALE3", "ITSA4", "PETR4"].forEach((t) => acc.push(line("2003-02-28", t, 10)));
+    const pv = acc.preview({});
+    store.mockImplementation(async (q: { assetId: string }) => {
+      if (q.assetId === "ITSA4") throw { message: "permission denied for table market_price_history", code: "42501", details: null, hint: null };
+      return 1;
+    });
+    const r = await B3QuoteHistoryImportService.commit("ws", pv, 0);
+    expect(r.inserted).toBe(2);
+    expect(r.failed).toEqual([{ assetId: "ITSA4", ticker: "ITSA4", message: "permission denied for table market_price_history (código 42501)" }]);
+  });
+
+  it("retries transient failures and queries only the file year", async () => {
+    const acc = new CotahistAccumulator([target("VALE3")]);
+    acc.push(line("2003-02-28", "VALE3", 10));
+    const pv = acc.preview({});
+    listStored.mockRejectedValueOnce(new Error("TypeError: Failed to fetch")).mockResolvedValue([]);
+    store.mockResolvedValueOnce(1);
+    expect(await B3QuoteHistoryImportService.commit("ws", pv, 0)).toEqual({ inserted: 1, ignored: 0, failed: [] });
+    expect(listStored).toHaveBeenCalledTimes(2);
+    expect(listStored.mock.calls[1]![0]).toMatchObject({ from: "2003-01-01", to: "2003-12-31" });
+  });
+
+  it("truncated zip yields the friendly message; complete zip streams the last block", async () => {
+    const text = [line("2003-02-10", "VALE3", 10), line("2003-02-28", "VALE3", 12)].join("\r\n");
+    const zip = zipSync({ "COTAHIST_A2003.TXT": strToU8(text) });
+    const read = async (bytes: Uint8Array) => {
+      const parts: Uint8Array[] = [];
+      for await (const c of unzipStream(new Blob([bytes]))) parts.push(c);
+      return new TextDecoder().decode(Buffer.concat(parts));
+    };
+    expect(await read(zip)).toBe(text);
+    await expect(read(zip.slice(0, Math.floor(zip.length / 2)))).rejects.toThrow(ZIP_CORRUPT_MESSAGE);
+  });
+
+  it("reads a plain .txt without decompression", async () => {
+    const text = line("2003-02-28", "VALE3", 12) + "\n" + line("2003-03-31", "VALE3", 13);
+    const file = new File([text], "COTAHIST_A2003.TXT");
+    const pv = await B3QuoteHistoryImportService.readFiles("ws", [file], [target("VALE3")], () => {});
+    expect(pv.assets[0]!.found.map((p) => p.date)).toEqual(["2003-02-28", "2003-03-31"]);
+    expect(listStored.mock.calls[0]![0]).toMatchObject({ from: "2003-02-01", to: "2003-12-31" });
   });
 });
