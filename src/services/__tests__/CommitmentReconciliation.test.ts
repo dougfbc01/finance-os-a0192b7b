@@ -66,7 +66,7 @@ describe("Conciliação de compromissos", () => {
       commitment,
       [
         movement({ id: "other-account", account_id: "account-2" }),
-        movement({ id: "wrong-value", amount: 249.99 }),
+        movement({ id: "wrong-value", amount: 249.5 }),
         movement({ id: "linked" }),
       ],
       new Set(["linked"]),

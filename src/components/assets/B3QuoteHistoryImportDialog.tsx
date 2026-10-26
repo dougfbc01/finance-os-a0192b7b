@@ -17,7 +17,7 @@ export function B3QuoteHistoryImportDialog({ workspaceId, targets }: { workspace
     <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Importar histórico de cotações da B3</DialogTitle>
-        <DialogDescription>Baixe manualmente o arquivo anual de cotações históricas (COTAHIST, .zip ou .txt) no site da B3 e envie aqui. O arquivo é lido no seu navegador. Os preços são gravados como publicados, sem ajuste por proventos ou desdobramentos; cotações já salvas nunca são substituídas.</DialogDescription>
+        <DialogDescription>Baixe manualmente o arquivo anual de cotações históricas (COTAHIST, .zip ou .txt) no site da B3 e envie aqui. O arquivo é lido no seu navegador. Os preços são gravados como publicados, sem ajuste por proventos ou desdobramentos; cotações já salvas nunca são substituídas e, se o mês já tiver qualquer cotação salva, o preço da B3 desse mês não é gravado.</DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
         <Input type="file" multiple accept=".zip,.txt" aria-label="Arquivos COTAHIST" onChange={(e) => { setFiles([...(e.target.files ?? [])]); reset(); }} />
@@ -25,11 +25,11 @@ export function B3QuoteHistoryImportDialog({ workspaceId, targets }: { workspace
         {preview.isPending && <p className="text-sm text-muted-foreground" role="status">Lendo {progress?.file ?? "arquivo"}… {(progress?.lines ?? 0).toLocaleString("pt-BR")} linhas lidas</p>}
         {preview.error && <p className="text-sm text-destructive">Erro ao ler arquivo: {(preview.error as Error).message}</p>}
         {commit.error && <p className="text-sm text-destructive">Erro ao gravar: {(commit.error as Error).message}</p>}
-        {commit.data && <p className="text-sm" role="status">Importação concluída: {commit.data.inserted} preços novos gravados · {commit.data.ignored} já existentes ignorados.</p>}
+        {commit.data && <p className="text-sm" role="status">Importação concluída: {commit.data.inserted} preços novos gravados · {commit.data.ignored} meses já cobertos ignorados.</p>}
         {data && <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{data.linesRead.toLocaleString("pt-BR")} linhas lidas · pregões de {data.fileFrom ?? "—"} a {data.fileTo ?? "—"} · {data.toInsertCount} preços novos · {data.existingCount} já existentes</p>
+          <p className="text-sm text-muted-foreground">{data.linesRead.toLocaleString("pt-BR")} linhas lidas · pregões de {data.fileFrom ?? "—"} a {data.fileTo ?? "—"} · {data.toInsertCount} preços novos · {data.existingCount} meses já cobertos (já há cotação salva no mês)</p>
           {data.assets.length === 0 ? <p className="text-sm">Nenhum ativo seu foi encontrado no arquivo.</p> :
-            <Table><TableHeader><TableRow><TableHead>Ativo</TableHead><TableHead>Meses encontrados</TableHead><TableHead>Já existentes</TableHead><TableHead>Novos</TableHead><TableHead>Meses sem pregão</TableHead></TableRow></TableHeader>
+            <Table><TableHeader><TableRow><TableHead>Ativo</TableHead><TableHead>Meses encontrados</TableHead><TableHead>Meses já cobertos</TableHead><TableHead>Novos</TableHead><TableHead>Meses sem pregão</TableHead></TableRow></TableHeader>
               <TableBody>{data.assets.map((a) => <TableRow key={a.assetId}><TableCell>{a.ticker} <span className="text-muted-foreground">{a.assetName}</span></TableCell><TableCell>{a.found.length}</TableCell><TableCell>{a.existing.length}</TableCell><TableCell>{a.toInsert.length}</TableCell><TableCell className="text-xs">{a.missingMonths.join(", ") || "—"}</TableCell></TableRow>)}</TableBody></Table>}
           {data.absentAssets.length > 0 && <div className="text-sm"><p className="font-medium">Ativos sem registro no arquivo ({data.absentAssets.length})</p><p className="text-muted-foreground">{data.absentAssets.map((a) => `${a.ticker} (${a.assetName})`).join(", ")}</p></div>}
         </div>}
