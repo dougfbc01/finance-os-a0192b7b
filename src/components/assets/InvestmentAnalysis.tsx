@@ -11,6 +11,8 @@ import { useInvestmentAnalysis } from "@/hooks/useInvestmentAnalysis";
 import { InvestmentMonthlyTable } from "./InvestmentMonthlyTable";
 import { InvestmentCapitalVsMarketChart } from "./InvestmentCapitalVsMarketChart";
 import { InvestmentWealthChart } from "./InvestmentWealthChart";
+import { B3QuoteHistoryImportDialog } from "./B3QuoteHistoryImportDialog";
+import { B3QuoteHistoryImportService } from "@/services/B3QuoteHistoryImportService";
 import { summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
 import type { Movement } from "@/models";
@@ -41,6 +43,7 @@ export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspace
     return { from: period === "MAX" ? first ?? today : from, to: today };
   }, [period, today, customFrom, customTo, movements, rows, currency, selectedGroup]);
   const queryClient = useQueryClient();
+  const quoteTargets = useMemo(() => B3QuoteHistoryImportService.targetsFrom(rows.map((r) => r.asset), movements), [rows, movements]);
   // ALL is scoped to currency before aggregation; amounts in different currencies are never added.
   const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency);
   const visibleGroups = groups.filter((g) => (selectedGroup === "ALL" || g.key === selectedGroup) && (selectedGroup !== "ALL" || !hiddenGroups.includes(g.key)));
@@ -72,6 +75,7 @@ export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspace
       {selectedGroup === "ALL" && <div className="space-y-2"><Label>Patrimônio</Label><Select value={wealthMode} onValueChange={setWealthMode}><SelectTrigger aria-label="Visão do patrimônio" className="w-52"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="TOTAL">Total consolidado</SelectItem><SelectItem value="TYPES">Por tipo de investimento</SelectItem></SelectContent></Select></div>}
       <Button variant="outline" size="icon" aria-label="Reler histórico salvo" title="Reler histórico salvo" onClick={() => void queryClient.invalidateQueries({ queryKey: ["investment-analysis-prices", workspaceId] })}><RefreshCw className="h-4 w-4" /></Button>
       <Button variant="outline" disabled={!validRange || analysis.completeHistory.isPending} onClick={() => analysis.completeHistory.mutate()}>{analysis.completeHistory.isPending ? "Buscando cotações…" : "Buscar cotações mensais desde a primeira movimentação"}</Button>
+      <B3QuoteHistoryImportDialog workspaceId={workspaceId} targets={quoteTargets} />
     </div>
     {validRange && <InvestmentCapitalVsMarketChart rows={analysis.capitalVsMarket} currency={currency} isLoading={analysis.isLoading} error={analysis.error} />}
     {groups.length > 1 && selectedGroup === "ALL" && <fieldset className="space-y-3"><legend className="text-sm font-medium">Comparar rentabilidade</legend><div className="flex flex-wrap gap-x-5 gap-y-3">{groups.map((g) => <Label key={g.key} className="flex items-center gap-2"><Checkbox checked={!hiddenGroups.includes(g.key)} onCheckedChange={(checked) => setHiddenGroups((current) => checked === true ? current.filter((key) => key !== g.key) : [...current, g.key])} aria-label={`Comparar ${g.label}`} />{g.label}</Label>)}</div></fieldset>}
