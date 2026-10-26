@@ -66,3 +66,6 @@
 
 ## Importação manual COTAHIST B3
 - [x] Service de parser/seleção/persistência, hook, diálogo na aba Análise, 10 testes, docs (docs/17)
+
+- [x] COTAHIST: uma cotação por ativo/mês (mês já coberto por qualquer origem é ignorado; revalidado ao gravar)
+- [x] Teste CommitmentReconciliation: fixture no limite da tolerância de R$ 0,01 corrigida

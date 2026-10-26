@@ -3,8 +3,9 @@ import { readFileSync, existsSync } from "node:fs";
 import { unzipSync } from "fflate";
 
 const store = vi.fn();
+const listStored = vi.fn();
 vi.mock("../MarketHistoricalPriceService", () => ({
-  MarketHistoricalPriceService: { store: (...a: unknown[]) => store(...a), listStored: vi.fn() },
+  MarketHistoricalPriceService: { store: (...a: unknown[]) => store(...a), listStored: (...a: unknown[]) => listStored(...a) },
 }));
 
 import { B3QuoteHistoryImportService, CotahistAccumulator, normalizeB3Ticker, parseCotahistLine } from "../B3QuoteHistoryImportService";
@@ -18,7 +19,7 @@ function line(date: string, ticker: string, close: number, market = "010", name 
 const target = (ticker: string, from = "2003-01-01", assetId = ticker) => ({ assetId, assetName: ticker + " SA", ticker, from });
 
 describe("B3QuoteHistoryImportService", () => {
-  beforeEach(() => store.mockReset());
+  beforeEach(() => { store.mockReset(); listStored.mockReset(); listStored.mockResolvedValue([]); });
 
   it("ignores header and trailer and divides prices by 100", () => {
     expect(parseCotahistLine("00COTAHIST.2003BOVESPA 20040531".padEnd(245))).toBeNull();
@@ -80,6 +81,35 @@ describe("B3QuoteHistoryImportService", () => {
     expect(again.toInsertCount).toBe(0);
     store.mockClear();
     await B3QuoteHistoryImportService.commit("ws", again);
+    expect(store).not.toHaveBeenCalled();
+  });
+
+  it("skips a month already covered by a BRAPI quote on another day", async () => {
+    const acc = new CotahistAccumulator([target("VALE3")]);
+    acc.push(line("2003-02-28", "VALE3", 10));
+    acc.push(line("2003-03-31", "VALE3", 11));
+    const pv = acc.preview({ VALE3: ["2003-02-03"] });
+    expect(pv.existingCount).toBe(1);
+    expect(pv.assets[0]!.toInsert.map((p) => p.date)).toEqual(["2003-03-31"]);
+    store.mockResolvedValueOnce(1);
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 1 });
+    expect(store.mock.calls[0]![1].map((p: { date: string }) => p.date)).toEqual(["2003-03-31"]);
+  });
+
+  it("writes the B3 quote for a month without any stored quote", async () => {
+    const acc = new CotahistAccumulator([target("VALE3")]);
+    acc.push(line("2003-02-28", "VALE3", 10));
+    const pv = acc.preview({});
+    store.mockResolvedValueOnce(1);
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 1, ignored: 0 });
+  });
+
+  it("revalidates coverage at commit: a stale preview writes nothing new", async () => {
+    const acc = new CotahistAccumulator([target("VALE3")]);
+    acc.push(line("2003-02-28", "VALE3", 10));
+    const pv = acc.preview({});
+    listStored.mockResolvedValue([{ date: "2003-02-05" }]);
+    expect(await B3QuoteHistoryImportService.commit("ws", pv)).toEqual({ inserted: 0, ignored: 1 });
     expect(store).not.toHaveBeenCalled();
   });
 

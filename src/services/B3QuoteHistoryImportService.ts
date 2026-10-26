@@ -36,6 +36,7 @@ export interface QuoteImportAssetPreview {
   assetName: string;
   ticker: string;
   found: MarketPricePoint[];
+  /** Found points whose month already has any stored quote (any provider/day); never written. */
   existing: MarketPricePoint[];
   toInsert: MarketPricePoint[];
   missingMonths: string[];
@@ -131,15 +132,16 @@ export class CotahistAccumulator {
           absentAssets.push({ assetId: t.assetId, assetName: t.assetName, ticker: t.ticker });
           continue;
         }
-        const storedDates = new Set(stored[t.assetId] ?? []);
+        // One quote per asset/month: any stored row in the month (any provider or day) covers it.
+        const storedMonths = new Set((stored[t.assetId] ?? []).map((d) => d.slice(0, 7)));
         const foundMonths = new Set(found.map((p) => p.date.slice(0, 7)));
         const missingMonths = this.fileFrom && this.fileTo
           ? monthsBetween(maxStr(this.fileFrom.slice(0, 7), fromMonth), this.fileTo.slice(0, 7)).filter((m) => !foundMonths.has(m))
           : [];
         assets.push({
           assetId: t.assetId, assetName: t.assetName, ticker: t.ticker, found,
-          existing: found.filter((p) => storedDates.has(p.date)),
-          toInsert: found.filter((p) => !storedDates.has(p.date)),
+          existing: found.filter((p) => storedMonths.has(p.date.slice(0, 7))),
+          toInsert: found.filter((p) => !storedMonths.has(p.date.slice(0, 7))),
           missingMonths,
         });
       }
@@ -253,18 +255,26 @@ export const B3QuoteHistoryImportService = {
     return acc.preview(stored);
   },
 
-  /** Persists only new rows; existing rows (BRAPI or earlier imports) are never overwritten. */
+  /**
+   * Persists only months without any stored quote. Coverage is revalidated right
+   * before writing (stale previews); existing rows are never overwritten.
+   */
   async commit(workspaceId: UUID, preview: QuoteImportPreview): Promise<{ inserted: number; ignored: number }> {
     let inserted = 0;
-    let candidates = 0;
+    let ignored = preview.existingCount;
     for (const a of preview.assets) {
       if (a.toInsert.length === 0) continue;
-      candidates += a.toInsert.length;
-      inserted += await MarketHistoricalPriceService.store(
-        { workspaceId, assetId: a.assetId, ticker: a.ticker, from: a.toInsert[0]!.date, to: a.toInsert.at(-1)!.date },
-        a.toInsert,
-      );
+      const from = a.toInsert[0]!.date.slice(0, 7) + "-01";
+      const to = a.toInsert.at(-1)!.date.slice(0, 7) + "-31";
+      const query = { workspaceId, assetId: a.assetId, ticker: a.ticker, from, to };
+      const covered = new Set((await MarketHistoricalPriceService.listStored(query)).map((p) => p.date.slice(0, 7)));
+      const rows = a.toInsert.filter((p) => !covered.has(p.date.slice(0, 7)));
+      ignored += a.toInsert.length - rows.length;
+      if (rows.length === 0) continue;
+      const n = await MarketHistoricalPriceService.store(query, rows);
+      inserted += n;
+      ignored += rows.length - n;
     }
-    return { inserted, ignored: preview.existingCount + (candidates - inserted) };
+    return { inserted, ignored };
   },
 };
