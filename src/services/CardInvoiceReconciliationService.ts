@@ -107,6 +107,7 @@ interface Scored {
 }
 
 class CardInvoiceReconciliationServiceImpl extends BaseService {
+  protected readonly serviceName = "CardInvoiceReconciliationService";
   // ---------------------------------------------------------------------
   // Parsing da fatura oficial (arquivo CSV do emissor) — puro, sem I/O.
   // ---------------------------------------------------------------------

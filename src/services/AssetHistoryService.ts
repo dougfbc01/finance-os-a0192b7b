@@ -37,6 +37,7 @@ const round2 = (n: number) => Number(n.toFixed(2));
 const round8 = (n: number) => Number(n.toFixed(8));
 
 class AssetHistoryServiceImpl extends BaseService {
+  protected readonly serviceName = "AssetHistoryService";
   /** Valor financeiro da linha (quantidade × preço unitário). */
   static amountOf(entry: AssetAcquisitionEntry): number {
     return round2((Number(entry.quantity) || 0) * (Number(entry.unit_price) || 0));

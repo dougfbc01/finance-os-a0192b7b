@@ -8,6 +8,7 @@ import type { Asset, CreateAssetInput, UpdateAssetInput, UUID } from "@/models";
 type Row = Record<string, unknown>;
 
 class AssetServiceImpl extends BaseService {
+  protected readonly serviceName = "AssetService";
   private readonly table = "assets" as const;
 
   private mapRow(r: Row): Asset {

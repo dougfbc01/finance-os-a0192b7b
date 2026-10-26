@@ -76,6 +76,7 @@ export interface CategoryBreakdown {
 }
 
 class DashboardServiceImpl extends BaseService {
+  protected readonly serviceName = "DashboardService";
   /**
    * Saldo por conta = saldo inicial + soma dos impactos das movimentações
    * (respeitando transferências como fluxo entre contas — nunca despesa/receita).

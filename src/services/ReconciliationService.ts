@@ -55,6 +55,7 @@ function hasTransferKeyword(text: string | null | undefined): boolean {
 }
 
 class ReconciliationServiceImpl extends BaseService {
+  protected readonly serviceName = "ReconciliationService";
   /** Perna espelho de uma transferência conciliada (impacto zero no caixa). */
   static isMirrorLeg(m: Movement): boolean {
     return (

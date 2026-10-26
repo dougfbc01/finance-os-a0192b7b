@@ -98,6 +98,7 @@ export class InvalidInvoiceMoveError extends Error {
 
 
 class CardInvoiceReconciliationActionServiceImpl extends BaseService {
+  protected readonly serviceName = "CardInvoiceReconciliationActionService";
   // -------------------------------------------------------------------
   // Regras puras (sem I/O) — testáveis isoladamente.
   // -------------------------------------------------------------------

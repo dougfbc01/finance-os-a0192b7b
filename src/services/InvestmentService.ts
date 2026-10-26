@@ -63,6 +63,7 @@ export interface InvestmentPositionSummary {
 }
 
 class InvestmentServiceImpl extends BaseService {
+  protected readonly serviceName = "InvestmentService";
   /** Registered distributions only; corporate events and repeated identities are excluded. */
   static accumulatedIncome(assetId: string, movements: Movement[] = []): number {
     const seen = new Set<string>();

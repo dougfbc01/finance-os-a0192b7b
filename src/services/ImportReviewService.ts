@@ -58,6 +58,7 @@ export interface ImportReviewData {
 const CATEGORY_EXEMPT: MovementType[] = [MovementType.TRANSFER, MovementType.CARD_PAYMENT];
 
 class ImportReviewServiceImpl extends BaseService {
+  protected readonly serviceName = "ImportReviewService";
   /** Movimentações novas daquela importação (exclui excluídas logicamente). */
   static newMovements(movements: Movement[], importId: UUID): Movement[] {
     return movements

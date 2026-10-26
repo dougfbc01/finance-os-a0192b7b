@@ -34,6 +34,7 @@ type DecisionLike = {
 };
 
 class ReconciliationDecisionServiceImpl extends BaseService {
+  protected readonly serviceName = "ReconciliationDecisionService";
   /** Chave canônica do par (independe da ordem das movimentações). */
   static pairKey(a: UUID, b: UUID): string {
     return a < b ? `${a}|${b}` : `${b}|${a}`;

@@ -62,6 +62,7 @@ const LABELS: Record<string, string> = {
 const INFO_KEYS = new Set(["movimentacoes_sem_categoria", "imports_inconsistentes"]);
 
 class HealthCheckServiceImpl extends BaseService {
+  protected readonly serviceName = "HealthCheckService";
   async run(workspaceId: UUID): Promise<HealthCheckReport> {
     const startedAt = Date.now();
     const { data, error } = await this.client.rpc(

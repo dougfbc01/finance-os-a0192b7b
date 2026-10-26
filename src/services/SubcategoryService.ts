@@ -7,6 +7,7 @@ import type {
 } from "@/models";
 
 class SubcategoryServiceImpl extends BaseService {
+  protected readonly serviceName = "SubcategoryService";
   private readonly table = "subcategories" as const;
 
   async getAll(workspaceId: UUID): Promise<Subcategory[]> {

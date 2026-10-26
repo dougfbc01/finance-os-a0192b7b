@@ -48,6 +48,7 @@ const numOrNull = (v: number | string | null): number | null => {
 };
 
 class MarketHistoricalPriceServiceImpl extends BaseService {
+  protected readonly serviceName = "MarketHistoricalPriceService";
   private readonly table = "market_price_history" as const;
 
   private mapRow(r: HistoryRow): MarketPricePoint {

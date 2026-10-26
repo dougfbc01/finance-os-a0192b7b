@@ -65,6 +65,7 @@ const EMPTY_SIDE: BudgetSideTotals = {
 };
 
 class MonthlyBudgetServiceImpl extends BaseService {
+  protected readonly serviceName = "MonthlyBudgetService";
   // ------------------------------------------------------------------
   // Período (competência)
   // ------------------------------------------------------------------

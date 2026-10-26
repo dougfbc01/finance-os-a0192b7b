@@ -69,6 +69,7 @@ interface ClosingRow {
 }
 
 class MonthlyClosingServiceImpl extends BaseService {
+  protected readonly serviceName = "MonthlyClosingService";
   // ------------------------------------------------------------------
   // Período
   // ------------------------------------------------------------------
