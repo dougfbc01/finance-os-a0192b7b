@@ -278,5 +278,3 @@ export const B3QuoteHistoryImportService = {
     return { inserted, ignored };
   },
 };
-  },
-};
