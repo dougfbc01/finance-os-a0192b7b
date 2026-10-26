@@ -9,6 +9,7 @@ import { Unzip, UnzipInflate } from "fflate";
 import { MarketHistoricalPriceService } from "./MarketHistoricalPriceService";
 import type { MarketPricePoint } from "@/models/MarketData";
 import type { UUID } from "@/models";
+import { describeError } from "./BaseService";
 
 export const B3_COTAHIST_PROVIDER = "B3_COTAHIST";
 
@@ -194,25 +195,64 @@ async function* readStream(file: Blob): AsyncIterable<Uint8Array> {
   }
 }
 
-/** Unzips .txt entries of a .zip in blocks, yielding decompressed chunks. */
-async function* unzipStream(file: Blob): AsyncIterable<Uint8Array> {
+export const ZIP_CORRUPT_MESSAGE = "ZIP incompleto ou corrompido: baixe novamente ou envie o .txt";
+
+/** Unzips .txt entries of a .zip in blocks, yielding decompressed chunks (including the final block). */
+export async function* unzipStream(file: Blob): AsyncIterable<Uint8Array> {
   const queue: Uint8Array[] = [];
   let error: unknown = null;
+  let started = 0;
+  let finished = 0;
   const unzip = new Unzip((entry) => {
     if (!/\.txt$/i.test(entry.name)) return;
-    entry.ondata = (err, data) => { if (err) error = err; else if (data.length) queue.push(data); };
+    started++;
+    entry.ondata = (err, data, final) => {
+      if (err) { error = err; return; }
+      if (data.length) queue.push(data);
+      if (final) finished++;
+    };
     entry.start();
   });
   unzip.register(UnzipInflate);
   const reader = file.stream().getReader();
   for (;;) {
     const { done, value } = await reader.read();
-    unzip.push(value ?? new Uint8Array(), done);
-    if (error) throw error;
+    try { unzip.push(value ?? new Uint8Array(), done); } catch (e) { error = e; }
+    if (error) throw new Error(ZIP_CORRUPT_MESSAGE, { cause: error });
     while (queue.length) yield queue.shift()!;
-    if (done) return;
+    if (done) break;
+  }
+  // Truncated archives may end without an error but with an unfinished entry.
+  if (started === 0 || finished < started) throw new Error(ZIP_CORRUPT_MESSAGE);
+}
+
+export interface QuoteImportFailure { assetId: UUID; ticker: string; message: string }
+export interface QuoteImportResult { inserted: number; ignored: number; failed: QuoteImportFailure[] }
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : describeError(e));
+const isTransient = (e: unknown) =>
+  /fetch|network|timeout|timed out|ECONN|socket|\b50[234]\b|57014|PGRST00[0-3]|rate limit|too many/i.test(errorMessage(e));
+
+/** Retries transient failures (network/timeouts/5xx) with linear backoff. */
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 300): Promise<T> {
+  for (let i = 1; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (i >= attempts || !isTransient(e)) throw e;
+      await new Promise((r) => setTimeout(r, delayMs * i));
+    }
   }
 }
+
+/** Runs `fn` over items with at most `limit` concurrent calls. */
+async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  const queue = [...items];
+  const worker = async () => { for (let it = queue.shift(); it !== undefined; it = queue.shift()) await fn(it); };
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
+}
+
+const CONCURRENCY = 4;
+const yearStart = (date: string) => `${date.slice(0, 4)}-01-01`;
+const yearEnd = (date: string) => `${date.slice(0, 4)}-12-31`;
 
 export const B3QuoteHistoryImportService = {
   /** Earliest movement date per asset (includes conversion source tags). */
@@ -245,13 +285,20 @@ export const B3QuoteHistoryImportService = {
       });
       onProgress({ file: file.name, lines: acc.linesRead });
     }
+    // Coverage check limited to the file period (year start/end), only for assets present in the file.
     const stored: Record<string, string[]> = {};
-    await Promise.all(targets.map(async (t) => {
-      const points = await MarketHistoricalPriceService.listStored({
-        workspaceId, assetId: t.assetId, ticker: t.ticker, from: t.from.slice(0, 7) + "-01", to: "9999-12-31",
+    if (acc.fileFrom && acc.fileTo) {
+      const present = acc.preview({}).assets;
+      const fileFrom = yearStart(acc.fileFrom);
+      const fileTo = yearEnd(acc.fileTo);
+      await mapLimit(present, CONCURRENCY, async (a) => {
+        const from = maxStr(fileFrom, a.found[0]!.date.slice(0, 7) + "-01");
+        const points = await withRetry(() => MarketHistoricalPriceService.listStored({
+          workspaceId, assetId: a.assetId, ticker: a.ticker, from, to: fileTo,
+        }));
+        stored[a.assetId] = points.map((p) => p.date);
       });
-      stored[t.assetId] = points.map((p) => p.date);
-    }));
+    }
     return acc.preview(stored);
   },
 
@@ -259,22 +306,31 @@ export const B3QuoteHistoryImportService = {
    * Persists only months without any stored quote. Coverage is revalidated right
    * before writing (stale previews); existing rows are never overwritten.
    */
-  async commit(workspaceId: UUID, preview: QuoteImportPreview): Promise<{ inserted: number; ignored: number }> {
+  async commit(workspaceId: UUID, preview: QuoteImportPreview, retryDelayMs = 300): Promise<QuoteImportResult> {
     let inserted = 0;
     let ignored = preview.existingCount;
-    for (const a of preview.assets) {
-      if (a.toInsert.length === 0) continue;
-      const from = a.toInsert[0]!.date.slice(0, 7) + "-01";
-      const to = a.toInsert.at(-1)!.date.slice(0, 7) + "-31";
-      const query = { workspaceId, assetId: a.assetId, ticker: a.ticker, from, to };
-      const covered = new Set((await MarketHistoricalPriceService.listStored(query)).map((p) => p.date.slice(0, 7)));
-      const rows = a.toInsert.filter((p) => !covered.has(p.date.slice(0, 7)));
-      ignored += a.toInsert.length - rows.length;
-      if (rows.length === 0) continue;
-      const n = await MarketHistoricalPriceService.store(query, rows);
-      inserted += n;
-      ignored += rows.length - n;
-    }
-    return { inserted, ignored };
+    const failed: QuoteImportFailure[] = [];
+    const pending = preview.assets.filter((a) => a.toInsert.length > 0);
+    // Each asset is isolated: a failure is reported and the others proceed.
+    await mapLimit(pending, CONCURRENCY, async (a) => {
+      try {
+        const query = {
+          workspaceId, assetId: a.assetId, ticker: a.ticker,
+          from: yearStart(a.toInsert[0]!.date), to: yearEnd(a.toInsert.at(-1)!.date),
+        };
+        const stored = await withRetry(() => MarketHistoricalPriceService.listStored(query), 3, retryDelayMs);
+        const covered = new Set(stored.map((p) => p.date.slice(0, 7)));
+        const rows = a.toInsert.filter((p) => !covered.has(p.date.slice(0, 7)));
+        ignored += a.toInsert.length - rows.length;
+        if (rows.length === 0) return;
+        const n = await withRetry(() => MarketHistoricalPriceService.store(query, rows), 3, retryDelayMs);
+        inserted += n;
+        ignored += rows.length - n;
+      } catch (e) {
+        failed.push({ assetId: a.assetId, ticker: a.ticker, message: errorMessage(e) });
+      }
+    });
+    failed.sort((x, y) => x.ticker.localeCompare(y.ticker));
+    return { inserted, ignored, failed };
   },
 };
