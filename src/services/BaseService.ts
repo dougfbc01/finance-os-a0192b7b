@@ -7,6 +7,25 @@ import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "@/models";
 
+/** Readable message for Error instances, Supabase/PostgREST error objects and primitives. */
+export function describeError(error: unknown): string {
+  if (error instanceof Error && !("code" in error || "details" in error || "hint" in error)) return error.message;
+  if (error && typeof error === "object") {
+    const e = error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+    const str = (v: unknown) => (typeof v === "string" || typeof v === "number") && String(v).trim() ? String(v).trim() : null;
+    const parts = [str(e.message) ?? "Erro desconhecido"];
+    const code = str(e.code), details = str(e.details), hint = str(e.hint);
+    if (code) parts.push(`(código ${code})`);
+    if (details) parts.push(`— detalhes: ${details}`);
+    if (hint) parts.push(`— dica: ${hint}`);
+    if (!str(e.message) && !code && !details && !hint) {
+      try { return JSON.stringify(error); } catch { return "Erro desconhecido"; }
+    }
+    return parts.join(" ");
+  }
+  return String(error);
+}
+
 export abstract class BaseService {
   protected readonly client: SupabaseClient;
 
@@ -14,14 +33,16 @@ export abstract class BaseService {
     this.client = client;
   }
 
+  /** Explicit service name (constructor.name is minified in production builds). */
+  protected abstract readonly serviceName: string;
+
   /**
    * Padroniza o tratamento de erros vindos do Supabase / camada de dados.
-   * Serviços concretos podem sobrescrever conforme necessidade.
+   * Erros do PostgREST são objetos simples ({ message, code, details, hint }).
    */
   protected handleError(error: unknown, context?: string): never {
-    const prefix = context ? `[${this.constructor.name}:${context}]` : `[${this.constructor.name}]`;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${prefix} ${message}`);
+    const prefix = context ? `[${this.serviceName}:${context}]` : `[${this.serviceName}]`;
+    throw new Error(`${prefix} ${describeError(error)}`);
   }
 
   /**
