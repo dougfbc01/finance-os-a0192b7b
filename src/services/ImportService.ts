@@ -54,6 +54,7 @@ export interface CommitResult {
 }
 
 class ImportServiceImpl extends BaseService {
+  protected readonly serviceName = "ImportService";
   static computeFileHash(text: string): string {
     return computeFileHash(text);
   }

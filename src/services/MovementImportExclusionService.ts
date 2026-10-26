@@ -7,6 +7,7 @@ import type { UUID } from "@/models";
  * mesmo lançamento volte em uma importação futura.
  */
 class MovementImportExclusionServiceImpl extends BaseService {
+  protected readonly serviceName = "MovementImportExclusionService";
   async listHashes(workspaceId: UUID): Promise<Set<string>> {
     const hashes = new Set<string>();
     for (let offset = 0; ; offset += 500) {

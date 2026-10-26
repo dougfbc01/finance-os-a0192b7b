@@ -15,6 +15,7 @@ function toISO(d: Date): string {
 }
 
 class CardServiceImpl extends BaseService {
+  protected readonly serviceName = "CardService";
   private readonly table = "cards" as const;
 
   async list(workspaceId: UUID): Promise<Card[]> {

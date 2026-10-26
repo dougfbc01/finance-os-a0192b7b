@@ -25,7 +25,8 @@ export function B3QuoteHistoryImportDialog({ workspaceId, targets }: { workspace
         {preview.isPending && <p className="text-sm text-muted-foreground" role="status">Lendo {progress?.file ?? "arquivo"}… {(progress?.lines ?? 0).toLocaleString("pt-BR")} linhas lidas</p>}
         {preview.error && <p className="text-sm text-destructive">Erro ao ler arquivo: {(preview.error as Error).message}</p>}
         {commit.error && <p className="text-sm text-destructive">Erro ao gravar: {(commit.error as Error).message}</p>}
-        {commit.data && <p className="text-sm" role="status">Importação concluída: {commit.data.inserted} preços novos gravados · {commit.data.ignored} meses já cobertos ignorados.</p>}
+        {commit.data && <p className="text-sm" role="status">Importação concluída: {commit.data.inserted} preços novos gravados · {commit.data.ignored} meses já cobertos ignorados{commit.data.failed.length > 0 ? ` · ${commit.data.failed.length} ativos com falha` : ""}.</p>}
+        {commit.data && commit.data.failed.length > 0 && <div className="text-sm text-destructive" role="alert"><p className="font-medium">Ativos que falharam (os demais foram gravados):</p><ul className="list-disc pl-5">{commit.data.failed.map((f) => <li key={f.assetId}>{f.ticker}: {f.message}</li>)}</ul></div>}
         {data && <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{data.linesRead.toLocaleString("pt-BR")} linhas lidas · pregões de {data.fileFrom ?? "—"} a {data.fileTo ?? "—"} · {data.toInsertCount} preços novos · {data.existingCount} meses já cobertos (já há cotação salva no mês)</p>
           {data.assets.length === 0 ? <p className="text-sm">Nenhum ativo seu foi encontrado no arquivo.</p> :

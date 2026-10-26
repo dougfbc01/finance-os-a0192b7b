@@ -9,6 +9,7 @@ import type {
 } from "@/models";
 
 class AccountServiceImpl extends BaseService {
+  protected readonly serviceName = "AccountService";
   private readonly table = "accounts" as const;
 
   /**

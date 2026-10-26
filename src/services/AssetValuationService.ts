@@ -74,6 +74,7 @@ export interface AssetPosition {
 const EMPTY_IMPACT: AssetMovementImpact = { delta: 0, invested: 0, yields: 0, count: 0 };
 
 class AssetValuationServiceImpl extends BaseService {
+  protected readonly serviceName = "AssetValuationService";
   /** Operação declarada na tag `op:` ou inferida pelo tipo da movimentação. */
   static operationOf(m: Movement): InvestmentOperation {
     const tag = (m.tags ?? []).find((t) => t.startsWith(INVESTMENT_OP_TAG_PREFIX));

@@ -44,6 +44,7 @@ export interface BuildUserRowsInput {
 export const EXPIRING_SOON_DAYS = 15;
 
 export class AdminServiceImpl extends BaseService {
+  protected readonly serviceName = "AdminService";
   // ---------------------------------------------------------------- lógica pura
 
   /** Junta identidade + acesso + papéis + workspaces em linhas de tabela. */

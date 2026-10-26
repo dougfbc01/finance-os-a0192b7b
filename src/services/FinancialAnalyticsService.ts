@@ -43,6 +43,7 @@ const OUTLIER_FACTOR = 3;
 const CONCENTRATION_MIN_PERCENT = 30;
 
 class FinancialAnalyticsServiceImpl extends BaseService {
+  protected readonly serviceName = "FinancialAnalyticsService";
   private competenceIso(m: Movement): string {
     return (m.competence_date ?? m.transaction_date).slice(0, 10);
   }

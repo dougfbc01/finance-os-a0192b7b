@@ -69,6 +69,7 @@ function sameOrigin(a: ComparableTransaction, b: ComparableTransaction): boolean
 }
 
 class SimilarityServiceImpl extends BaseService {
+  protected readonly serviceName = "SimilarityService";
   /** Score de similaridade entre duas transações. Puro, sem I/O. */
   static score(
     a: ComparableTransaction,

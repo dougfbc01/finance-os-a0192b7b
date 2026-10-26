@@ -33,6 +33,7 @@ export interface QuotedAsset extends EffectiveAsset {
 }
 
 class MarketQuotationServiceImpl extends BaseService {
+  protected readonly serviceName = "MarketQuotationService";
   /** O ativo pode receber cotação de mercado? */
   static isQuotable(asset: EffectiveAsset): boolean {
     if (asset.valuation_source === AssetValuationSource.ACCOUNT) return false;

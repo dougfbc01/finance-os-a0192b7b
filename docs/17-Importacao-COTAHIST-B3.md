@@ -8,3 +8,7 @@
 - Gravação em `market_price_history` com `provider='B3_COTAHIST'`, pelo mesmo caminho RLS do cliente (`MarketHistoricalPriceService.store`, ignoreDuplicates em asset_id+price_date). Linhas existentes nunca são sobrescritas. Uma cotação por ativo/mês: se o mês já tiver qualquer cotação salva (qualquer provider ou dia), o preço B3 do mês não é gravado e conta como "mês já coberto"; a cobertura é revalidada no momento da gravação.
 - Relatório: preços novos, meses já cobertos, ativos sem registro, meses sem pregão.
 - Service: `B3QuoteHistoryImportService`; hook: `useB3QuoteHistoryImport`; diálogo: `B3QuoteHistoryImportDialog`.
+- Checagem de "mês já coberto" consulta apenas o período do arquivo (01/01 do primeiro ano a 31/12 do último), no máximo 4 ativos em paralelo, com até 3 tentativas em falhas transitórias (rede, timeout, 5xx).
+- Falhas são isoladas por ativo: os demais seguem e o relatório final lista ticker e mensagem real de cada falha.
+- ZIP truncado/corrompido (incl. "unexpected EOF" ou entrada .txt não finalizada) gera "ZIP incompleto ou corrompido: baixe novamente ou envie o .txt". O .txt pode ser enviado direto, sem descompactação.
+- Erros do backend (objetos PostgREST) são descritos por `describeError` em `BaseService` (message, código, detalhes, dica) com o nome explícito do serviço (`serviceName`).

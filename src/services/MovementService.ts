@@ -24,6 +24,7 @@ import type {
 type Row = Record<string, unknown>;
 
 class MovementServiceImpl extends BaseService {
+  protected readonly serviceName = "MovementService";
   private readonly table = "movements" as const;
 
   private mapRow(r: Row): Movement {

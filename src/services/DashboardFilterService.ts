@@ -27,6 +27,7 @@ export interface CustomRangeInput {
 }
 
 class DashboardFilterServiceImpl extends BaseService {
+  protected readonly serviceName = "DashboardFilterService";
   private startOfMonth(d: Date) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   }

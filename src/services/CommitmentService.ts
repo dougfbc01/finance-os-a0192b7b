@@ -62,6 +62,7 @@ function dateDiffDays(a: string, b: string): number {
 }
 
 class CommitmentServiceImpl extends BaseService {
+  protected readonly serviceName = "CommitmentService";
   /** Valor de cada parcela, com o resíduo de centavos na última. */
   static splitAmount(total: number, count: number): number[] {
     const n = Math.max(1, Math.floor(count));

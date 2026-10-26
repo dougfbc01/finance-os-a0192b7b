@@ -63,6 +63,7 @@ export interface PatrimonySnapshot {
 }
 
 class PatrimonyServiceImpl extends BaseService {
+  protected readonly serviceName = "PatrimonyService";
   /** Passivo total dos cartões: soma das faturas não pagas (OPEN + CLOSED + OVERDUE). */
   static totalLiabilities(invoices: CardInvoice[]): number {
     return invoices

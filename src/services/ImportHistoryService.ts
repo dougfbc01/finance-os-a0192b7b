@@ -4,6 +4,7 @@ import type { CreateImportInput, ImportLogEntry, ImportRecord, ImportStatus } fr
 import type { UUID } from "@/models";
 
 class ImportHistoryServiceImpl extends BaseService {
+  protected readonly serviceName = "ImportHistoryService";
   private readonly table = "imports" as const;
 
   async list(workspaceId: UUID): Promise<ImportRecord[]> {

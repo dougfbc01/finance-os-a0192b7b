@@ -12,6 +12,7 @@ import type { CardInvoice, CardInvoiceStatus } from "@/models/CardInvoice";
 type Row = Record<string, unknown>;
 
 class CardInvoiceServiceImpl extends BaseService {
+  protected readonly serviceName = "CardInvoiceService";
   private readonly table = "card_invoices" as const;
 
   /**

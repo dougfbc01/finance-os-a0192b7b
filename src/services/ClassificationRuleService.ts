@@ -126,6 +126,7 @@ export interface ReprocessReport {
 }
 
 class ClassificationRuleServiceImpl extends BaseService {
+  protected readonly serviceName = "ClassificationRuleService";
   private readonly table = "classification_rules" as const;
 
   private map(r: Row): ClassificationRule {

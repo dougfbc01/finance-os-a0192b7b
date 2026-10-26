@@ -16,6 +16,7 @@ interface StoredRow {
 }
 
 class MarketQuoteStoreServiceImpl extends BaseService {
+  protected readonly serviceName = "MarketQuoteStoreService";
   private readonly table = "market_price_history" as const;
 
   /**
