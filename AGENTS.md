@@ -55,3 +55,4 @@ Nunca declarar sprint concluída sem auditoria final. Apresentar: arquivos criad
 - Confirm transfer pairs in one authenticated database transaction with row locks, version checks and the existing manual decision, because partial writes or stale confirmations can corrupt balances.
 - Import guards include paginated active and soft-deleted hashes and revalidate before commit; retry conflicted batches per row, because stale previews and response caps must not resurrect deletions or discard new entries.
 - B3 COTAHIST quote history is imported only from user-uploaded files, parsed in the browser by B3QuoteHistoryImportService and stored through MarketHistoricalPriceService.store with provider B3_COTAHIST, because B3 terms forbid automated collection and existing rows must never be overwritten.
+- Every BaseService subclass declares an explicit `serviceName` used by `handleError`, because constructor names are minified in production and PostgREST errors are plain objects.
