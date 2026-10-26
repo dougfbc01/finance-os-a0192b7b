@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
+import { Blob as NodeBlob } from "node:buffer";
 import { unzipSync, zipSync, strToU8 } from "fflate";
 
 const store = vi.fn();
@@ -162,7 +163,7 @@ describe("B3QuoteHistoryImportService", () => {
     const zip = zipSync({ "COTAHIST_A2003.TXT": strToU8(text) });
     const read = async (bytes: Uint8Array) => {
       const parts: Uint8Array[] = [];
-      for await (const c of unzipStream(new Blob([bytes]))) parts.push(c);
+      for await (const c of unzipStream(new NodeBlob([bytes]) as unknown as Blob)) parts.push(c);
       return new TextDecoder().decode(Buffer.concat(parts));
     };
     expect(await read(zip)).toBe(text);
@@ -171,7 +172,7 @@ describe("B3QuoteHistoryImportService", () => {
 
   it("reads a plain .txt without decompression", async () => {
     const text = line("2003-02-28", "VALE3", 12) + "\n" + line("2003-03-31", "VALE3", 13);
-    const file = new File([text], "COTAHIST_A2003.TXT");
+    const file = Object.assign(new NodeBlob([text]), { name: "COTAHIST_A2003.TXT" }) as unknown as File;
     const pv = await B3QuoteHistoryImportService.readFiles("ws", [file], [target("VALE3")], () => {});
     expect(pv.assets[0]!.found.map((p) => p.date)).toEqual(["2003-02-28", "2003-03-31"]);
     expect(listStored.mock.calls[0]![0]).toMatchObject({ from: "2003-02-01", to: "2003-12-31" });
