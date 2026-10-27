@@ -28,7 +28,7 @@ export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, erro
 }) {
   return <section className="min-w-0 space-y-4" aria-label="Comparativo mensal de capital e mercado">
     <h2 className="text-base font-semibold">Capital investido × Valor de mercado · {currency}</h2>
-    <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados.</p>
+    <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados. A comparação direta de ganho é entre Valor de mercado e Capital dos ativos avaliados.</p>
     {isLoading ? <p className="text-sm text-muted-foreground" role="status">Carregando comparativo mensal…</p>
       : error ? <p className="text-sm text-destructive" role="alert">Não foi possível carregar o comparativo mensal.</p>
       : rows.length === 0 ? <p className="text-sm text-muted-foreground">Sem histórico de movimentações no período selecionado.</p>
