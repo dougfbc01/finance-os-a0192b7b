@@ -395,6 +395,8 @@ export function capitalVsMarketMonthly(params: {
           ganhoNaoRealizado, ganhoPct: ganhoNaoRealizado !== null && custoAvaliados !== null && custoAvaliados > 0 ? round(ganhoNaoRealizado / custoAvaliados * 100) : null,
           ativosAvaliados: market.length, ativosComPosicao: held.length,
           cobertura: held.length ? market.length / held.length : null,
+          coberturaCapital: capitalTotal !== null && capitalTotal > 0 && custoAvaliados !== null ? custoAvaliados / capitalTotal : null,
+          completo: known.length > 0 && rows.length === known.length && custoAvaliados !== null && capitalTotal !== null && custoAvaliados === capitalTotal,
           ativosSemHistorico: rows.length - known.length });
       }
     }
