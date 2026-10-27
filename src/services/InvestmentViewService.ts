@@ -1,7 +1,7 @@
 // Read-only view operations: never recalculate or persist financial values.
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import type { InvestmentRow } from "./InvestmentService";
-import type { InvestmentHistoryPoint, InvestmentMonthlyRow } from "./InvestmentAnalysisService";
+import type { InvestmentHistoryPoint } from "./InvestmentAnalysisService";
 
 export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn" | "accumulatedIncome";
 export type InvestmentSortDirection = "asc" | "desc";
@@ -45,6 +45,7 @@ export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys:
   const data = points.map((point) => ({
     date: point.date,
     value: finite(point.value) ? point.value : null,
+    coverage: point.returnCoverage ?? {},
     ...Object.fromEntries(groupKeys.map((key) => [key, finite(point.returns[key]) ? point.returns[key] : null])),
   }));
   return {
