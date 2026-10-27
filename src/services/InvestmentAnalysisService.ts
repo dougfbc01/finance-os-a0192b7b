@@ -274,16 +274,24 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
     const valuesByGroup: Record<string, number | null> = {};
     const calculableByGroup: Record<string, number | null> = {};
     const returns: Record<string, number | null> = {};
+    const returnCoverage: NonNullable<InvestmentHistoryPoint["returnCoverage"]> = {};
     for (const key of new Set(members.map((r) => r.group))) {
       const scoped = members.filter((r) => r.group === key);
-      const missing = scoped.filter((r) => r.totalValue === null).length;
+      const valued = scoped.filter((r) => r.totalValue !== null);
+      const missing = scoped.length - valued.length;
       const group = groups.find((g) => g.key === key);
-      const evidencedHeld = scoped.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
-      const unknownCost = scoped.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
+      const evidencedHeld = valued.some((r) => (r.quantity ?? 0) > 0);
+      // Return over the valued set only: market value minus cost of the SAME assets.
+      const valuedRows = valued.flatMap((r) => r.projection.assetRows ?? []);
+      const valuedGroup = valuedRows.length ? summarizeInvestments(valuedRows).find((g) => g.key === key) : undefined;
+      const unknownCost = valued.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
+      const totalCost = scoped.reduce((sum, r) => sum + (r.cost ?? 0), 0);
+      const valuedCost = valued.reduce((sum, r) => sum + (r.cost ?? 0), 0);
+      returnCoverage[key] = { pct: totalCost > 0 ? valuedCost / totalCost : null, valued: valued.length, missing };
       missingByGroup[key] = missing;
       valuesByGroup[key] = missing ? null : group?.current ?? 0;
       calculableByGroup[key] = missing && !evidencedHeld ? null : group?.current ?? 0;
-      returns[key] = missing || unknownCost || !group || group.invested <= 0 ? null : group.profitPercent;
+      returns[key] = unknownCost || !valuedGroup || valuedGroup.invested <= 0 ? null : valuedGroup.profitPercent;
     }
     const missingAssets = members.filter((r) => r.totalValue === null).length;
     const mixedCurrency = new Set(members.map((r) => r.currency)).size > 1;
