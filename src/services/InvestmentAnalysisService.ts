@@ -192,6 +192,8 @@ export interface InvestmentMonthlyRow {
   month: string;
   referenceDate: string;
   quantity: number | null;
+  /** Position cost at the reference date; null when history is insufficient. */
+  cost: number | null;
   unitQuote: number | null;
   quoteDate: string | null;
   totalValue: number | null;
@@ -221,18 +223,19 @@ export function investmentMonthlyBase(params: {
     const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
     while (cursor.toISOString().slice(0, 10) <= params.to) {
       const month = cursor.toISOString().slice(0, 7);
-      const session = prices.find((p) => p.date.slice(0, 7) === month);
-      const fallback = new Date(cursor);
-      while ([0, 6].includes(fallback.getUTCDay())) fallback.setUTCDate(fallback.getUTCDate() + 1);
-      // No recorded session: a weekday reference carries only an earlier quote, never a future one.
-      const referenceDate = session?.date ?? fallback.toISOString().slice(0, 10);
+      // Single reference rule for every Análise view: last quote saved inside the month.
+      const session = prices.filter((p) => p.date.slice(0, 7) === month).at(-1);
+      const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      // No quote in the month: the month-end reference carries only an earlier quote, never a future one.
+      const referenceDate = session?.date ?? (monthEnd > params.to ? params.to : monthEnd);
       if (referenceDate <= params.to) {
         const projection = investmentHistory({ assets: [asset], movements: params.movements,
           prices: { [asset.id]: prices }, dates: [referenceDate] })[0];
         if (projection) {
           const noHistory = !first || projection.limitations.some((l) => l.reason === "NO_HISTORY");
-          const quantity = noHistory ? null : AssetValuationServiceImpl.positionOf(asset.id,
-            params.movements.filter((m) => !m.deleted_at && m.transaction_date <= referenceDate)).quantity;
+          const position = noHistory ? null : AssetValuationServiceImpl.positionOf(asset.id,
+            params.movements.filter((m) => !m.deleted_at && m.transaction_date <= referenceDate));
+          const quantity = position?.quantity ?? null;
           const quote = prices.filter((p) => p.date <= referenceDate).at(-1);
           const missingValuation = projection.limitations.some((l) => l.reason === "NO_VALUATION");
           const status: MonthlyPositionStatus = noHistory ? "NO_HISTORY" : missingValuation ? "NO_VALUATION"
