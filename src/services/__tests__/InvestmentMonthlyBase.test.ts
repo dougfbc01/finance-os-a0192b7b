@@ -33,7 +33,8 @@ describe("Base mensal histórica somente leitura", () => {
   });
   it("reconstrói eventos acumulados e mantém zero após encerramento sem cotação", () => {
     const rows = base([movement({ transaction_date: "2026-01-01" }), movement({ id: "split", transaction_date: "2026-01-15", quantity: 10, amount: 0, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE"] }), movement({ id: "sale", transaction_date: "2026-02-10", quantity: 20, amount: 250, tags: ["op:RESGATE"] }), movement({ id: "future", transaction_date: "2026-04-02", quantity: 200 })], []);
-    expect(rows.map((r) => r.quantity)).toEqual([10, 20, 0]);
+    expect(rows.map((r) => r.quantity)).toEqual([10, 0, 0]);
+    expect(rows[1]).toMatchObject({ totalValue: 0, status: "CLOSED" });
     expect(rows[2]).toMatchObject({ totalValue: 0, status: "CLOSED" });
   });
   it("não infere quantidade ou preço pelo custo quando falta histórico", () => {
@@ -44,7 +45,18 @@ describe("Base mensal histórica somente leitura", () => {
     const rows = investmentMonthlyBase({ assets: [asset, { ...asset, id: "b", asset_type: AssetType.FII }], movements: [movement(), movement({ id: "b", asset_id: "b", transaction_date: "2026-01-01" })], prices: { a: [price("2026-01-02", 12)] }, from: "2026-01-01", to: "2026-02-20" });
     const points = monthlyInvestmentHistory(rows, "2026-01-01", "2026-02-20");
     expect(points[0]).toMatchObject({ value: null, calculableValue: 120, valuesByGroup: { ACAO_BRL: 120, FII_BRL: null }, returns: { ACAO_BRL: 20, FII_BRL: null } });
+    expect(points[0]?.returnCoverage).toEqual({ ACAO_BRL: { pct: 1, valued: 1, missing: 0 }, FII_BRL: { pct: 0, valued: 0, missing: 1 } });
     expect(points[0]?.calculableValue).toBe(rows.filter((r) => r.month === "2026-01").reduce((s, r) => s + (r.totalValue ?? 0), 0));
+  });
+  it("rentabilidade do grupo usa só os avaliados, com cobertura do capital, e some sem nenhum avaliado", () => {
+    const rows = investmentMonthlyBase({ assets: [asset, { ...asset, id: "b", name: "B", ticker: "B11" }],
+      movements: [movement(), movement({ id: "b", asset_id: "b", transaction_date: "2026-01-01", amount: 400 })],
+      prices: { a: [price("2026-01-02", 12)] }, from: "2026-01-01", to: "2026-01-31" });
+    const points = monthlyInvestmentHistory(rows, "2026-01-01", "2026-01-31");
+    expect(points[0]?.returns.ACAO_BRL).toBe(20);
+    expect(points[0]?.returnCoverage?.ACAO_BRL).toEqual({ pct: 0.2, valued: 1, missing: 1 });
+    const semAvaliado = monthlyInvestmentHistory(rows.filter((r) => r.assetId === "b"), "2026-01-01", "2026-01-31");
+    expect(semAvaliado[0]?.returns.ACAO_BRL).toBeNull();
   });
   it("não substitui cotação válida por zero/erro nem muda dados de entrada", () => {
     const input = { assets: [asset], movements: [movement()], prices: { a: [price("2026-01-02", 12), price("2026-02-02", 0), price("2026-02-03", NaN)] }, from: "2026-01-01", to: "2026-03-20" };
