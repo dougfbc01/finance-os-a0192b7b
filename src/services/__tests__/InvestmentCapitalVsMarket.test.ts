@@ -13,7 +13,7 @@ const params = () => ({ assets: [asset], movements: [movement()], prices: { a: [
 describe("Comparativo capital × mercado no fim do mês", () => {
   it("inclui compra no meio do mês e usa a última cotação dentro do mês", () => {
     const result = capitalVsMarketMonthly(params());
-    expect(result[0]).toMatchObject({ date: "2026-01-31", capitalTotal: 100, valorMercadoAvaliados: 120, custoAvaliados: 100, ganhoNaoRealizado: 20, ganhoPct: 20, ativosAvaliados: 1, ativosComPosicao: 1, cobertura: 1 });
+    expect(result[0]).toMatchObject({ date: "2026-01-31", capitalTotal: 100, valorMercadoAvaliados: 120, custoAvaliados: 100, ganhoNaoRealizado: 20, ganhoPct: 20, ativosAvaliados: 1, ativosComPosicao: 1, cobertura: 1, coberturaCapital: 1, completo: true });
     expect(result[0]?.assets[0]).toMatchObject({ quantity: 10, cost: 100, quoteDate: "2026-01-30", status: "MARKET" });
   });
   it("compra e venda parcial usam o preço médio de positionOf", () => {
@@ -23,7 +23,7 @@ describe("Comparativo capital × mercado no fim do mês", () => {
   });
   it("sem cotação no mês entra apenas no capital e não carrega preço de outro mês", () => {
     const result = capitalVsMarketMonthly(params());
-    expect(result[1]).toMatchObject({ capitalTotal: 100, capitalSomenteCusto: 100, valorMercadoAvaliados: null, custoAvaliados: null, ganhoNaoRealizado: null, ganhoPct: null, ativosAvaliados: 0 });
+    expect(result[1]).toMatchObject({ capitalTotal: 100, capitalSomenteCusto: 100, valorMercadoAvaliados: null, custoAvaliados: null, ganhoNaoRealizado: null, ganhoPct: null, ativosAvaliados: 0, coberturaCapital: null, completo: false });
     expect(result[1]?.assets[0]).toMatchObject({ status: "COST_ONLY", marketValue: null, quoteDate: null });
   });
   it("renda fixa permanece somente a custo mesmo com preço salvo", () => {
@@ -59,7 +59,9 @@ describe("Comparativo capital × mercado no fim do mês", () => {
   });
   it("diferença usa somente o custo dos mesmos ativos avaliados", () => {
     const input = params(); input.assets.push({ ...asset, id: "b", asset_type: AssetType.CDB }); input.movements.push(movement({ id: "b", asset_id: "b", amount: 1000 }));
-    expect(capitalVsMarketMonthly(input)[0]).toMatchObject({ capitalTotal: 1100, capitalSomenteCusto: 1000, custoAvaliados: 100, valorMercadoAvaliados: 120, ganhoNaoRealizado: 20, ganhoPct: 20, ativosAvaliados: 1, ativosComPosicao: 2, cobertura: 0.5 });
+    const month = capitalVsMarketMonthly(input)[0];
+    expect(month).toMatchObject({ capitalTotal: 1100, capitalSomenteCusto: 1000, custoAvaliados: 100, valorMercadoAvaliados: 120, ganhoNaoRealizado: 20, ganhoPct: 20, ativosAvaliados: 1, ativosComPosicao: 2, cobertura: 0.5, completo: false });
+    expect(month?.coberturaCapital).toBeCloseTo(100 / 1100, 6);
   });
   it("somas mensais batem com linhas e custo de cada ativo é o de positionOf", () => {
     const input = params(); input.assets.push({ ...asset, id: "b" }); input.movements.push(movement({ id: "b", asset_id: "b", amount: 350, quantity: 7 }));

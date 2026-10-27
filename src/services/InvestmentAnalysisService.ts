@@ -24,6 +24,9 @@ export interface InvestmentGroup {
 
 export const investmentGroupKey = (asset: Asset) => `${asset.asset_type}_${asset.currency}`;
 
+/** Below this share of the group capital valued, a return point is shown with a hollow marker. */
+export const GROUP_RETURN_COVERAGE_WARNING = 0.8;
+
 /** Shared historical-position evidence guard; does not calculate a position. */
 function lacksPositionHistory(asset: Asset, movements: Movement[], date: string, requireEvent = false): boolean {
   const events = movements.filter((m) => !m.deleted_at &&
@@ -74,6 +77,8 @@ export interface InvestmentHistoryPoint {
   calculableByGroup?: Record<string, number | null>;
   missingByGroup?: Record<string, number>;
   returns: Record<string, number | null>;
+  /** Capital coverage of each group's return: valued cost / known cost, plus asset counts. */
+  returnCoverage?: Record<string, { pct: number | null; valued: number; missing: number }>;
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
   carriedPrices: { assetId: string; priceDate: string }[];
@@ -187,6 +192,8 @@ export interface InvestmentMonthlyRow {
   month: string;
   referenceDate: string;
   quantity: number | null;
+  /** Position cost at the reference date; null when history is insufficient. */
+  cost: number | null;
   unitQuote: number | null;
   quoteDate: string | null;
   totalValue: number | null;
@@ -216,18 +223,19 @@ export function investmentMonthlyBase(params: {
     const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
     while (cursor.toISOString().slice(0, 10) <= params.to) {
       const month = cursor.toISOString().slice(0, 7);
-      const session = prices.find((p) => p.date.slice(0, 7) === month);
-      const fallback = new Date(cursor);
-      while ([0, 6].includes(fallback.getUTCDay())) fallback.setUTCDate(fallback.getUTCDate() + 1);
-      // No recorded session: a weekday reference carries only an earlier quote, never a future one.
-      const referenceDate = session?.date ?? fallback.toISOString().slice(0, 10);
+      // Single reference rule for every Análise view: last quote saved inside the month.
+      const session = prices.filter((p) => p.date.slice(0, 7) === month).at(-1);
+      const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      // No quote in the month: the month-end reference carries only an earlier quote, never a future one.
+      const referenceDate = session?.date ?? (monthEnd > params.to ? params.to : monthEnd);
       if (referenceDate <= params.to) {
         const projection = investmentHistory({ assets: [asset], movements: params.movements,
           prices: { [asset.id]: prices }, dates: [referenceDate] })[0];
         if (projection) {
           const noHistory = !first || projection.limitations.some((l) => l.reason === "NO_HISTORY");
-          const quantity = noHistory ? null : AssetValuationServiceImpl.positionOf(asset.id,
-            params.movements.filter((m) => !m.deleted_at && m.transaction_date <= referenceDate)).quantity;
+          const position = noHistory ? null : AssetValuationServiceImpl.positionOf(asset.id,
+            params.movements.filter((m) => !m.deleted_at && m.transaction_date <= referenceDate));
+          const quantity = position?.quantity ?? null;
           const quote = prices.filter((p) => p.date <= referenceDate).at(-1);
           const missingValuation = projection.limitations.some((l) => l.reason === "NO_VALUATION");
           const status: MonthlyPositionStatus = noHistory ? "NO_HISTORY" : missingValuation ? "NO_VALUATION"
@@ -239,7 +247,8 @@ export function investmentMonthlyBase(params: {
             projection.assetRows = [];
           }
           result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, month, referenceDate,
-            quantity, unitQuote: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.close : null,
+            quantity, cost: position?.cost ?? null,
+            unitQuote: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.close : null,
             quoteDate: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.date : null,
             totalValue: noHistory ? null : projection.value, status, currency: asset.currency,
             group: investmentGroupKey(asset), projection });
@@ -265,16 +274,24 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
     const valuesByGroup: Record<string, number | null> = {};
     const calculableByGroup: Record<string, number | null> = {};
     const returns: Record<string, number | null> = {};
+    const returnCoverage: NonNullable<InvestmentHistoryPoint["returnCoverage"]> = {};
     for (const key of new Set(members.map((r) => r.group))) {
       const scoped = members.filter((r) => r.group === key);
-      const missing = scoped.filter((r) => r.totalValue === null).length;
+      const valued = scoped.filter((r) => r.totalValue !== null);
+      const missing = scoped.length - valued.length;
       const group = groups.find((g) => g.key === key);
-      const evidencedHeld = scoped.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
-      const unknownCost = scoped.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
+      const evidencedHeld = valued.some((r) => (r.quantity ?? 0) > 0);
+      // Return over the valued set only: market value minus cost of the SAME assets.
+      const valuedRows = valued.flatMap((r) => r.projection.assetRows ?? []);
+      const valuedGroup = valuedRows.length ? summarizeInvestments(valuedRows).find((g) => g.key === key) : undefined;
+      const unknownCost = valued.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
+      const totalCost = scoped.reduce((sum, r) => sum + (r.cost ?? 0), 0);
+      const valuedCost = valued.reduce((sum, r) => sum + (r.cost ?? 0), 0);
+      returnCoverage[key] = { pct: totalCost > 0 ? valuedCost / totalCost : null, valued: valued.length, missing };
       missingByGroup[key] = missing;
       valuesByGroup[key] = missing ? null : group?.current ?? 0;
       calculableByGroup[key] = missing && !evidencedHeld ? null : group?.current ?? 0;
-      returns[key] = missing || unknownCost || !group || group.invested <= 0 ? null : group.profitPercent;
+      returns[key] = unknownCost || !valuedGroup || valuedGroup.invested <= 0 ? null : valuedGroup.profitPercent;
     }
     const missingAssets = members.filter((r) => r.totalValue === null).length;
     const mixedCurrency = new Set(members.map((r) => r.currency)).size > 1;
@@ -282,7 +299,7 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
     const evidencedHeld = members.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
     return [{ date, value: missingAssets || mixedCurrency ? null : total,
       calculableValue: mixedCurrency || (missingAssets && !evidencedHeld) ? null : total,
-      valuesByGroup, calculableByGroup, missingByGroup, returns, missingAssets,
+      valuesByGroup, calculableByGroup, missingByGroup, returns, returnCoverage, missingAssets,
       limitations: members.flatMap((r) => r.projection.limitations),
       carriedPrices: members.filter((r) => r.status === "STALE_PRICE" && r.quoteDate)
         .map((r) => ({ assetId: r.assetId, priceDate: r.quoteDate ?? "" })) }];
@@ -312,6 +329,10 @@ export interface CapitalVsMarketMonth {
   ativosAvaliados: number;
   ativosComPosicao: number;
   cobertura: number | null;
+  /** Valued cost / total known capital; 1 means every known capital has proven market value. */
+  coberturaCapital: number | null;
+  /** Complete month: 100% of the scope capital valued and no asset without history. */
+  completo: boolean;
   ativosSemHistorico: number;
 }
 
@@ -374,6 +395,8 @@ export function capitalVsMarketMonthly(params: {
           ganhoNaoRealizado, ganhoPct: ganhoNaoRealizado !== null && custoAvaliados !== null && custoAvaliados > 0 ? round(ganhoNaoRealizado / custoAvaliados * 100) : null,
           ativosAvaliados: market.length, ativosComPosicao: held.length,
           cobertura: held.length ? market.length / held.length : null,
+          coberturaCapital: capitalTotal !== null && capitalTotal > 0 && custoAvaliados !== null ? custoAvaliados / capitalTotal : null,
+          completo: known.length > 0 && rows.length === known.length && custoAvaliados !== null && capitalTotal !== null && custoAvaliados === capitalTotal,
           ativosSemHistorico: rows.length - known.length });
       }
     }

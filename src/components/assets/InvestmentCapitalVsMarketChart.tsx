@@ -7,6 +7,7 @@ const monthLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateS
 const amount = (value: number | null, currency: string) => value === null ? "—" : formatCurrency(value, currency);
 const percent = (value: number | null) => value === null ? "—" : `${value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 const coverage = (row: CapitalVsMarketMonth) => `${row.ativosAvaliados} de ${row.ativosComPosicao} ativos avaliados a mercado`;
+const capitalCoverage = (row: CapitalVsMarketMonth) => row.coberturaCapital === null ? "—" : `${(row.coberturaCapital * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
 function MonthTooltip({ active, payload }: { active?: boolean; payload?: { payload?: CapitalVsMarketMonth }[] }) {
   const row = payload?.[0]?.payload;
@@ -28,7 +29,7 @@ export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, erro
 }) {
   return <section className="min-w-0 space-y-4" aria-label="Comparativo mensal de capital e mercado">
     <h2 className="text-base font-semibold">Capital investido × Valor de mercado · {currency}</h2>
-    <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados.</p>
+    <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados. A comparação direta de ganho é entre Valor de mercado e Capital dos ativos avaliados.</p>
     {isLoading ? <p className="text-sm text-muted-foreground" role="status">Carregando comparativo mensal…</p>
       : error ? <p className="text-sm text-destructive" role="alert">Não foi possível carregar o comparativo mensal.</p>
       : rows.length === 0 ? <p className="text-sm text-muted-foreground">Sem histórico de movimentações no período selecionado.</p>
@@ -46,7 +47,7 @@ export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, erro
         </div>
         <details className="border-y py-3"><summary className="cursor-pointer text-sm font-medium">Comparativo mensal · cobertura e valores</summary>
           <div className="mt-3 overflow-x-auto"><Table>
-            <TableHeader><TableRow><TableHead>Mês / referência</TableHead><TableHead>Capital total</TableHead><TableHead>Mercado avaliado</TableHead><TableHead>Capital dos avaliados</TableHead><TableHead>Ganho/perda não realizado</TableHead><TableHead>%</TableHead><TableHead>Cobertura</TableHead><TableHead>Capital somente a custo</TableHead><TableHead>Sem histórico</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Mês / referência</TableHead><TableHead>Capital total</TableHead><TableHead>Mercado avaliado</TableHead><TableHead>Capital dos avaliados</TableHead><TableHead>Ganho/perda não realizado</TableHead><TableHead>%</TableHead><TableHead>Cobertura</TableHead><TableHead>% do capital avaliado</TableHead><TableHead>Capital somente a custo</TableHead><TableHead>Sem histórico</TableHead></TableRow></TableHeader>
             <TableBody>{rows.map((row) => <TableRow key={`${row.currency}:${row.month}`}>
               <TableCell className="whitespace-nowrap">{monthLabel(row.date)}<span className="block text-xs text-muted-foreground">{new Date(`${row.date}T12:00:00Z`).toLocaleDateString("pt-BR")}</span></TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.capitalTotal, currency)}</TableCell>
@@ -54,7 +55,8 @@ export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, erro
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.custoAvaliados, currency)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.ganhoNaoRealizado, currency)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{percent(row.ganhoPct)}</TableCell>
-              <TableCell className="min-w-48">{coverage(row)}</TableCell>
+              <TableCell className="min-w-48">{coverage(row)}{row.completo && <span className="block text-xs font-medium text-foreground">Completo</span>}</TableCell>
+              <TableCell className="whitespace-nowrap tabular-nums">{capitalCoverage(row)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.capitalSomenteCusto, currency)}</TableCell>
               <TableCell>{row.ativosSemHistorico}</TableCell>
             </TableRow>)}</TableBody>
