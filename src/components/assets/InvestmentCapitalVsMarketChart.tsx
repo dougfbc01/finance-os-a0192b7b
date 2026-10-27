@@ -55,7 +55,8 @@ export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, erro
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.custoAvaliados, currency)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.ganhoNaoRealizado, currency)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{percent(row.ganhoPct)}</TableCell>
-              <TableCell className="min-w-48">{coverage(row)}</TableCell>
+              <TableCell className="min-w-48">{coverage(row)}{row.completo && <span className="block text-xs font-medium text-foreground">Completo</span>}</TableCell>
+              <TableCell className="whitespace-nowrap tabular-nums">{capitalCoverage(row)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{amount(row.capitalSomenteCusto, currency)}</TableCell>
               <TableCell>{row.ativosSemHistorico}</TableCell>
             </TableRow>)}</TableBody>
