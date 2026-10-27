@@ -24,6 +24,9 @@ export interface InvestmentGroup {
 
 export const investmentGroupKey = (asset: Asset) => `${asset.asset_type}_${asset.currency}`;
 
+/** Below this share of the group capital valued, a return point is shown with a hollow marker. */
+export const GROUP_RETURN_COVERAGE_WARNING = 0.8;
+
 /** Shared historical-position evidence guard; does not calculate a position. */
 function lacksPositionHistory(asset: Asset, movements: Movement[], date: string, requireEvent = false): boolean {
   const events = movements.filter((m) => !m.deleted_at &&
@@ -74,6 +77,8 @@ export interface InvestmentHistoryPoint {
   calculableByGroup?: Record<string, number | null>;
   missingByGroup?: Record<string, number>;
   returns: Record<string, number | null>;
+  /** Capital coverage of each group's return: valued cost / known cost, plus asset counts. */
+  returnCoverage?: Record<string, { pct: number | null; valued: number; missing: number }>;
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
   carriedPrices: { assetId: string; priceDate: string }[];
