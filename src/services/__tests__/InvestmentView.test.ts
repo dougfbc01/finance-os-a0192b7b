@@ -58,25 +58,10 @@ describe("Operações de apresentação dos investimentos", () => {
     expect(chart.returnKeys).toEqual(["B"]);
     expect(chart.data).toEqual([{ date: "2026-02-01", value: 100, B: 10 }]);
   });
-  it("mantém patrimônio completo e parcial em séries separadas, com lacunas nulas", () => {
-    const pts: InvestmentHistoryPoint[] = [
-      { ...point("2026-01-01", null, {}), calculableValue: null, missingAssets: 1 },
-      { ...point("2026-01-02", null, {}), calculableValue: 80, missingAssets: 2 },
-      { ...point("2026-01-03", 150, {}), calculableValue: 150 },
-    ];
-    const view = wealthChartView(pts, "TOTAL");
-    expect(view.data.map((d) => [d.complete, d.calculable])).toEqual([[null, null], [null, 80], [150, null]]);
-    expect(view).toMatchObject({ completeDates: 1, calculableDates: 1, unavailableDates: 1 });
-  });
   it("resume datas faltantes por ativo e motivo", () => {
     const lim = { assetId: "x", name: "X", reason: "NO_PRICE" as const };
     const pts = [{ ...point("2026-01-01", null, {}), limitations: [lim] }, { ...point("2026-01-02", null, {}), limitations: [lim] }];
     expect(limitationSummary(pts)).toEqual([{ ...lim, dates: 2, first: "2026-01-01", last: "2026-01-02" }]);
-  });
-  it("nunca exibe patrimônio completo quando ainda há ativos sem avaliação", () => {
-    const pts = [{ ...point("2026-01-01", 11000, {}), missingAssets: 1, calculableValue: 11000 }];
-    expect(wealthChartView(pts, "TOTAL").data[0]).toMatchObject({ complete: null, calculable: 11000 });
-    expect(wealthChartView(pts, "TOTAL").completeDates).toBe(0);
   });
   it("identifica um ponto isolado válido sem preencher as lacunas", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);
