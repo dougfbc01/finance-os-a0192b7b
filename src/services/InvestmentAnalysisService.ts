@@ -299,7 +299,7 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
     const evidencedHeld = members.some((r) => r.totalValue !== null && (r.quantity ?? 0) > 0);
     return [{ date, value: missingAssets || mixedCurrency ? null : total,
       calculableValue: mixedCurrency || (missingAssets && !evidencedHeld) ? null : total,
-      valuesByGroup, calculableByGroup, missingByGroup, returns, missingAssets,
+      valuesByGroup, calculableByGroup, missingByGroup, returns, returnCoverage, missingAssets,
       limitations: members.flatMap((r) => r.projection.limitations),
       carriedPrices: members.filter((r) => r.status === "STALE_PRICE" && r.quoteDate)
         .map((r) => ({ assetId: r.assetId, priceDate: r.quoteDate ?? "" })) }];
@@ -329,6 +329,10 @@ export interface CapitalVsMarketMonth {
   ativosAvaliados: number;
   ativosComPosicao: number;
   cobertura: number | null;
+  /** Valued cost / total known capital; 1 means every known capital has proven market value. */
+  coberturaCapital: number | null;
+  /** Complete month: 100% of the scope capital valued and no asset without history. */
+  completo: boolean;
   ativosSemHistorico: number;
 }
 
