@@ -69,3 +69,10 @@
 
 - [x] COTAHIST: uma cotação por ativo/mês (mês já coberto por qualquer origem é ignorado; revalidado ao gravar)
 - [x] Teste CommitmentReconciliation: fixture no limite da tolerância de R$ 0,01 corrigida
+
+## Consistência dos números e rentabilidade por grupo (Análise)
+- [x] Data de referência única: última cotação salva do mês em todas as visões da aba Análise
+- [x] Rentabilidade por grupo sobre o conjunto avaliado, com cobertura do capital e marcador vazado < 80%
+- [x] Cobertura por valor ("% do capital avaliado") e status Completo na tabela mensal
+- [x] Remoção do gráfico "Evolução do patrimônio investido" (substituído pelo Capital × Mercado)
+- [x] 518 testes, build OK, docs/18 e regras de negócio atualizadas

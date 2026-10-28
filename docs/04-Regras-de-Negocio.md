@@ -513,6 +513,15 @@ O sistema será considerado correto quando:
 
 ---
 
+# Análise de Investimentos — consistência dos números (28/10/2026)
+
+- Todas as visões da aba Análise usam a mesma data de referência: a última cotação salva do ativo dentro do mês (mês corrente: a mais recente até hoje). Sem cotação no mês, usa a última anterior, sinalizada como "cotação anterior". Nunca preço futuro, interpolação ou custo como valor de mercado.
+- A rentabilidade da posição por grupo é calculada somente sobre os ativos avaliados naquele mês: (valor de mercado − custo dos mesmos ativos) / custo dos mesmos ativos. A cobertura (% do capital do grupo avaliado) é sempre exibida; cobertura abaixo de 80% gera marcador vazado e aviso. Grupo sem nenhum avaliado não gera ponto. A rentabilidade da posição não inclui proventos.
+- A cobertura mensal é medida também em valor: "% do capital avaliado" = custo dos avaliados / capital total conhecido do escopo. Mês "Completo" = 100% do capital do escopo com valor comprovado e nenhum ativo sem histórico.
+- Detalhes em docs/18-Consistencia-Numeros-Rentabilidade.md.
+
+---
+
 # Fim do Documento
 
 Próximo:
