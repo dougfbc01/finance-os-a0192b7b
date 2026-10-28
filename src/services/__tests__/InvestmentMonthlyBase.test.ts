@@ -33,7 +33,7 @@ describe("Base mensal histórica somente leitura", () => {
   });
   it("reconstrói eventos acumulados e mantém zero após encerramento sem cotação", () => {
     const rows = base([movement({ transaction_date: "2026-01-01" }), movement({ id: "split", transaction_date: "2026-01-15", quantity: 10, amount: 0, tags: ["op:AJUSTE_QUANTIDADE", "qty:INCREASE"] }), movement({ id: "sale", transaction_date: "2026-02-10", quantity: 20, amount: 250, tags: ["op:RESGATE"] }), movement({ id: "future", transaction_date: "2026-04-02", quantity: 200 })], []);
-    expect(rows.map((r) => r.quantity)).toEqual([10, 0, 0]);
+    expect(rows.map((r) => r.quantity)).toEqual([20, 0, 0]);
     expect(rows[1]).toMatchObject({ totalValue: 0, status: "CLOSED" });
     expect(rows[2]).toMatchObject({ totalValue: 0, status: "CLOSED" });
   });
