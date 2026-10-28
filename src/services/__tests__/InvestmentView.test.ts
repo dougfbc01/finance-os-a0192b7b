@@ -48,7 +48,7 @@ describe("Operações de apresentação dos investimentos", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null, B: 0, C: NaN }), point("2026-01-02", 100, { A: null, B: 5, C: Infinity })], ["A", "B", "C"]);
     expect(chart.returnKeys).toEqual(["B"]);
     expect(chart.hasValues).toBe(true);
-    expect(chart.data[0]).toEqual({ date: "2026-01-01", value: null, A: null, B: 0, C: null });
+    expect(chart.data[0]).toEqual({ date: "2026-01-01", value: null, coverage: {}, A: null, B: 0, C: null });
   });
   it("não cria patrimônio nem rentabilidade quando tudo está indisponível", () => {
     expect(historicalChartView([point("2026-01-01", null, { A: null })], ["A"])).toMatchObject({ hasValues: false, returnKeys: [] });
@@ -56,7 +56,7 @@ describe("Operações de apresentação dos investimentos", () => {
   it("respeita período e grupo recebidos sem incluir séries de outro grupo", () => {
     const chart = historicalChartView([point("2026-02-01", 100, { A: 5, B: 10 })], ["B"]);
     expect(chart.returnKeys).toEqual(["B"]);
-    expect(chart.data).toEqual([{ date: "2026-02-01", value: 100, B: 10 }]);
+    expect(chart.data).toEqual([{ date: "2026-02-01", value: 100, coverage: {}, B: 10 }]);
   });
   it("resume datas faltantes por ativo e motivo", () => {
     const lim = { assetId: "x", name: "X", reason: "NO_PRICE" as const };
@@ -66,7 +66,7 @@ describe("Operações de apresentação dos investimentos", () => {
   it("identifica um ponto isolado válido sem preencher as lacunas", () => {
     const chart = historicalChartView([point("2026-01-01", null, { A: null }), point("2026-01-02", 100, { A: 20 }), point("2026-01-03", null, { A: null })], ["A"]);
     expect(chart.isolatedReturns).toEqual([{ key: "A", date: "2026-01-02" }]);
-    expect(chart.data).toEqual([{ date: "2026-01-01", value: null, A: null }, { date: "2026-01-02", value: 100, A: 20 }, { date: "2026-01-03", value: null, A: null }]);
+    expect(chart.data).toEqual([{ date: "2026-01-01", value: null, coverage: {}, A: null }, { date: "2026-01-02", value: 100, coverage: {}, A: 20 }, { date: "2026-01-03", value: null, coverage: {}, A: null }]);
   });
   it("limita mês anterior ao último dia existente, inclusive ano bissexto", () => {
     expect(investmentPeriodStart("2026-03-31", 1)).toBe("2026-02-28");
