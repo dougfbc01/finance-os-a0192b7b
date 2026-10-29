@@ -1,10 +1,11 @@
 // Read-only presentation adapter. Financial calculations remain in the existing services.
-import { AssetValuationSource, ASSET_TYPE_LABELS, InvestmentOperation, isMarketQuotableType } from "@/constants/enums";
-import type { Asset, Movement } from "@/models";
+import { AssetValuationSource, ASSET_TYPE_LABELS, INVESTMENT_ASSET_TYPES, InvestmentOperation, isMarketQuotableType, type AssetType } from "@/constants/enums";
+import type { Account, Asset, Movement } from "@/models";
 import type { MarketPricePoint, MarketQuoteMap } from "@/models/MarketData";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
 import { InvestmentServiceImpl, type InvestmentRow } from "./InvestmentService";
 import { MarketQuotationServiceImpl } from "./MarketQuotationService";
+import { YieldReconciliationServiceImpl } from "./YieldReconciliationService";
 import { validInvestmentRange } from "./InvestmentViewService";
 
 export interface InvestmentGroup {
