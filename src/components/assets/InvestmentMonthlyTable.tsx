@@ -3,11 +3,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
+import { AssetType } from "@/constants/enums";
 import type { InvestmentMonthlyRow, MonthlyPositionStatus } from "@/services/InvestmentAnalysisService";
 
 const statuses: Record<MonthlyPositionStatus, string> = {
   OK: "Cotação no mês", STALE_PRICE: "Preço desatualizado", CLOSED: "Posição zerada",
   NO_PRICE: "Sem cotação anterior", NO_HISTORY: "Posição histórica indisponível", NO_VALUATION: "Sem avaliação histórica",
+  ACCOUNT_RECONCILED: "Conta (conciliado)",
 };
 const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString("pt-BR");
 

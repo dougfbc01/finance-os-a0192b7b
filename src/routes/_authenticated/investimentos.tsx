@@ -285,7 +285,7 @@ function InvestimentosPage() {
           </Card>
           </TabsContent>
           <TabsContent value="analysis">
-            <InvestmentAnalysis workspaceId={wsId} rows={investments} movements={movements} />
+            <InvestmentAnalysis workspaceId={wsId} rows={investments} movements={movements} accounts={accounts} assets={assets} />
           </TabsContent>
         </Tabs>
       )}
