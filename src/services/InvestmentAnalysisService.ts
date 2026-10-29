@@ -461,13 +461,16 @@ export function capitalVsMarketMonthly(params: {
     const date = end > params.to ? params.to : end;
     if (date >= params.from) {
       const past = active.filter((m) => m.transaction_date <= date);
-      for (const currency of new Set(assets.map((a) => a.currency))) {
+      for (const currency of new Set([...assets, ...mirrors].map((a) => a.currency))) {
         const members = assets.filter((a) => a.currency === currency &&
           (!related(a).length || related(a).some((m) => m.transaction_date <= date)));
-        if (!members.length) continue;
+        const mirrorMembers = mirrors.filter((a) => a.currency === currency && accountsById.has(a.account_id ?? "") &&
+          (mirrorRelated(a).some((m) => m.transaction_date <= date) ||
+            Number(accountsById.get(a.account_id ?? "")?.initial_balance) !== 0));
+        if (!members.length && !mirrorMembers.length) continue;
         const rows: CapitalVsMarketAssetRow[] = members.map((asset) => {
           if (lacksPositionHistory(asset, active, date, true)) return {
-            assetId: asset.id, status: "NO_HISTORY", quantity: null, cost: null, marketValue: null, quoteDate: null, held: false,
+            assetId: asset.id, assetType: asset.asset_type, status: "NO_HISTORY", quantity: null, cost: null, marketValue: null, quoteDate: null, held: false,
           };
           const position = AssetValuationServiceImpl.positionOf(asset.id, past);
           const held = position.quantity > 0 || position.cost > 0;
