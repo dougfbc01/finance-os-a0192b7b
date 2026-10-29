@@ -489,11 +489,21 @@ export function capitalVsMarketMonthly(params: {
             change: null, changePercent: null, marketState: null,
           } } })[0] : undefined;
           const marketValue = held ? projected?.market_value ?? null : 0;
-          return { assetId: asset.id, status: held && marketValue !== null ? "MARKET" : "COST_ONLY",
+          return { assetId: asset.id, assetType: asset.asset_type, status: held && marketValue !== null ? "MARKET" : "COST_ONLY",
             quantity: position.quantity, cost: position.cost, marketValue, quoteDate: quote?.date ?? null, held };
         });
+        // Ativos espelhados em conta entram como avaliados: o saldo da conta é o valor comprovado.
+        for (const asset of mirrorMembers) {
+          const account = accountsById.get(asset.account_id ?? "");
+          if (!account) continue;
+          const mirror = accountMirrorValue(asset, account, active, date);
+          const held = mirror.value !== 0 || mirror.capital !== 0;
+          rows.push({ assetId: asset.id, assetType: asset.asset_type, status: "ACCOUNT",
+            quantity: null, cost: mirror.capital, marketValue: mirror.value,
+            quoteDate: mirror.lastReconciliation?.date ?? null, held });
+        }
         const known = rows.filter((r) => r.status !== "NO_HISTORY");
-        const market = known.filter((r) => r.status === "MARKET");
+        const market = known.filter((r) => r.status === "MARKET" || r.status === "ACCOUNT");
         const held = known.filter((r) => r.held);
         const capitalTotal = known.length ? round(known.reduce((sum, r) => sum + (r.cost ?? 0), 0)) : null;
         const valorMercadoAvaliados = market.length ? round(market.reduce((sum, r) => sum + (r.marketValue ?? 0), 0)) : held.length === 0 && known.length ? 0 : null;
