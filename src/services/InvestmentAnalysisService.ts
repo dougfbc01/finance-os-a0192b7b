@@ -272,9 +272,41 @@ export interface InvestmentMonthlyRow {
 /** Read-only monthly ledger. A stored session is evidence, not an inferred exchange calendar. */
 export function investmentMonthlyBase(params: {
   assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+  /** Contas do workspace; necessárias para valorar ativos espelhados (caixinha/CDB). */
+  accounts?: Account[];
 }): InvestmentMonthlyRow[] {
   if (!validInvestmentRange(params.from, params.to, params.to)) return [];
   const result: InvestmentMonthlyRow[] = [];
+  const accountsById = new Map((params.accounts ?? []).map((a) => [a.id, a]));
+  // Ativos espelhados em conta: o saldo da conta é o valor comprovado do mês.
+  for (const asset of params.assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a))) {
+    const account = accountsById.get(asset.account_id ?? "");
+    if (!account) continue;
+    const related = params.movements.filter((m) => !m.deleted_at &&
+      (m.asset_id === asset.id || m.account_id === account.id || m.transfer_account_id === account.id));
+    const first = related.map((m) => m.transaction_date).sort()[0];
+    const start = first ?? params.from;
+    if (!validInvestmentRange(start, params.to, params.to)) continue;
+    const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
+    while (cursor.toISOString().slice(0, 10) <= params.to) {
+      const month = cursor.toISOString().slice(0, 7);
+      const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      const referenceDate = monthEnd > params.to ? params.to : monthEnd;
+      const mirror = accountMirrorValue(asset, account, params.movements, referenceDate);
+      const row = accountMirrorRow(asset, mirror);
+      const group = investmentGroupKey(asset);
+      result.push({
+        assetId: asset.id, name: asset.name, ticker: asset.ticker, assetType: asset.asset_type,
+        month, referenceDate, quantity: null, cost: mirror.capital,
+        unitQuote: null, quoteDate: null, totalValue: mirror.value,
+        status: "ACCOUNT_RECONCILED", currency: asset.currency, group,
+        valueOrigin: "ACCOUNT", lastReconciliationDate: mirror.lastReconciliation?.date ?? null,
+        projection: { date: referenceDate, value: mirror.value, valuesByGroup: { [group]: mirror.value },
+          returns: {}, missingAssets: 0, limitations: [], carriedPrices: [], assetRows: [row] },
+      });
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+  }
   for (const asset of InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at)) {
     const related = params.movements.filter((m) => !m.deleted_at &&
       (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)));
