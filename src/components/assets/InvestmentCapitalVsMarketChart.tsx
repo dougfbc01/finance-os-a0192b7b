@@ -29,9 +29,11 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
 export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, error }: {
   rows: CapitalVsMarketMonth[]; currency: string; isLoading: boolean; error: unknown;
 }) {
+  const hasAccountValued = rows.some((row) => row.assets.some((a) => a.status === "ACCOUNT"));
   return <section className="min-w-0 space-y-4" aria-label="Comparativo mensal de capital e mercado">
     <h2 className="text-base font-semibold">Capital investido × Valor de mercado · {currency}</h2>
     <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados. A comparação direta de ganho é entre Valor de mercado e Capital dos ativos avaliados.</p>
+    {hasAccountValued && <p className="text-sm text-muted-foreground">Caixinhas/CDB espelhados em conta entram como avaliados pelo saldo da conta (origem "Conta (conciliado)"), com rendimento em degrau na data de cada conciliação. Esse saldo já conta no caixa do Patrimônio e não soma de novo lá.</p>}
     {isLoading ? <p className="text-sm text-muted-foreground" role="status">Carregando comparativo mensal…</p>
       : error ? <p className="text-sm text-destructive" role="alert">Não foi possível carregar o comparativo mensal.</p>
       : rows.length === 0 ? <p className="text-sm text-muted-foreground">Sem histórico de movimentações no período selecionado.</p>
