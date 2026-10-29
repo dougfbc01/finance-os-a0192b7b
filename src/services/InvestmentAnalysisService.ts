@@ -244,11 +244,12 @@ export function investmentHistory(params: {
   });
 }
 
-export type MonthlyPositionStatus = "OK" | "STALE_PRICE" | "CLOSED" | "NO_PRICE" | "NO_HISTORY" | "NO_VALUATION";
+export type MonthlyPositionStatus = "OK" | "STALE_PRICE" | "CLOSED" | "NO_PRICE" | "NO_HISTORY" | "NO_VALUATION" | "ACCOUNT_RECONCILED";
 export interface InvestmentMonthlyRow {
   assetId: string;
   name: string;
   ticker: string | null;
+  assetType: AssetType;
   month: string;
   referenceDate: string;
   quantity: number | null;
@@ -260,6 +261,10 @@ export interface InvestmentMonthlyRow {
   status: MonthlyPositionStatus;
   currency: string;
   group: string;
+  /** "ACCOUNT" quando o valor é o saldo espelhado da conta (caixinha/CDB). */
+  valueOrigin?: "ACCOUNT";
+  /** Data da última conciliação de rendimento até a referência (ativos de conta). */
+  lastReconciliationDate?: string | null;
   /** The existing services' projection, not a second financial calculation. */
   projection: InvestmentHistoryPoint;
 }
