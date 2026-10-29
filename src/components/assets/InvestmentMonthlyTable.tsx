@@ -26,12 +26,12 @@ export function InvestmentMonthlyTable({ rows }: { rows: InvestmentMonthlyRow[] 
       <Table aria-label="Base histórica mensal de investimentos"><TableHeader><TableRow>
         <TableHead>Ticker / ativo</TableHead><TableHead>Data de referência</TableHead><TableHead className="text-right">Quantidade histórica</TableHead><TableHead className="text-right">Cotação unitária</TableHead><TableHead>Data real da cotação</TableHead><TableHead className="text-right">Valor total</TableHead><TableHead>Status</TableHead>
       </TableRow></TableHeader><TableBody>{displayed.map((r) => <TableRow key={`${r.assetId}:${r.month}`}>
-        <TableCell className="font-medium" title={r.name}>{r.ticker ?? r.name}</TableCell><TableCell className="whitespace-nowrap">{dateLabel(r.referenceDate)}</TableCell>
+        <TableCell className="font-medium" title={r.name}>{r.ticker ?? r.name}{r.assetType === AssetType.TESOURO && <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs font-normal text-secondary-foreground">A custo</span>}</TableCell><TableCell className="whitespace-nowrap">{dateLabel(r.referenceDate)}</TableCell>
         <TableCell className="text-right tabular-nums">{r.quantity === null ? "—" : r.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 8 })}</TableCell>
         <TableCell className="whitespace-nowrap text-right tabular-nums">{r.unitQuote === null ? "—" : formatCurrency(r.unitQuote, r.currency)}</TableCell>
         <TableCell className="whitespace-nowrap">{r.quoteDate ? dateLabel(r.quoteDate) : "—"}</TableCell>
         <TableCell className="whitespace-nowrap text-right tabular-nums">{r.totalValue === null ? "—" : formatCurrency(r.totalValue, r.currency)}</TableCell>
-        <TableCell className={r.status === "STALE_PRICE" || r.totalValue === null ? "text-muted-foreground" : "text-foreground"}>{statuses[r.status]}{r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST") && <span className="block text-xs text-muted-foreground">Custo indeterminado</span>}</TableCell>
+        <TableCell className={r.status === "STALE_PRICE" || r.totalValue === null ? "text-muted-foreground" : "text-foreground"}>{statuses[r.status]}{r.assetType === AssetType.TESOURO && r.status !== "ACCOUNT_RECONCILED" && <span className="block text-xs text-muted-foreground">Valorizado a custo, sem marcação a mercado</span>}{r.valueOrigin === "ACCOUNT" && <span className="block text-xs text-muted-foreground">{r.lastReconciliationDate ? `Última conciliação: ${dateLabel(r.lastReconciliationDate)}` : "Nenhuma conciliação registrada"}</span>}{r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST") && <span className="block text-xs text-muted-foreground">Custo indeterminado</span>}</TableCell>
       </TableRow>)}</TableBody></Table>
     </>}
   </details>;
