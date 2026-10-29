@@ -405,7 +405,9 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
 
 export interface CapitalVsMarketAssetRow {
   assetId: string;
-  status: "MARKET" | "COST_ONLY" | "NO_HISTORY";
+  assetType: AssetType;
+  /** ACCOUNT: valor comprovado pelo saldo espelhado da conta (caixinha/CDB). */
+  status: "MARKET" | "COST_ONLY" | "NO_HISTORY" | "ACCOUNT";
   quantity: number | null;
   cost: number | null;
   marketValue: number | null;
