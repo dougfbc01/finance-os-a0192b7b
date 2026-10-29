@@ -12,6 +12,7 @@ const capitalCoverage = (row: CapitalVsMarketMonth) => row.coberturaCapital === 
 function MonthTooltip({ active, payload }: { active?: boolean; payload?: { payload?: CapitalVsMarketMonth }[] }) {
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
+  const accountValued = row.assets.filter((a) => a.status === "ACCOUNT").length;
   return <div className="max-w-80 space-y-2 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-md">
     <p className="font-semibold">{monthLabel(row.date)}</p>
     <p>Capital total: {amount(row.capitalTotal, row.currency)}</p>
@@ -19,6 +20,7 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
     <p>Capital dos avaliados: {amount(row.custoAvaliados, row.currency)}</p>
     <p>Ganho/perda não realizado: {amount(row.ganhoNaoRealizado, row.currency)} · {percent(row.ganhoPct)}</p>
     <p>{coverage(row)}</p>
+    {accountValued > 0 && <p className="text-muted-foreground">{accountValued} {accountValued === 1 ? "ativo avaliado" : "ativos avaliados"} pelo saldo da conta (Conta (conciliado)).</p>}
     <p>Capital somente a custo: {amount(row.capitalSomenteCusto, row.currency)}</p>
     {row.ativosSemHistorico > 0 && <p className="text-muted-foreground">{row.ativosSemHistorico} ativos sem histórico suficiente, fora do capital.</p>}
   </div>;
@@ -27,9 +29,11 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
 export function InvestmentCapitalVsMarketChart({ rows, currency, isLoading, error }: {
   rows: CapitalVsMarketMonth[]; currency: string; isLoading: boolean; error: unknown;
 }) {
+  const hasAccountValued = rows.some((row) => row.assets.some((a) => a.status === "ACCOUNT"));
   return <section className="min-w-0 space-y-4" aria-label="Comparativo mensal de capital e mercado">
     <h2 className="text-base font-semibold">Capital investido × Valor de mercado · {currency}</h2>
     <p className="text-sm text-muted-foreground">Ativos sem cotação no mês entram somente no capital. O ganho/perda compara mercado e custo apenas dos mesmos ativos avaliados. A comparação direta de ganho é entre Valor de mercado e Capital dos ativos avaliados.</p>
+    {hasAccountValued && <p className="text-sm text-muted-foreground">Caixinhas/CDB espelhados em conta entram como avaliados pelo saldo da conta (origem "Conta (conciliado)"), com rendimento em degrau na data de cada conciliação. Esse saldo já conta no caixa do Patrimônio e não soma de novo lá.</p>}
     {isLoading ? <p className="text-sm text-muted-foreground" role="status">Carregando comparativo mensal…</p>
       : error ? <p className="text-sm text-destructive" role="alert">Não foi possível carregar o comparativo mensal.</p>
       : rows.length === 0 ? <p className="text-sm text-muted-foreground">Sem histórico de movimentações no período selecionado.</p>

@@ -1,10 +1,11 @@
 // Read-only presentation adapter. Financial calculations remain in the existing services.
-import { AssetValuationSource, ASSET_TYPE_LABELS, InvestmentOperation, isMarketQuotableType } from "@/constants/enums";
-import type { Asset, Movement } from "@/models";
+import { AssetValuationSource, ASSET_TYPE_LABELS, INVESTMENT_ASSET_TYPES, InvestmentOperation, isMarketQuotableType, type AssetType } from "@/constants/enums";
+import type { Account, Asset, Movement } from "@/models";
 import type { MarketPricePoint, MarketQuoteMap } from "@/models/MarketData";
 import { AssetValuationServiceImpl } from "./AssetValuationService";
 import { InvestmentServiceImpl, type InvestmentRow } from "./InvestmentService";
 import { MarketQuotationServiceImpl } from "./MarketQuotationService";
+import { YieldReconciliationServiceImpl } from "./YieldReconciliationService";
 import { validInvestmentRange } from "./InvestmentViewService";
 
 export interface InvestmentGroup {
@@ -26,6 +27,65 @@ export const investmentGroupKey = (asset: Asset) => `${asset.asset_type}_${asset
 
 /** Below this share of the group capital valued, a return point is shown with a hollow marker. */
 export const GROUP_RETURN_COVERAGE_WARNING = 0.8;
+
+/**
+ * Ativo de investimento espelhado numa conta (caixinha/CDB com valuation_source
+ * ACCOUNT). Segue fora do total de ativos do Patrimônio (o caixa já o conta),
+ * mas na aba Análise o saldo da conta é o valor comprovado da posição.
+ * Classes de caixa puro (BANK, CASH, CAIXINHA, OUTRO) continuam excluídas.
+ */
+export function isAccountMirrorInvestment(asset: Asset): boolean {
+  return asset.valuation_source === AssetValuationSource.ACCOUNT
+    && !!asset.account_id
+    && INVESTMENT_ASSET_TYPES.includes(asset.asset_type);
+}
+
+export interface AccountMirrorValue {
+  /** Saldo da conta na data (mesma regra do extrato/dashboard). */
+  value: number;
+  /** Saldo inicial + aportes/transferências recebidas − resgates/enviadas. */
+  capital: number;
+  /** Rendimentos registrados (conciliados) até a data. */
+  yields: number;
+  lastReconciliation: { date: string; amount: number; movementId: string } | null;
+}
+
+/**
+ * Valor de um ativo espelhado numa conta em uma data. Reutiliza o breakdown da
+ * conciliação de rendimentos e o impacto em conta do MovementService — nenhuma
+ * segunda fórmula de saldo. Rendimento só existe quando foi conciliado.
+ */
+export function accountMirrorValue(asset: Asset, account: Account, movements: Movement[], date: string): AccountMirrorValue {
+  const breakdown = YieldReconciliationServiceImpl.breakdown(account, movements, date);
+  const value = YieldReconciliationServiceImpl.expectedBalance(account, movements, date);
+  const capital = Number((breakdown.initialBalance + breakdown.contributions - breakdown.redemptions).toFixed(2));
+  const past = movements.filter((m) => !m.deleted_at && m.transaction_date <= date);
+  return { value, capital, yields: breakdown.registeredYields, lastReconciliation: YieldReconciliationServiceImpl.lastReconciliation(past, asset.id) };
+}
+
+/** Linha de carteira de um ativo espelhado, com o saldo da conta como valor comprovado. */
+function accountMirrorRow(asset: Asset, mirror: AccountMirrorValue): InvestmentRow {
+  const profit = Number((mirror.value - mirror.capital).toFixed(2));
+  return {
+    asset,
+    invested: mirror.capital,
+    current: mirror.value,
+    profit,
+    profitPercent: mirror.capital > 0 ? (profit / mirror.capital) * 100 : 0,
+    // Retorno absoluto mesmo com capital zero: o rendimento conciliado é o retorno.
+    economicReturn: mirror.yields,
+    accumulatedIncome: mirror.yields,
+  };
+}
+
+/** Linhas atuais dos ativos espelhados em conta, para a Composição da aba Análise. */
+export function accountMirrorRows(assets: Asset[], accounts: Account[], movements: Movement[], date: string): InvestmentRow[] {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  return assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a)).flatMap((asset) => {
+    const account = byId.get(asset.account_id ?? "");
+    return account ? [accountMirrorRow(asset, accountMirrorValue(asset, account, movements, date))] : [];
+  });
+}
 
 /** Shared historical-position evidence guard; does not calculate a position. */
 function lacksPositionHistory(asset: Asset, movements: Movement[], date: string, requireEvent = false): boolean {
@@ -184,11 +244,12 @@ export function investmentHistory(params: {
   });
 }
 
-export type MonthlyPositionStatus = "OK" | "STALE_PRICE" | "CLOSED" | "NO_PRICE" | "NO_HISTORY" | "NO_VALUATION";
+export type MonthlyPositionStatus = "OK" | "STALE_PRICE" | "CLOSED" | "NO_PRICE" | "NO_HISTORY" | "NO_VALUATION" | "ACCOUNT_RECONCILED";
 export interface InvestmentMonthlyRow {
   assetId: string;
   name: string;
   ticker: string | null;
+  assetType: AssetType;
   month: string;
   referenceDate: string;
   quantity: number | null;
@@ -200,6 +261,10 @@ export interface InvestmentMonthlyRow {
   status: MonthlyPositionStatus;
   currency: string;
   group: string;
+  /** "ACCOUNT" quando o valor é o saldo espelhado da conta (caixinha/CDB). */
+  valueOrigin?: "ACCOUNT";
+  /** Data da última conciliação de rendimento até a referência (ativos de conta). */
+  lastReconciliationDate?: string | null;
   /** The existing services' projection, not a second financial calculation. */
   projection: InvestmentHistoryPoint;
 }
@@ -207,9 +272,41 @@ export interface InvestmentMonthlyRow {
 /** Read-only monthly ledger. A stored session is evidence, not an inferred exchange calendar. */
 export function investmentMonthlyBase(params: {
   assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+  /** Contas do workspace; necessárias para valorar ativos espelhados (caixinha/CDB). */
+  accounts?: Account[];
 }): InvestmentMonthlyRow[] {
   if (!validInvestmentRange(params.from, params.to, params.to)) return [];
   const result: InvestmentMonthlyRow[] = [];
+  const accountsById = new Map((params.accounts ?? []).map((a) => [a.id, a]));
+  // Ativos espelhados em conta: o saldo da conta é o valor comprovado do mês.
+  for (const asset of params.assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a))) {
+    const account = accountsById.get(asset.account_id ?? "");
+    if (!account) continue;
+    const related = params.movements.filter((m) => !m.deleted_at &&
+      (m.asset_id === asset.id || m.account_id === account.id || m.transfer_account_id === account.id));
+    const first = related.map((m) => m.transaction_date).sort()[0];
+    const start = first ?? params.from;
+    if (!validInvestmentRange(start, params.to, params.to)) continue;
+    const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
+    while (cursor.toISOString().slice(0, 10) <= params.to) {
+      const month = cursor.toISOString().slice(0, 7);
+      const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      const referenceDate = monthEnd > params.to ? params.to : monthEnd;
+      const mirror = accountMirrorValue(asset, account, params.movements, referenceDate);
+      const row = accountMirrorRow(asset, mirror);
+      const group = investmentGroupKey(asset);
+      result.push({
+        assetId: asset.id, name: asset.name, ticker: asset.ticker, assetType: asset.asset_type,
+        month, referenceDate, quantity: null, cost: mirror.capital,
+        unitQuote: null, quoteDate: null, totalValue: mirror.value,
+        status: "ACCOUNT_RECONCILED", currency: asset.currency, group,
+        valueOrigin: "ACCOUNT", lastReconciliationDate: mirror.lastReconciliation?.date ?? null,
+        projection: { date: referenceDate, value: mirror.value, valuesByGroup: { [group]: mirror.value },
+          returns: {}, missingAssets: 0, limitations: [], carriedPrices: [], assetRows: [row] },
+      });
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+  }
   for (const asset of InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at)) {
     const related = params.movements.filter((m) => !m.deleted_at &&
       (m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`)));
@@ -246,7 +343,7 @@ export function investmentMonthlyBase(params: {
             projection.limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
             projection.assetRows = [];
           }
-          result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, month, referenceDate,
+          result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, assetType: asset.asset_type, month, referenceDate,
             quantity, cost: position?.cost ?? null,
             unitQuote: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.close : null,
             quoteDate: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.date : null,
@@ -308,7 +405,9 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
 
 export interface CapitalVsMarketAssetRow {
   assetId: string;
-  status: "MARKET" | "COST_ONLY" | "NO_HISTORY";
+  assetType: AssetType;
+  /** ACCOUNT: valor comprovado pelo saldo espelhado da conta (caixinha/CDB). */
+  status: "MARKET" | "COST_ONLY" | "NO_HISTORY" | "ACCOUNT";
   quantity: number | null;
   cost: number | null;
   marketValue: number | null;
@@ -339,12 +438,19 @@ export interface CapitalVsMarketMonth {
 /** Separate month-end comparison; existing first-session ledger/charts remain unchanged. */
 export function capitalVsMarketMonthly(params: {
   assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+  /** Contas do workspace; necessárias para valorar ativos espelhados (caixinha/CDB). */
+  accounts?: Account[];
 }): CapitalVsMarketMonth[] {
   if (!validInvestmentRange(params.from, params.to, params.to)) return [];
   const assets = InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at);
+  const mirrors = params.assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a));
+  const accountsById = new Map((params.accounts ?? []).map((a) => [a.id, a]));
   const active = params.movements.filter((m) => !m.deleted_at);
   const related = (asset: Asset) => active.filter((m) => m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`));
-  const first = assets.flatMap((a) => related(a).map((m) => m.transaction_date)).sort()[0];
+  const mirrorRelated = (asset: Asset) => active.filter((m) =>
+    m.asset_id === asset.id || m.account_id === asset.account_id || m.transfer_account_id === asset.account_id);
+  const first = [...assets.flatMap((a) => related(a).map((m) => m.transaction_date)),
+    ...mirrors.flatMap((a) => mirrorRelated(a).map((m) => m.transaction_date))].sort()[0];
   if (!first || first > params.to) return [];
   const cursor = new Date(`${first.slice(0, 7)}-01T00:00:00Z`);
   const result: CapitalVsMarketMonth[] = [];
@@ -355,13 +461,16 @@ export function capitalVsMarketMonthly(params: {
     const date = end > params.to ? params.to : end;
     if (date >= params.from) {
       const past = active.filter((m) => m.transaction_date <= date);
-      for (const currency of new Set(assets.map((a) => a.currency))) {
+      for (const currency of new Set([...assets, ...mirrors].map((a) => a.currency))) {
         const members = assets.filter((a) => a.currency === currency &&
           (!related(a).length || related(a).some((m) => m.transaction_date <= date)));
-        if (!members.length) continue;
+        const mirrorMembers = mirrors.filter((a) => a.currency === currency && accountsById.has(a.account_id ?? "") &&
+          (mirrorRelated(a).some((m) => m.transaction_date <= date) ||
+            Number(accountsById.get(a.account_id ?? "")?.initial_balance) !== 0));
+        if (!members.length && !mirrorMembers.length) continue;
         const rows: CapitalVsMarketAssetRow[] = members.map((asset) => {
           if (lacksPositionHistory(asset, active, date, true)) return {
-            assetId: asset.id, status: "NO_HISTORY", quantity: null, cost: null, marketValue: null, quoteDate: null, held: false,
+            assetId: asset.id, assetType: asset.asset_type, status: "NO_HISTORY", quantity: null, cost: null, marketValue: null, quoteDate: null, held: false,
           };
           const position = AssetValuationServiceImpl.positionOf(asset.id, past);
           const held = position.quantity > 0 || position.cost > 0;
@@ -380,11 +489,21 @@ export function capitalVsMarketMonthly(params: {
             change: null, changePercent: null, marketState: null,
           } } })[0] : undefined;
           const marketValue = held ? projected?.market_value ?? null : 0;
-          return { assetId: asset.id, status: held && marketValue !== null ? "MARKET" : "COST_ONLY",
+          return { assetId: asset.id, assetType: asset.asset_type, status: held && marketValue !== null ? "MARKET" : "COST_ONLY",
             quantity: position.quantity, cost: position.cost, marketValue, quoteDate: quote?.date ?? null, held };
         });
+        // Ativos espelhados em conta entram como avaliados: o saldo da conta é o valor comprovado.
+        for (const asset of mirrorMembers) {
+          const account = accountsById.get(asset.account_id ?? "");
+          if (!account) continue;
+          const mirror = accountMirrorValue(asset, account, active, date);
+          const held = mirror.value !== 0 || mirror.capital !== 0;
+          rows.push({ assetId: asset.id, assetType: asset.asset_type, status: "ACCOUNT",
+            quantity: null, cost: mirror.capital, marketValue: mirror.value,
+            quoteDate: mirror.lastReconciliation?.date ?? null, held });
+        }
         const known = rows.filter((r) => r.status !== "NO_HISTORY");
-        const market = known.filter((r) => r.status === "MARKET");
+        const market = known.filter((r) => r.status === "MARKET" || r.status === "ACCOUNT");
         const held = known.filter((r) => r.held);
         const capitalTotal = known.length ? round(known.reduce((sum, r) => sum + (r.cost ?? 0), 0)) : null;
         const valorMercadoAvaliados = market.length ? round(market.reduce((sum, r) => sum + (r.marketValue ?? 0), 0)) : held.length === 0 && known.length ? 0 : null;

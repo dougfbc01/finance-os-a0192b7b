@@ -12,9 +12,9 @@ import { InvestmentMonthlyTable } from "./InvestmentMonthlyTable";
 import { InvestmentCapitalVsMarketChart } from "./InvestmentCapitalVsMarketChart";
 import { B3QuoteHistoryImportDialog } from "./B3QuoteHistoryImportDialog";
 import { B3QuoteHistoryImportService } from "@/services/B3QuoteHistoryImportService";
-import { GROUP_RETURN_COVERAGE_WARNING, summarizeInvestments } from "@/services/InvestmentAnalysisService";
+import { accountMirrorRows, GROUP_RETURN_COVERAGE_WARNING, summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
-import type { Movement } from "@/models";
+import type { Account, Asset, Movement } from "@/models";
 import { formatCurrency } from "@/lib/format";
 import { historicalChartView, investmentPeriodStart, limitationSummary, validInvestmentRange } from "@/services/InvestmentViewService";
 
@@ -49,29 +49,33 @@ function ReturnTooltip({ active, payload, label, groups }: {
   </div>;
 }
 
-export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspaceId: string | undefined; rows: InvestmentRow[]; movements: Movement[] }) {
+export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = [], assets = [] }: { workspaceId: string | undefined; rows: InvestmentRow[]; movements: Movement[]; accounts?: Account[]; assets?: Asset[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const [period, setPeriod] = useState("MAX");
   const [customFrom, setCustomFrom] = useState(today.slice(0, 4) + "-01-01");
   const [customTo, setCustomTo] = useState(today);
-  const currencies = [...new Set(rows.map((r) => r.asset.currency))];
+  // Ativos espelhados em conta (caixinha/CDB) entram na Análise pelo saldo da conta.
+  const accountRows = useMemo(() => accountMirrorRows(assets, accounts, movements, today), [assets, accounts, movements, today]);
+  const currencies = [...new Set([...rows, ...accountRows].map((r) => r.asset.currency))];
   const [selectedCurrency, setCurrency] = useState("BRL");
   const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] ?? "BRL";
   const [group, setGroup] = useState("ALL");
   const [hiddenGroups, setHiddenGroups] = useState<string[]>([]);
-  const groups = summarizeInvestments(rows.filter((r) => r.asset.currency === currency));
+  const groups = summarizeInvestments([...rows.filter((r) => r.asset.currency === currency), ...accountRows.filter((r) => r.asset.currency === currency)]);
   const selectedGroup = group === "ALL" || groups.some((g) => g.key === group) ? group : "ALL";
   const range = useMemo(() => {
     if (period === "CUSTOM") return { from: customFrom, to: customTo };
     const from = investmentPeriodStart(today, period === "1M" ? 1 : period === "3M" ? 3 : period === "6M" ? 6 : 12);
-    const assetIds = new Set(rows.filter((r) => r.asset.currency === currency && (selectedGroup === "ALL" || r.asset.asset_type + "_" + currency === selectedGroup)).map((r) => r.asset.id));
-    const first = movements.filter((m) => m.asset_id && assetIds.has(m.asset_id) && !m.deleted_at).map((m) => m.transaction_date).sort()[0];
+    const scopedRows = [...rows, ...accountRows].filter((r) => r.asset.currency === currency && (selectedGroup === "ALL" || r.asset.asset_type + "_" + currency === selectedGroup));
+    const assetIds = new Set(scopedRows.map((r) => r.asset.id));
+    const mirrorAccountIds = new Set(scopedRows.map((r) => r.asset.account_id).filter((id): id is string => !!id));
+    const first = movements.filter((m) => !m.deleted_at && ((m.asset_id && assetIds.has(m.asset_id)) || (m.account_id && mirrorAccountIds.has(m.account_id)) || (m.transfer_account_id && mirrorAccountIds.has(m.transfer_account_id)))).map((m) => m.transaction_date).sort()[0];
     return { from: period === "MAX" ? first ?? today : from, to: today };
-  }, [period, today, customFrom, customTo, movements, rows, currency, selectedGroup]);
+  }, [period, today, customFrom, customTo, movements, rows, accountRows, currency, selectedGroup]);
   const queryClient = useQueryClient();
   const quoteTargets = useMemo(() => B3QuoteHistoryImportService.targetsFrom(rows.map((r) => r.asset), movements), [rows, movements]);
   // ALL is scoped to currency before aggregation; amounts in different currencies are never added.
-  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency);
+  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency, accounts);
   const visibleGroups = groups.filter((g) => (selectedGroup === "ALL" || g.key === selectedGroup) && (selectedGroup !== "ALL" || !hiddenGroups.includes(g.key)));
   const chart = historicalChartView(analysis.points, visibleGroups.map((g) => g.key));
   const chartData = chart.data;
@@ -112,15 +116,18 @@ export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspace
       {limitations.length > 0 && <div className="space-y-2 border-l-2 border-border pl-3 text-sm text-muted-foreground" role="status"><p>{incomplete ? "Há meses com ativos sem avaliação comprovada; eles não entram como zero nos totais." : "Há ativos com custo histórico indeterminado."}</p><details><summary className="cursor-pointer">Dados faltantes por ativo ({new Set(limitations.map((l) => l.assetId)).size})</summary><ul className="mt-2 space-y-1">{limitations.map((l) => <li key={`${l.assetId}:${l.reason}`}>{l.name} — {l.reason === "NO_HISTORY" ? "faltam movimentos de posição ou quantidades nas compras/saídas" : l.reason === "NO_PRICE" ? "falta cotação histórica salva na data ou antes dela" : l.reason === "NO_VALUATION" ? "falta avaliação histórica registrada (aportes não comprovam o valor da posição)" : "falta base de custo comprovada; rentabilidade indisponível"} · {l.dates} {l.dates === 1 ? "data" : "datas"} ({fmtDate(l.first)}{l.first !== l.last ? ` a ${fmtDate(l.last)}` : ""})</li>)}</ul></details></div>}
       {chart.isolatedReturns.length > 0 && <div className="text-sm text-muted-foreground" role="status">{chart.isolatedReturns.map(({ key, date }) => <p key={key}>{groups.find((g) => g.key === key)?.label} — apenas uma observação válida, em {new Date(`${date}T12:00:00Z`).toLocaleDateString("pt-BR")}. O ponto representa essa data, não uma evolução; faltam cotações ou avaliações válidas nas demais datas do período.</p>)}</div>}
       {carriedPrices && <p className="text-sm text-muted-foreground">Cada mês usa a última cotação salva dentro dele; sem cotação no mês, usa a última anterior, com a data real sinalizada. Não há interpolação nem uso de preços futuros. Rentabilidade da posição não representa retorno acumulado com distribuições.</p>}
+      {accountRows.length > 0 && <p className="text-sm text-muted-foreground">Caixinhas/CDB espelhados em conta entram pelo saldo da conta (origem "Conta (conciliado)"); o rendimento aparece em degrau na data de cada conciliação, sem rateio nem estimativa. Esse saldo já conta no caixa do Patrimônio e não soma de novo lá.</p>}
       <div className="min-w-0 space-y-4"><h2 className="text-base font-semibold">Rentabilidade da posição por grupo</h2>
         <p className="text-xs text-muted-foreground">Calculada somente sobre os ativos com avaliação no mês: (valor de mercado − custo dos mesmos ativos) ÷ custo dos mesmos ativos.{lowCoverage ? ` Pontos com marcador vazado têm menos de ${GROUP_RETURN_COVERAGE_WARNING * 100}% do capital do grupo avaliado.` : ""}</p>
         <div className="h-72" role="img" aria-label="Gráfico de rentabilidade por grupo">{hasReturns ? <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => `${v}%`} width={65} fontSize={11} /><Tooltip content={<ReturnTooltip groups={groups} />} /><Legend />{returnGroups.map((g) => <Line key={g.key} dataKey={g.key} name={g.label} stroke={groupColor(g.key)} strokeWidth={2} dot={returnDot(g.key, groupColor(g.key))} connectNulls={false} isAnimationActive={false} />)}</LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">{visibleGroups.length === 0 ? "Nenhum grupo selecionado para comparação." : "Rentabilidade histórica indisponível: faltam preços ou base de custo comprovada no período."}</div>}</div>
       </div>
       <InvestmentMonthlyTable rows={analysis.monthlyBase} />
     </>}
-    <div className="space-y-4 border-t pt-6"><h2 className="text-base font-semibold">Composição atual da carteira · {currency}</h2><div className="grid items-center gap-6 md:grid-cols-[280px_1fr]">
+    <div className="space-y-4 border-t pt-6"><h2 className="text-base font-semibold">Composição atual da carteira · {currency}</h2>
+    {accountRows.some((r) => r.current > 0) && <p className="text-xs text-muted-foreground">Caixinhas/CDB espelhados em conta aparecem pelo saldo da conta: já contam no caixa do Patrimônio e não somam de novo lá.</p>}
+    <div className="grid items-center gap-6 md:grid-cols-[280px_1fr]">
       <div className="h-64" role="img" aria-label="Gráfico de composição atual por grupo">{composition.length > 0 ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={composition} dataKey="current" nameKey="label" innerRadius={65} outerRadius={95} paddingAngle={2} isAnimationActive={false}>{composition.map((g) => <Cell key={g.key} fill={groupColor(g.key)} />)}</Pie><Tooltip formatter={(v: number) => typeof v === "number" && Number.isFinite(v) ? formatCurrency(v, currency) : "—"} /></PieChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Sem valores disponíveis.</div>}</div>
-      <div className="divide-y">{groups.map((g) => <div key={g.key} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="min-w-0 break-words font-medium">{g.label}</span><div className="flex flex-wrap gap-5 text-sm tabular-nums"><span>{formatCurrency(g.current, currency)}</span><span className="w-20 text-right text-muted-foreground">{g.participation.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</span></div></div>)}</div>
+      <div className="divide-y">{groups.map((g) => <div key={g.key} className="flex flex-wrap items-center justify-between gap-3 py-3"><span className="min-w-0 break-words font-medium">{g.label}{g.key.startsWith("TESOURO_") && <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs font-normal text-secondary-foreground">A custo</span>}</span><div className="flex flex-wrap gap-5 text-sm tabular-nums"><span>{formatCurrency(g.current, currency)}</span><span className="w-20 text-right text-muted-foreground">{g.participation.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</span></div></div>)}</div>
     </div></div>
   </section>;
 }
