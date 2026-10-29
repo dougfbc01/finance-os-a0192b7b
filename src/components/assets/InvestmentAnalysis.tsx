@@ -66,14 +66,16 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
   const range = useMemo(() => {
     if (period === "CUSTOM") return { from: customFrom, to: customTo };
     const from = investmentPeriodStart(today, period === "1M" ? 1 : period === "3M" ? 3 : period === "6M" ? 6 : 12);
-    const assetIds = new Set(rows.filter((r) => r.asset.currency === currency && (selectedGroup === "ALL" || r.asset.asset_type + "_" + currency === selectedGroup)).map((r) => r.asset.id));
-    const first = movements.filter((m) => m.asset_id && assetIds.has(m.asset_id) && !m.deleted_at).map((m) => m.transaction_date).sort()[0];
+    const scopedRows = [...rows, ...accountRows].filter((r) => r.asset.currency === currency && (selectedGroup === "ALL" || r.asset.asset_type + "_" + currency === selectedGroup));
+    const assetIds = new Set(scopedRows.map((r) => r.asset.id));
+    const mirrorAccountIds = new Set(scopedRows.map((r) => r.asset.account_id).filter((id): id is string => !!id));
+    const first = movements.filter((m) => !m.deleted_at && ((m.asset_id && assetIds.has(m.asset_id)) || (m.account_id && mirrorAccountIds.has(m.account_id)) || (m.transfer_account_id && mirrorAccountIds.has(m.transfer_account_id)))).map((m) => m.transaction_date).sort()[0];
     return { from: period === "MAX" ? first ?? today : from, to: today };
-  }, [period, today, customFrom, customTo, movements, rows, currency, selectedGroup]);
+  }, [period, today, customFrom, customTo, movements, rows, accountRows, currency, selectedGroup]);
   const queryClient = useQueryClient();
   const quoteTargets = useMemo(() => B3QuoteHistoryImportService.targetsFrom(rows.map((r) => r.asset), movements), [rows, movements]);
   // ALL is scoped to currency before aggregation; amounts in different currencies are never added.
-  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency);
+  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency, accounts);
   const visibleGroups = groups.filter((g) => (selectedGroup === "ALL" || g.key === selectedGroup) && (selectedGroup !== "ALL" || !hiddenGroups.includes(g.key)));
   const chart = historicalChartView(analysis.points, visibleGroups.map((g) => g.key));
   const chartData = chart.data;
