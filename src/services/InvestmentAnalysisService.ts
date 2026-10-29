@@ -343,7 +343,7 @@ export function investmentMonthlyBase(params: {
             projection.limitations.push({ assetId: asset.id, name: asset.name, reason: "NO_HISTORY" });
             projection.assetRows = [];
           }
-          result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, month, referenceDate,
+          result.push({ assetId: asset.id, name: asset.name, ticker: asset.ticker, assetType: asset.asset_type, month, referenceDate,
             quantity, cost: position?.cost ?? null,
             unitQuote: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.close : null,
             quoteDate: quote && asset.ticker && isMarketQuotableType(asset.asset_type) ? quote.date : null,
