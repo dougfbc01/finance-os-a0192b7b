@@ -28,6 +28,65 @@ export const investmentGroupKey = (asset: Asset) => `${asset.asset_type}_${asset
 /** Below this share of the group capital valued, a return point is shown with a hollow marker. */
 export const GROUP_RETURN_COVERAGE_WARNING = 0.8;
 
+/**
+ * Ativo de investimento espelhado numa conta (caixinha/CDB com valuation_source
+ * ACCOUNT). Segue fora do total de ativos do Patrimônio (o caixa já o conta),
+ * mas na aba Análise o saldo da conta é o valor comprovado da posição.
+ * Classes de caixa puro (BANK, CASH, CAIXINHA, OUTRO) continuam excluídas.
+ */
+export function isAccountMirrorInvestment(asset: Asset): boolean {
+  return asset.valuation_source === AssetValuationSource.ACCOUNT
+    && !!asset.account_id
+    && INVESTMENT_ASSET_TYPES.includes(asset.asset_type);
+}
+
+export interface AccountMirrorValue {
+  /** Saldo da conta na data (mesma regra do extrato/dashboard). */
+  value: number;
+  /** Saldo inicial + aportes/transferências recebidas − resgates/enviadas. */
+  capital: number;
+  /** Rendimentos registrados (conciliados) até a data. */
+  yields: number;
+  lastReconciliation: { date: string; amount: number; movementId: string } | null;
+}
+
+/**
+ * Valor de um ativo espelhado numa conta em uma data. Reutiliza o breakdown da
+ * conciliação de rendimentos e o impacto em conta do MovementService — nenhuma
+ * segunda fórmula de saldo. Rendimento só existe quando foi conciliado.
+ */
+export function accountMirrorValue(asset: Asset, account: Account, movements: Movement[], date: string): AccountMirrorValue {
+  const breakdown = YieldReconciliationServiceImpl.breakdown(account, movements, date);
+  const value = YieldReconciliationServiceImpl.expectedBalance(account, movements, date);
+  const capital = Number((breakdown.initialBalance + breakdown.contributions - breakdown.redemptions).toFixed(2));
+  const past = movements.filter((m) => !m.deleted_at && m.transaction_date <= date);
+  return { value, capital, yields: breakdown.registeredYields, lastReconciliation: YieldReconciliationServiceImpl.lastReconciliation(past, asset.id) };
+}
+
+/** Linha de carteira de um ativo espelhado, com o saldo da conta como valor comprovado. */
+function accountMirrorRow(asset: Asset, mirror: AccountMirrorValue): InvestmentRow {
+  const profit = Number((mirror.value - mirror.capital).toFixed(2));
+  return {
+    asset,
+    invested: mirror.capital,
+    current: mirror.value,
+    profit,
+    profitPercent: mirror.capital > 0 ? (profit / mirror.capital) * 100 : 0,
+    // Retorno absoluto mesmo com capital zero: o rendimento conciliado é o retorno.
+    economicReturn: mirror.yields,
+    accumulatedIncome: mirror.yields,
+  };
+}
+
+/** Linhas atuais dos ativos espelhados em conta, para a Composição da aba Análise. */
+export function accountMirrorRows(assets: Asset[], accounts: Account[], movements: Movement[], date: string): InvestmentRow[] {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  return assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a)).flatMap((asset) => {
+    const account = byId.get(asset.account_id ?? "");
+    return account ? [accountMirrorRow(asset, accountMirrorValue(asset, account, movements, date))] : [];
+  });
+}
+
 /** Shared historical-position evidence guard; does not calculate a position. */
 function lacksPositionHistory(asset: Asset, movements: Movement[], date: string, requireEvent = false): boolean {
   const events = movements.filter((m) => !m.deleted_at &&
