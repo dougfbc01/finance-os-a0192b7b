@@ -12,9 +12,9 @@ import { InvestmentMonthlyTable } from "./InvestmentMonthlyTable";
 import { InvestmentCapitalVsMarketChart } from "./InvestmentCapitalVsMarketChart";
 import { B3QuoteHistoryImportDialog } from "./B3QuoteHistoryImportDialog";
 import { B3QuoteHistoryImportService } from "@/services/B3QuoteHistoryImportService";
-import { GROUP_RETURN_COVERAGE_WARNING, summarizeInvestments } from "@/services/InvestmentAnalysisService";
+import { accountMirrorRows, GROUP_RETURN_COVERAGE_WARNING, summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
-import type { Movement } from "@/models";
+import type { Account, Asset, Movement } from "@/models";
 import { formatCurrency } from "@/lib/format";
 import { historicalChartView, investmentPeriodStart, limitationSummary, validInvestmentRange } from "@/services/InvestmentViewService";
 
@@ -49,17 +49,19 @@ function ReturnTooltip({ active, payload, label, groups }: {
   </div>;
 }
 
-export function InvestmentAnalysis({ workspaceId, rows, movements }: { workspaceId: string | undefined; rows: InvestmentRow[]; movements: Movement[] }) {
+export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = [], assets = [] }: { workspaceId: string | undefined; rows: InvestmentRow[]; movements: Movement[]; accounts?: Account[]; assets?: Asset[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const [period, setPeriod] = useState("MAX");
   const [customFrom, setCustomFrom] = useState(today.slice(0, 4) + "-01-01");
   const [customTo, setCustomTo] = useState(today);
-  const currencies = [...new Set(rows.map((r) => r.asset.currency))];
+  // Ativos espelhados em conta (caixinha/CDB) entram na Análise pelo saldo da conta.
+  const accountRows = useMemo(() => accountMirrorRows(assets, accounts, movements, today), [assets, accounts, movements, today]);
+  const currencies = [...new Set([...rows, ...accountRows].map((r) => r.asset.currency))];
   const [selectedCurrency, setCurrency] = useState("BRL");
   const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] ?? "BRL";
   const [group, setGroup] = useState("ALL");
   const [hiddenGroups, setHiddenGroups] = useState<string[]>([]);
-  const groups = summarizeInvestments(rows.filter((r) => r.asset.currency === currency));
+  const groups = summarizeInvestments([...rows.filter((r) => r.asset.currency === currency), ...accountRows.filter((r) => r.asset.currency === currency)]);
   const selectedGroup = group === "ALL" || groups.some((g) => g.key === group) ? group : "ALL";
   const range = useMemo(() => {
     if (period === "CUSTOM") return { from: customFrom, to: customTo };
