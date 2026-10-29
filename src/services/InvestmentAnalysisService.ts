@@ -438,12 +438,19 @@ export interface CapitalVsMarketMonth {
 /** Separate month-end comparison; existing first-session ledger/charts remain unchanged. */
 export function capitalVsMarketMonthly(params: {
   assets: Asset[]; movements: Movement[]; prices: Record<string, MarketPricePoint[]>; from: string; to: string;
+  /** Contas do workspace; necessárias para valorar ativos espelhados (caixinha/CDB). */
+  accounts?: Account[];
 }): CapitalVsMarketMonth[] {
   if (!validInvestmentRange(params.from, params.to, params.to)) return [];
   const assets = InvestmentServiceImpl.filterInvestments(params.assets).filter((a) => !a.deleted_at);
+  const mirrors = params.assets.filter((a) => !a.deleted_at && a.is_active && isAccountMirrorInvestment(a));
+  const accountsById = new Map((params.accounts ?? []).map((a) => [a.id, a]));
   const active = params.movements.filter((m) => !m.deleted_at);
   const related = (asset: Asset) => active.filter((m) => m.asset_id === asset.id || (m.tags ?? []).includes(`cost:SOURCE:${asset.id}`));
-  const first = assets.flatMap((a) => related(a).map((m) => m.transaction_date)).sort()[0];
+  const mirrorRelated = (asset: Asset) => active.filter((m) =>
+    m.asset_id === asset.id || m.account_id === asset.account_id || m.transfer_account_id === asset.account_id);
+  const first = [...assets.flatMap((a) => related(a).map((m) => m.transaction_date)),
+    ...mirrors.flatMap((a) => mirrorRelated(a).map((m) => m.transaction_date))].sort()[0];
   if (!first || first > params.to) return [];
   const cursor = new Date(`${first.slice(0, 7)}-01T00:00:00Z`);
   const result: CapitalVsMarketMonth[] = [];
