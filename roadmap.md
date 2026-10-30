@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Renda fixa nas análises: caixinha/CDB (fonte ACCOUNT) entram na aba Análise e na Composição pelo saldo espelhado da conta (origem "Conta (conciliado)"), com capital, rendimento em degrau na conciliação e cobertura no Capital × Mercado; Patrimônio/Dashboard inalterados; Tesouro rotulado "A custo" com diagnóstico em docs/19-Renda-Fixa-Analises.md.
+- [x] Validar 528 testes em 43 arquivos e typecheck tsgo sem erros; build automático verificado no encerramento.
+
 - [x] Comparativo mensal capital × mercado: projeção no fim do mês, cotações somente do mês, cobertura e comparação sobre os mesmos ativos; preservar gráficos existentes.
 - [x] Integrar filtros e invalidação de cotações; 149 testes aprovados, tela autenticada com 60 meses, tabela e filtros conferidos; build automático OK, auditoria em docs/16-Comparativo-Mensal-Capital-Mercado.md.
 - [ ] Encerramento formal do comparativo: aguarda resultado explícito do typecheck automático (execução manual vedada no ambiente); permanece Em Desenvolvimento para a Definition of Done.

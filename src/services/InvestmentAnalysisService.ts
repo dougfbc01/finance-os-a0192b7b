@@ -112,7 +112,12 @@ export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
   return Array.from(grouped, ([key, members]) => {
     const first = members[0];
     if (!first) return null;
-    const totals = InvestmentServiceImpl.totals(members.map((r) => r.asset));
+    // Agrega as linhas já projetadas (inclui ativos espelhados em conta, que
+    // filterInvestments exclui do total patrimonial propositalmente).
+    const invested = Number(members.reduce((s, r) => s + r.invested, 0).toFixed(2));
+    const current = Number(members.reduce((s, r) => s + r.current, 0).toFixed(2));
+    const profit = Number((current - invested).toFixed(2));
+    const totals = { invested, current, profit, profitPercent: invested > 0 ? (profit / invested) * 100 : 0, count: members.length };
     const available = members.filter((r) => r.economicReturn !== null);
     const currencyTotal = rows.filter((r) => r.asset.currency === first.asset.currency)
       .reduce((sum, r) => sum + r.current, 0);
