@@ -55,6 +55,8 @@ function InvestimentosPage() {
     investments,
     investmentTotals,
     movements,
+    accounts,
+    assets,
     quotedById,
     hasQuotableAssets,
     isQuotesFetching,
