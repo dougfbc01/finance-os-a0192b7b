@@ -21,6 +21,14 @@ export interface InvestmentRow {
   profitPercent: number;
   economicReturn: number | null;
   accumulatedIncome: number;
+  /** Lucro/prejuízo já realizado em vendas, resgates e vencimentos (informativo, nunca somado ao valor). */
+  realizedResult: number;
+  /**
+   * Origem do valor atual exibido:
+   * MARKET (cotação), COST (a custo, sem cotação), CLOSED (posição encerrada,
+   * valor 0), MANUAL (valor informado) ou ACCOUNT (espelho de conta).
+   */
+  valueOrigin: "MARKET" | "COST" | "CLOSED" | "MANUAL" | "ACCOUNT";
 }
 
 export interface AssetDetail {
