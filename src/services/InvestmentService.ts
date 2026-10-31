@@ -21,6 +21,14 @@ export interface InvestmentRow {
   profitPercent: number;
   economicReturn: number | null;
   accumulatedIncome: number;
+  /** Lucro/prejuízo já realizado em vendas, resgates e vencimentos (informativo, nunca somado ao valor). */
+  realizedResult: number;
+  /**
+   * Origem do valor atual exibido:
+   * MARKET (cotação), COST (a custo, sem cotação), CLOSED (posição encerrada,
+   * valor 0), MANUAL (valor informado) ou ACCOUNT (espelho de conta).
+   */
+  valueOrigin: "MARKET" | "COST" | "CLOSED" | "MANUAL" | "ACCOUNT";
 }
 
 export interface AssetDetail {
@@ -212,20 +220,52 @@ class InvestmentServiceImpl extends BaseService {
   ): InvestmentRow[] {
     return this.filterInvestments(assets).map((asset) => {
       const summary = this.positionSummary(asset, movements);
+      const accumulatedIncome = this.accumulatedIncome(asset.id, movements);
+      // MOVEMENTS: o valor vem da posição reconstruída (positionOf), nunca de
+      // opening_value + delta. O resgate integral inclui o lucro realizado, que
+      // já saiu como caixa e não pode abater o valor dos ativos ainda abertos.
+      // Sem nenhuma operação vinculada não há evidência de posição: mantém os
+      // valores declarados no ativo (comportamento anterior).
+      const hasPositionEvidence =
+        summary !== null &&
+        (summary.quantity > 0 || summary.investedCapital > 0 || summary.realizedValue > 0);
+      if (summary && hasPositionEvidence) {
+        const marketValue =
+          typeof asset.market_value === "number" && Number.isFinite(asset.market_value)
+            ? asset.market_value
+            : null;
+        const closed = summary.quantity === 0;
+        const invested = closed ? 0 : summary.historicalCost;
+        const current = closed ? 0 : (marketValue ?? summary.historicalCost);
+        const profit = Number((current - invested).toFixed(2));
+        return {
+          asset,
+          invested,
+          current,
+          profit,
+          profitPercent: invested > 0 ? (profit / invested) * 100 : 0,
+          economicReturn: summary.economicReturn,
+          accumulatedIncome,
+          realizedResult: summary.realizedResult,
+          valueOrigin: closed ? "CLOSED" : marketValue !== null ? "MARKET" : "COST",
+        };
+      }
       return {
         asset,
         invested: Number(asset.acquisition_value),
         current: Number(asset.current_value),
         profit: AssetServiceImpl.profit(asset),
         profitPercent: AssetServiceImpl.profitPercent(asset),
-        economicReturn: summary?.economicReturn ?? null,
-        accumulatedIncome: this.accumulatedIncome(asset.id, movements),
+        economicReturn: null,
+        accumulatedIncome,
+        realizedResult: 0,
+        valueOrigin: "MANUAL",
       };
     });
   }
 
-  static totals(assets: Asset[]) {
-    const rows = this.rows(assets);
+  static totals(assets: Array<Asset & Partial<QuotedAsset>>, movements: Movement[] = []) {
+    const rows = this.rows(assets, movements);
     const invested = rows.reduce((s, r) => s + r.invested, 0);
     const current = rows.reduce((s, r) => s + r.current, 0);
     const profit = current - invested;
