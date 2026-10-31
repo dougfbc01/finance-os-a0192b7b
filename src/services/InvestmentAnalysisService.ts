@@ -19,6 +19,10 @@ export interface InvestmentGroup {
   profitPercent: number;
   economicReturn: number | null;
   accumulatedIncome: number;
+  /** Lucro/prejuízo realizado do grupo (informativo, nunca somado ao valor). */
+  realizedResult: number;
+  /** Quantos ativos do grupo estão valorizados a custo (sem cotação). */
+  costBasedCount: number;
   unavailableReturns: number;
   participation: number;
 }
@@ -75,6 +79,8 @@ function accountMirrorRow(asset: Asset, mirror: AccountMirrorValue): InvestmentR
     // Retorno absoluto mesmo com capital zero: o rendimento conciliado é o retorno.
     economicReturn: mirror.yields,
     accumulatedIncome: mirror.yields,
+    realizedResult: 0,
+    valueOrigin: "ACCOUNT",
   };
 }
 
@@ -127,6 +133,8 @@ export function summarizeInvestments(rows: InvestmentRow[]): InvestmentGroup[] {
       economicReturn: available.length ? Number(available.reduce((sum, r) => sum + (r.economicReturn ?? 0), 0).toFixed(2)) : null,
       unavailableReturns: members.length - available.length,
       accumulatedIncome: Number(members.reduce((sum, r) => sum + r.accumulatedIncome, 0).toFixed(2)),
+      realizedResult: Number(members.reduce((sum, r) => sum + r.realizedResult, 0).toFixed(2)),
+      costBasedCount: members.filter((r) => r.valueOrigin === "COST").length,
       participation: currencyTotal > 0 ? (totals.current / currencyTotal) * 100 : 0,
     };
   }).filter((g): g is InvestmentGroup => g !== null).sort((a, b) => b.current - a.current);
