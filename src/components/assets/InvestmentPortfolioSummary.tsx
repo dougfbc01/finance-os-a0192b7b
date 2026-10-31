@@ -1,5 +1,5 @@
 import { summarizeInvestments } from "@/services/InvestmentAnalysisService";
-import { InvestmentServiceImpl, type InvestmentRow } from "@/services/InvestmentService";
+import type { InvestmentRow } from "@/services/InvestmentService";
 import { formatCurrency } from "@/lib/format";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell, TableFooter } from "@/components/ui/table";
 import { TrendingUp } from "lucide-react";

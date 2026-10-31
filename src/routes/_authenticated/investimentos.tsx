@@ -247,6 +247,12 @@ function InvestimentosPage() {
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {formatCurrency(r.current, r.asset.currency)}
+                              {r.valueOrigin === "COST" && (
+                                <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs font-normal text-secondary-foreground">A custo</span>
+                              )}
+                              {r.valueOrigin === "CLOSED" && (
+                                <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">Encerrado</span>
+                              )}
                             </TableCell>
                             <TableCell
                               className={`text-right tabular-nums ${
