@@ -220,14 +220,41 @@ class InvestmentServiceImpl extends BaseService {
   ): InvestmentRow[] {
     return this.filterInvestments(assets).map((asset) => {
       const summary = this.positionSummary(asset, movements);
+      const accumulatedIncome = this.accumulatedIncome(asset.id, movements);
+      // MOVEMENTS: o valor vem da posição reconstruída (positionOf), nunca de
+      // opening_value + delta. O resgate integral inclui o lucro realizado, que
+      // já saiu como caixa e não pode abater o valor dos ativos ainda abertos.
+      if (summary) {
+        const marketValue =
+          typeof asset.market_value === "number" && Number.isFinite(asset.market_value)
+            ? asset.market_value
+            : null;
+        const closed = summary.quantity === 0;
+        const invested = closed ? 0 : summary.historicalCost;
+        const current = closed ? 0 : (marketValue ?? summary.historicalCost);
+        const profit = Number((current - invested).toFixed(2));
+        return {
+          asset,
+          invested,
+          current,
+          profit,
+          profitPercent: invested > 0 ? (profit / invested) * 100 : 0,
+          economicReturn: summary.economicReturn,
+          accumulatedIncome,
+          realizedResult: summary.realizedResult,
+          valueOrigin: closed ? "CLOSED" : marketValue !== null ? "MARKET" : "COST",
+        };
+      }
       return {
         asset,
         invested: Number(asset.acquisition_value),
         current: Number(asset.current_value),
         profit: AssetServiceImpl.profit(asset),
         profitPercent: AssetServiceImpl.profitPercent(asset),
-        economicReturn: summary?.economicReturn ?? null,
-        accumulatedIncome: this.accumulatedIncome(asset.id, movements),
+        economicReturn: null,
+        accumulatedIncome,
+        realizedResult: 0,
+        valueOrigin: "MANUAL",
       };
     });
   }
