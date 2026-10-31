@@ -67,7 +67,7 @@ export function usePatrimony() {
     () => InvestmentServiceImpl.rows(assets, dash.movements),
     [assets, dash.movements],
   );
-  const investmentTotals = useMemo(() => InvestmentServiceImpl.totals(assets), [assets]);
+  const investmentTotals = useMemo(() => InvestmentServiceImpl.totals(assets, dash.movements), [assets, dash.movements]);
 
   const quotedById = useMemo(
     () => new Map(assets.map((a) => [a.id, a] as const)),

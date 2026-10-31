@@ -259,8 +259,8 @@ class InvestmentServiceImpl extends BaseService {
     });
   }
 
-  static totals(assets: Asset[]) {
-    const rows = this.rows(assets);
+  static totals(assets: Array<Asset & Partial<QuotedAsset>>, movements: Movement[] = []) {
+    const rows = this.rows(assets, movements);
     const invested = rows.reduce((s, r) => s + r.invested, 0);
     const current = rows.reduce((s, r) => s + r.current, 0);
     const profit = current - invested;
