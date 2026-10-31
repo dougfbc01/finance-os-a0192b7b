@@ -224,7 +224,12 @@ class InvestmentServiceImpl extends BaseService {
       // MOVEMENTS: o valor vem da posição reconstruída (positionOf), nunca de
       // opening_value + delta. O resgate integral inclui o lucro realizado, que
       // já saiu como caixa e não pode abater o valor dos ativos ainda abertos.
-      if (summary) {
+      // Sem nenhuma operação vinculada não há evidência de posição: mantém os
+      // valores declarados no ativo (comportamento anterior).
+      const hasPositionEvidence =
+        summary !== null &&
+        (summary.quantity > 0 || summary.investedCapital > 0 || summary.realizedValue > 0);
+      if (summary && hasPositionEvidence) {
         const marketValue =
           typeof asset.market_value === "number" && Number.isFinite(asset.market_value)
             ? asset.market_value
