@@ -230,9 +230,10 @@ class InvestmentServiceImpl extends BaseService {
         summary !== null &&
         (summary.quantity > 0 || summary.investedCapital > 0 || summary.realizedValue > 0);
       if (summary && hasPositionEvidence) {
+        const quotedMarketValue = (asset as Partial<QuotedAsset>).market_value;
         const marketValue =
-          typeof asset.market_value === "number" && Number.isFinite(asset.market_value)
-            ? asset.market_value
+          typeof quotedMarketValue === "number" && Number.isFinite(quotedMarketValue)
+            ? quotedMarketValue
             : null;
         const closed = summary.quantity === 0;
         const invested = closed ? 0 : summary.historicalCost;
