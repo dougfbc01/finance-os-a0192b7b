@@ -79,3 +79,8 @@
 - [x] Cobertura por valor ("% do capital avaliado") e status Completo na tabela mensal
 - [x] Remoção do gráfico "Evolução do patrimônio investido" (substituído pelo Capital × Mercado)
 - [x] 518 testes, build OK, docs/18 e regras de negócio atualizadas
+
+## Valor de ativos encerrados e sem cotação (caso Tesouro)
+- [x] Aba Investimentos valoriza MOVEMENTS pela posição (positionOf): encerrado = 0, aberto sem cotação = custo ("A custo")
+- [x] Resultado realizado exibido separadamente, sem somar ao valor; Patrimônio/Dashboard/Fechamentos inalterados (docs/20)
+- [x] 537 testes, typecheck e build OK; Tesouro validado com dados reais (1.078,09)
