@@ -7,6 +7,7 @@ import { historicalChartView, investmentHistoryDates, investmentPeriodStart, lim
 const row = (id: string, name: string, type: AssetType, number: number): InvestmentRow => ({
   asset: { id, name, asset_type: type, ticker: id, institution: name, currency: "BRL", quantity: number, unit_price: number, quote: number > 0 ? { price: number } : null } as InvestmentRow["asset"],
   invested: number, current: number, profit: number, profitPercent: number, economicReturn: number > 0 ? number : null, accumulatedIncome: number,
+  realizedResult: 0, valueOrigin: "MARKET",
 });
 const rows = [row("B3", "Beta", AssetType.ACAO, 20), row("A11", "Álpha", AssetType.FII, 10), row("C3", "Zero", AssetType.ACAO, 0)];
 const point = (date: string, value: number | null, returns: Record<string, number | null>): InvestmentHistoryPoint => ({ date, value, returns, missingAssets: 0, limitations: [], carriedPrices: [] });
