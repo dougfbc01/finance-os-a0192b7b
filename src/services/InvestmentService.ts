@@ -256,9 +256,9 @@ class InvestmentServiceImpl extends BaseService {
         current: Number(asset.current_value),
         profit: AssetServiceImpl.profit(asset),
         profitPercent: AssetServiceImpl.profitPercent(asset),
-        economicReturn: null,
+        economicReturn: summary?.economicReturn ?? null,
         accumulatedIncome,
-        realizedResult: 0,
+        realizedResult: summary?.realizedResult ?? 0,
         valueOrigin: "MANUAL",
       };
     });
