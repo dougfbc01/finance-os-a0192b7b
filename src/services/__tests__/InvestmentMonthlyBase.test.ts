@@ -45,7 +45,7 @@ describe("Base mensal histórica somente leitura", () => {
     const rows = investmentMonthlyBase({ assets: [asset, { ...asset, id: "b", asset_type: AssetType.FII }], movements: [movement(), movement({ id: "b", asset_id: "b", transaction_date: "2026-01-01" })], prices: { a: [price("2026-01-02", 12)] }, from: "2026-01-01", to: "2026-02-20" });
     const points = monthlyInvestmentHistory(rows, "2026-01-01", "2026-02-20");
     expect(points[0]).toMatchObject({ value: null, calculableValue: 120, valuesByGroup: { ACAO_BRL: 120, FII_BRL: null }, returns: { ACAO_BRL: 20, FII_BRL: null } });
-    expect(points[0]?.returnCoverage).toEqual({ ACAO_BRL: { pct: 1, valued: 1, missing: 0 }, FII_BRL: { pct: 0, valued: 0, missing: 1 } });
+    expect(points[0]?.returnCoverage).toEqual({ ACAO_BRL: { pct: 1, valued: 1, missing: 0, noCost: 0, noCostNames: [] }, FII_BRL: { pct: 0, valued: 0, missing: 1, noCost: 0, noCostNames: [] } });
     expect(points[0]?.calculableValue).toBe(rows.filter((r) => r.month === "2026-01").reduce((s, r) => s + (r.totalValue ?? 0), 0));
   });
   it("rentabilidade do grupo usa só os avaliados, com cobertura do capital, e some sem nenhum avaliado", () => {
