@@ -10,17 +10,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useInvestmentAnalysis } from "@/hooks/useInvestmentAnalysis";
 import { InvestmentMonthlyTable } from "./InvestmentMonthlyTable";
 import { InvestmentCapitalVsMarketChart } from "./InvestmentCapitalVsMarketChart";
+import { InvestmentWealthByTypeChart, investmentTypeColor } from "./InvestmentWealthByTypeChart";
 import { B3QuoteHistoryImportDialog } from "./B3QuoteHistoryImportDialog";
 import { B3QuoteHistoryImportService } from "@/services/B3QuoteHistoryImportService";
 import { accountMirrorRows, GROUP_RETURN_COVERAGE_WARNING, summarizeInvestments } from "@/services/InvestmentAnalysisService";
 import type { InvestmentRow } from "@/services/InvestmentService";
 import type { Account, Asset, Movement } from "@/models";
 import { formatCurrency } from "@/lib/format";
-import { groupValueChartView, historicalChartView, investmentPeriodStart, limitationSummary, validInvestmentRange } from "@/services/InvestmentViewService";
+import { historicalChartView, investmentPeriodStart, limitationSummary, validInvestmentRange } from "@/services/InvestmentViewService";
 
-const colors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 const dateLabel = (v: string) => new Date(`${v}T12:00:00Z`).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-type ReturnCoverage = Record<string, { pct: number | null; valued: number; missing: number }>;
+type ReturnCoverage = Record<string, { pct: number | null; valued: number; missing: number; noCost?: number; noCostNames?: string[] }>;
 type ReturnDatum = { date: string; coverage: ReturnCoverage } & Record<string, number | string | null | ReturnCoverage>;
 
 function ReturnTooltip({ active, payload, label, groups }: {
@@ -41,7 +41,7 @@ function ReturnTooltip({ active, payload, label, groups }: {
       return <div key={key}>
         <p>{groups.find((g) => g.key === key)?.label ?? key}: {(entry.value ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</p>
         {coverage && <p className="text-xs text-muted-foreground">
-          Cobertura: {coverage.pct === null ? "—" : `${(coverage.pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital do grupo`} · {coverage.valued} avaliados · {coverage.missing} sem avaliação
+          Cobertura: {coverage.pct === null ? "—" : `${(coverage.pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital do grupo`} · {coverage.valued} avaliados · {coverage.missing} sem avaliação{coverage.noCost ? ` · ${coverage.noCost} sem custo (fora do cálculo): ${(coverage.noCostNames ?? []).join(", ")}` : ""}
           {low ? " — cobertura baixa, compare com cautela" : ""}
         </p>}
       </div>;
@@ -78,7 +78,6 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
   const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency, accounts);
   const visibleGroups = groups.filter((g) => (selectedGroup === "ALL" || g.key === selectedGroup) && (selectedGroup !== "ALL" || !hiddenGroups.includes(g.key)));
   const chart = historicalChartView(analysis.points, visibleGroups.map((g) => g.key));
-  const valueChart = groupValueChartView(analysis.points, visibleGroups.map((g) => g.key));
   const chartData = chart.data;
   const returnGroups = visibleGroups.filter((g) => chart.returnKeys.includes(g.key));
   const composition = groups.filter((g) => g.current > 0);
@@ -91,7 +90,7 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
   const fmtDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("pt-BR");
   const fetchResult = analysis.completeHistory.data;
   const providerNotes = [...new Set((fetchResult ?? []).map((r) => r.message).filter((m): m is string => !!m))];
-  const groupColor = (key: string) => colors[Math.max(0, groups.findIndex((g) => g.key === key)) % colors.length];
+  const groupColor = investmentTypeColor;
   const returnDot = (key: string, color: string) => (props: { cx?: number; cy?: number; payload?: ReturnDatum }) => {
     const { cx, cy } = props;
     if (typeof cx !== "number" || typeof cy !== "number") return <g key={`${key}-empty`} />;
@@ -119,13 +118,10 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
       {carriedPrices && <p className="text-sm text-muted-foreground">Cada mês usa a última cotação salva dentro dele; sem cotação no mês, usa a última anterior, com a data real sinalizada. Não há interpolação nem uso de preços futuros. Rentabilidade da posição não representa retorno acumulado com distribuições.</p>}
       {accountRows.length > 0 && <p className="text-sm text-muted-foreground">Caixinhas/CDB espelhados em conta entram pelo saldo da conta (origem "Conta (conciliado)"); o rendimento aparece em degrau na data de cada conciliação, sem rateio nem estimativa. Esse saldo já conta no caixa do Patrimônio e não soma de novo lá.</p>}
       <div className="min-w-0 space-y-4"><h2 className="text-base font-semibold">Rentabilidade da posição por grupo</h2>
-        <p className="text-xs text-muted-foreground">Calculada somente sobre os ativos com avaliação no mês: (valor de mercado − custo dos mesmos ativos) ÷ custo dos mesmos ativos.{lowCoverage ? ` Pontos com marcador vazado têm menos de ${GROUP_RETURN_COVERAGE_WARNING * 100}% do capital do grupo avaliado.` : ""}</p>
+        <p className="text-xs text-muted-foreground">Calculada somente sobre os ativos com avaliação no mês: (valor de mercado − custo dos mesmos ativos) ÷ custo dos mesmos ativos. Ativos sem base de custo ficam fora do cálculo e aparecem como "sem custo" na cobertura.{lowCoverage ? ` Pontos com marcador vazado têm menos de ${GROUP_RETURN_COVERAGE_WARNING * 100}% do capital do grupo avaliado.` : ""}</p>
         <div className="h-72" role="img" aria-label="Gráfico de rentabilidade por grupo">{hasReturns ? <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => `${v}%`} width={65} fontSize={11} /><Tooltip content={<ReturnTooltip groups={groups} />} /><Legend />{returnGroups.map((g) => <Line key={g.key} dataKey={g.key} name={g.label} stroke={groupColor(g.key)} strokeWidth={2} dot={returnDot(g.key, groupColor(g.key))} connectNulls={false} isAnimationActive={false} />)}</LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">{visibleGroups.length === 0 ? "Nenhum grupo selecionado para comparação." : "Rentabilidade histórica indisponível: faltam preços ou base de custo comprovada no período."}</div>}</div>
       </div>
-      <div className="min-w-0 space-y-4"><h2 className="text-base font-semibold">Valor patrimonial por tipo de ativo · {currency}</h2>
-        <p className="text-xs text-muted-foreground">Valor de mercado de cada tipo no mês (última cotação salva no mês). Linha contínua: todos os ativos do tipo avaliados.{valueChart.hasPartial ? " Pontos isolados vazados: valor parcial, só dos ativos com avaliação — não representam o total do tipo nem evolução." : ""}</p>
-        <div className="h-80" role="img" aria-label="Gráfico de valor patrimonial por tipo de ativo">{valueChart.keys.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={valueChart.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => formatCurrency(Number(v), currency).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip labelFormatter={(d) => fmtDate(String(d))} formatter={(v, name, item) => { const key = String(item.dataKey ?? "").replace("__partial", ""); const partial = String(item.dataKey ?? "").endsWith("__partial"); const missing = Number((item.payload as Record<string, unknown>)?.[`${key}__missing`] ?? 0); return [`${formatCurrency(Number(v), currency)}${partial ? ` (parcial · ${missing} sem avaliação)` : ""}`, name]; }} /><Legend />{valueChart.keys.flatMap((key) => { const label = groups.find((g) => g.key === key)?.label ?? key; const color = groupColor(key); return [<Line key={key} dataKey={key} name={label} stroke={color} strokeWidth={2} dot={{ r: 2, fill: color }} connectNulls={false} isAnimationActive={false} />, <Line key={`${key}__partial`} dataKey={`${key}__partial`} name={`${label} (parcial)`} stroke={color} strokeWidth={0} legendType="none" dot={{ r: 3, fill: "var(--background)", stroke: color, strokeWidth: 2 }} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />]; })}</LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">Sem valores históricos avaliados no período.</div>}</div>
-      </div>
+      <InvestmentWealthByTypeChart points={analysis.wealthByType} groups={visibleGroups} currency={currency} />
       <InvestmentMonthlyTable rows={analysis.monthlyBase} />
     </>}
     <div className="space-y-4 border-t pt-6"><h2 className="text-base font-semibold">Composição atual da carteira · {currency}</h2>
