@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssets } from "./useAssets";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
-import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory } from "@/services/InvestmentAnalysisService";
+import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory, monthlyWealthByType } from "@/services/InvestmentAnalysisService";
 import type { Account, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
