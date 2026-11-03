@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssets } from "./useAssets";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
-import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory } from "@/services/InvestmentAnalysisService";
+import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory, monthlyWealthByType } from "@/services/InvestmentAnalysisService";
 import type { Account, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl } from "@/services/InvestmentService";
@@ -55,10 +55,11 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     return investmentMonthlyBase({ assets: analysisAssets, movements, prices: history.data ?? {}, from, to, accounts });
   }, [analysisAssets, movements, history.data, from, to, validRange, accounts]);
   const points = useMemo(() => monthlyInvestmentHistory(monthlyBase, from, to), [monthlyBase, from, to]);
+  const wealthByType = useMemo(() => monthlyWealthByType(monthlyBase, from, to), [monthlyBase, from, to]);
   const capitalVsMarket = useMemo(() => validRange ? capitalVsMarketMonthly({
     assets: analysisAssets, movements, prices: history.data ?? {}, from, to, accounts,
   }) : [], [analysisAssets, movements, history.data, from, to, validRange, accounts]);
   const today = new Date().toISOString().slice(0, 10);
   const accountRows = useMemo(() => accountMirrorRows(scopedMirrors, accounts, movements, today), [scopedMirrors, accounts, movements, today]);
-  return { points, monthlyBase, capitalVsMarket, accountRows, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
+  return { points, wealthByType, monthlyBase, capitalVsMarket, accountRows, completeHistory, isLoading: assetsQuery.isLoading || history.isLoading, error: assetsQuery.error ?? history.error };
 }

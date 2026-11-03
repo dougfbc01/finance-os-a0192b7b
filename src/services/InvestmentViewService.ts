@@ -1,7 +1,8 @@
 // Read-only view operations: never recalculate or persist financial values.
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import type { InvestmentRow } from "./InvestmentService";
-import type { InvestmentHistoryPoint } from "./InvestmentAnalysisService";
+import type { InvestmentHistoryPoint, WealthByTypePoint } from "./InvestmentAnalysisService";
+import { UNVALUED_AT_COST_BAND } from "./InvestmentAnalysisService";
 
 export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn" | "accumulatedIncome";
 export type InvestmentSortDirection = "asc" | "desc";
@@ -41,25 +42,16 @@ export function portfolioView(rows: InvestmentRow[], options: { search: string; 
   });
 }
 
-/**
- * Absolute value per group and month from the monthly ledger, without recalculation.
- * Complete months go to `<key>`; partial months (some assets unvalued) go to `<key>__partial`
- * so they render as disconnected points, never as continuous evolution.
- */
-export function groupValueChartView(points: InvestmentHistoryPoint[], groupKeys: string[]) {
-  const data = points.map((point) => {
-    const row: Record<string, string | number | null> & { date: string } = { date: point.date };
-    for (const key of groupKeys) {
-      const complete = point.valuesByGroup?.[key];
-      const partial = point.calculableByGroup?.[key];
-      row[key] = finite(complete) ? complete : null;
-      row[`${key}__partial`] = !finite(complete) && finite(partial) ? partial : null;
-      row[`${key}__missing`] = point.missingByGroup?.[key] ?? 0;
-    }
-    return row;
-  });
-  const keys = groupKeys.filter((key) => data.some((r) => finite(r[key]) || finite(r[`${key}__partial`])));
-  return { data, keys, hasPartial: keys.some((key) => data.some((r) => finite(r[`${key}__partial`]))) };
+/** Stacked/line chart rows from the service projection; only reshapes, never recalculates. */
+export function wealthByTypeChartView(points: WealthByTypePoint[], groupKeys: string[]) {
+  const data = points.map((p) => ({
+    date: p.date, total: p.total, coveragePct: p.coveragePct, excludedAssets: p.excludedAssets, excludedNames: p.excludedNames,
+    ...Object.fromEntries(groupKeys.map((k) => [k, p.values[k] ?? 0])),
+    [UNVALUED_AT_COST_BAND]: p.unvaluedAtCost,
+  }));
+  const keys = groupKeys.filter((k) => points.some((p) => (p.values[k] ?? 0) !== 0));
+  const origins = Object.fromEntries(groupKeys.map((k) => [k, [...new Set(points.flatMap((p) => p.origins[k] ?? []))]]));
+  return { data, keys, origins, hasUnvalued: points.some((p) => p.unvaluedAtCost > 0) };
 }
 
 export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys: string[]) {

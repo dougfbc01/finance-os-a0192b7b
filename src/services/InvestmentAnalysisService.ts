@@ -151,7 +151,7 @@ export interface InvestmentHistoryPoint {
   missingByGroup?: Record<string, number>;
   returns: Record<string, number | null>;
   /** Capital coverage of each group's return: valued cost / known cost, plus asset counts. */
-  returnCoverage?: Record<string, { pct: number | null; valued: number; missing: number }>;
+  returnCoverage?: Record<string, { pct: number | null; valued: number; missing: number; noCost?: number; noCostNames?: string[] }>;
   missingAssets: number;
   limitations: { assetId: string; name: string; reason: "NO_HISTORY" | "NO_PRICE" | "NO_VALUATION" | "UNKNOWN_COST" }[];
   carriedPrices: { assetId: string; priceDate: string }[];
@@ -391,17 +391,21 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
       const missing = scoped.length - valued.length;
       const group = groups.find((g) => g.key === key);
       const evidencedHeld = valued.some((r) => (r.quantity ?? 0) > 0);
-      // Return over the valued set only: market value minus cost of the SAME assets.
-      const valuedRows = valued.flatMap((r) => r.projection.assetRows ?? []);
+      // Return over the valued set with proven cost only: an asset without cost basis stays out of
+      // numerator and denominator, is reported as "sem custo" in coverage and never blocks the group.
+      const hasUnknownCost = (r: InvestmentMonthlyRow) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST");
+      const costed = valued.filter((r) => !hasUnknownCost(r));
+      const noCost = valued.filter(hasUnknownCost);
+      const valuedRows = costed.flatMap((r) => r.projection.assetRows ?? []);
       const valuedGroup = valuedRows.length ? summarizeInvestments(valuedRows).find((g) => g.key === key) : undefined;
-      const unknownCost = valued.some((r) => r.projection.limitations.some((l) => l.reason === "UNKNOWN_COST"));
       const totalCost = scoped.reduce((sum, r) => sum + (r.cost ?? 0), 0);
-      const valuedCost = valued.reduce((sum, r) => sum + (r.cost ?? 0), 0);
-      returnCoverage[key] = { pct: totalCost > 0 ? valuedCost / totalCost : null, valued: valued.length, missing };
+      const valuedCost = costed.reduce((sum, r) => sum + (r.cost ?? 0), 0);
+      returnCoverage[key] = { pct: totalCost > 0 ? valuedCost / totalCost : null, valued: costed.length, missing,
+        noCost: noCost.length, noCostNames: noCost.map((r) => r.name) };
       missingByGroup[key] = missing;
       valuesByGroup[key] = missing ? null : group?.current ?? 0;
       calculableByGroup[key] = missing && !evidencedHeld ? null : group?.current ?? 0;
-      returns[key] = unknownCost || !valuedGroup || valuedGroup.invested <= 0 ? null : valuedGroup.profitPercent;
+      returns[key] = !valuedGroup || valuedGroup.invested <= 0 ? null : valuedGroup.profitPercent;
     }
     const missingAssets = members.filter((r) => r.totalValue === null).length;
     const mixedCurrency = new Set(members.map((r) => r.currency)).size > 1;
@@ -413,6 +417,68 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
       limitations: members.flatMap((r) => r.projection.limitations),
       carriedPrices: members.filter((r) => r.status === "STALE_PRICE" && r.quoteDate)
         .map((r) => ({ assetId: r.assetId, priceDate: r.quoteDate ?? "" })) }];
+  });
+}
+
+/** Separate band for quotable positions without any stored quote, kept at cost so the month total closes with capital. */
+export const UNVALUED_AT_COST_BAND = "__UNVALUED_AT_COST";
+export type WealthBandOrigin = "MARKET" | "ACCOUNT" | "COST";
+
+export interface WealthByTypePoint {
+  date: string;
+  month: string;
+  /** Proven value per group (market, reconciled account balance or fixed income at cost). */
+  values: Record<string, number>;
+  origins: Record<string, WealthBandOrigin[]>;
+  /** Quotable positions without stored quote, at positionOf cost; never inside the type band. */
+  unvaluedAtCost: number;
+  total: number;
+  capital: number;
+  /** Capital share of positions with market or reconciled-account value. */
+  coveragePct: number | null;
+  excludedAssets: number;
+  excludedNames: string[];
+}
+
+/**
+ * Monthly wealth per asset type, read directly from the monthly ledger (no new valuation).
+ * Market/account values come from the ledger; non-quotable fixed income without valuation
+ * evidence uses the positionOf cost labelled "A custo" (same rule as the Investimentos tab);
+ * quotable positions without any quote go to UNVALUED_AT_COST_BAND. No price is ever inferred.
+ */
+export function monthlyWealthByType(base: InvestmentMonthlyRow[], from: string, to: string): WealthByTypePoint[] {
+  const months = [...new Set(base.map((r) => r.month))].sort();
+  return months.flatMap((month) => {
+    const members = base.filter((r) => r.month === month);
+    const date = members.map((r) => r.referenceDate).sort().at(-1);
+    if (!date || date < from || date > to) return [];
+    const values: Record<string, number> = {};
+    const origins: Record<string, WealthBandOrigin[]> = {};
+    const add = (key: string, value: number, origin: WealthBandOrigin) => {
+      values[key] = Number(((values[key] ?? 0) + value).toFixed(2));
+      if (!(origins[key] ??= []).includes(origin)) origins[key].push(origin);
+    };
+    let unvaluedAtCost = 0;
+    let capital = 0;
+    let coveredCapital = 0;
+    const excluded: string[] = [];
+    for (const r of members) {
+      const cost = r.status === "CLOSED" ? 0 : Math.max(0, r.cost ?? 0);
+      capital += cost;
+      if (r.totalValue !== null) {
+        add(r.group, r.totalValue, r.valueOrigin === "ACCOUNT" ? "ACCOUNT" : "MARKET");
+        coveredCapital += cost;
+      } else if (r.status !== "NO_HISTORY" && !isMarketQuotableType(r.assetType) && cost > 0) {
+        add(r.group, cost, "COST");
+      } else {
+        if (r.status !== "NO_HISTORY" && cost > 0) unvaluedAtCost += cost;
+        excluded.push(r.name);
+      }
+    }
+    const total = Number((Object.values(values).reduce((s, v) => s + v, 0) + unvaluedAtCost).toFixed(2));
+    return [{ date, month, values, origins, unvaluedAtCost: Number(unvaluedAtCost.toFixed(2)), total,
+      capital: Number(capital.toFixed(2)), coveragePct: capital > 0 ? coveredCapital / capital : null,
+      excludedAssets: excluded.length, excludedNames: excluded }];
   });
 }
 
