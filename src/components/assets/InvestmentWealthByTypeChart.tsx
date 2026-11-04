@@ -38,7 +38,7 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
       <p className="font-medium">{new Date(`${date}T12:00:00Z`).toLocaleDateString("pt-BR")}</p>
       {bands.filter((k) => Number(d[k] ?? 0) !== 0).map((k) => <p key={k} className="flex justify-between gap-4"><span><span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: color(k) }} />{label(k)}</span><span className="tabular-nums">{money(Number(d[k]))}</span></p>)}
       <p className="flex justify-between gap-4 border-t pt-1 font-medium"><span>Total do mês</span><span className="tabular-nums">{money(d.total)}</span></p>
-      <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo</p>
+      <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo{d.excludedNames.length ? `: ${d.excludedNames.join(", ")}` : ""}</p>
     </div>;
   };
   return <div className="min-w-0 space-y-4">
