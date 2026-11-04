@@ -2,7 +2,7 @@
 import { ASSET_TYPE_LABELS } from "@/constants/enums";
 import type { InvestmentRow } from "./InvestmentService";
 import type { InvestmentHistoryPoint, WealthByTypePoint } from "./InvestmentAnalysisService";
-import { UNVALUED_AT_COST_BAND } from "./InvestmentAnalysisService";
+import { UNDATED_CURRENT_BAND, UNVALUED_AT_COST_BAND } from "./InvestmentAnalysisService";
 
 export type InvestmentSortKey = "name" | "ticker" | "type" | "institution" | "quantity" | "averagePrice" | "quote" | "invested" | "current" | "profitPercent" | "economicReturn" | "accumulatedIncome";
 export type InvestmentSortDirection = "asc" | "desc";
@@ -48,10 +48,11 @@ export function wealthByTypeChartView(points: WealthByTypePoint[], groupKeys: st
     date: p.date, total: p.total, coveragePct: p.coveragePct, excludedAssets: p.excludedAssets, excludedNames: p.excludedNames,
     ...Object.fromEntries(groupKeys.map((k) => [k, p.values[k] ?? 0])),
     [UNVALUED_AT_COST_BAND]: p.unvaluedAtCost,
+    [UNDATED_CURRENT_BAND]: p.undatedCurrent,
   }));
   const keys = groupKeys.filter((k) => points.some((p) => (p.values[k] ?? 0) !== 0));
   const origins = Object.fromEntries(groupKeys.map((k) => [k, [...new Set(points.flatMap((p) => p.origins[k] ?? []))]]));
-  return { data, keys, origins, hasUnvalued: points.some((p) => p.unvaluedAtCost > 0) };
+  return { data, keys, origins, hasUnvalued: points.some((p) => p.unvaluedAtCost > 0), hasUndated: points.some((p) => p.undatedCurrent > 0) };
 }
 
 export function historicalChartView(points: InvestmentHistoryPoint[], groupKeys: string[]) {

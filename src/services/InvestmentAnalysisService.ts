@@ -422,6 +422,8 @@ export function monthlyInvestmentHistory(base: InvestmentMonthlyRow[], from: str
 
 /** Separate band for quotable positions without any stored quote, kept at cost so the month total closes with capital. */
 export const UNVALUED_AT_COST_BAND = "__UNVALUED_AT_COST";
+/** Assets with no movement history: only the current month carries their current portfolio value. */
+export const UNDATED_CURRENT_BAND = "__UNDATED_CURRENT";
 export type WealthBandOrigin = "MARKET" | "ACCOUNT" | "COST";
 
 export interface WealthByTypePoint {
@@ -432,6 +434,8 @@ export interface WealthByTypePoint {
   origins: Record<string, WealthBandOrigin[]>;
   /** Quotable positions without stored quote, at positionOf cost; never inside the type band. */
   unvaluedAtCost: number;
+  /** Current-month value of assets without movement history (same value as the Investimentos tab). */
+  undatedCurrent: number;
   total: number;
   capital: number;
   /** Capital share of positions with market or reconciled-account value. */
@@ -446,7 +450,9 @@ export interface WealthByTypePoint {
  * evidence uses the positionOf cost labelled "A custo" (same rule as the Investimentos tab);
  * quotable positions without any quote go to UNVALUED_AT_COST_BAND. No price is ever inferred.
  */
-export function monthlyWealthByType(base: InvestmentMonthlyRow[], from: string, to: string): WealthByTypePoint[] {
+export function monthlyWealthByType(base: InvestmentMonthlyRow[], from: string, to: string,
+  /** Current portfolio value per asset id (InvestmentService rows); used only for undated assets in the month of `to`. */
+  currentValues: Record<string, number> = {}): WealthByTypePoint[] {
   const months = [...new Set(base.map((r) => r.month))].sort();
   return months.flatMap((month) => {
     const members = base.filter((r) => r.month === month);
@@ -459,6 +465,7 @@ export function monthlyWealthByType(base: InvestmentMonthlyRow[], from: string, 
       if (!(origins[key] ??= []).includes(origin)) origins[key].push(origin);
     };
     let unvaluedAtCost = 0;
+    let undatedCurrent = 0;
     let capital = 0;
     let coveredCapital = 0;
     const excluded: string[] = [];
@@ -472,11 +479,14 @@ export function monthlyWealthByType(base: InvestmentMonthlyRow[], from: string, 
         add(r.group, cost, "COST");
       } else {
         if (r.status !== "NO_HISTORY" && cost > 0) unvaluedAtCost += cost;
+        // Without movements the holding date is unknown: never projected into past months.
+        if (r.status === "NO_HISTORY" && month === to.slice(0, 7)) undatedCurrent += Math.max(0, currentValues[r.assetId] ?? 0);
         excluded.push(r.name);
       }
     }
-    const total = Number((Object.values(values).reduce((s, v) => s + v, 0) + unvaluedAtCost).toFixed(2));
-    return [{ date, month, values, origins, unvaluedAtCost: Number(unvaluedAtCost.toFixed(2)), total,
+    const total = Number((Object.values(values).reduce((s, v) => s + v, 0) + unvaluedAtCost + undatedCurrent).toFixed(2));
+    return [{ date, month, values, origins, unvaluedAtCost: Number(unvaluedAtCost.toFixed(2)),
+      undatedCurrent: Number(undatedCurrent.toFixed(2)), total,
       capital: Number(capital.toFixed(2)), coveragePct: capital > 0 ? coveredCapital / capital : null,
       excludedAssets: excluded.length, excludedNames: excluded }];
   });
