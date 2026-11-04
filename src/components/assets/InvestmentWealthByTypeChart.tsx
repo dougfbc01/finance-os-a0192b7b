@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { UNVALUED_AT_COST_BAND, type WealthByTypePoint, type WealthBandOrigin } from "@/services/InvestmentAnalysisService";
+import { UNDATED_CURRENT_BAND, UNVALUED_AT_COST_BAND, type WealthByTypePoint, type WealthBandOrigin } from "@/services/InvestmentAnalysisService";
 import { wealthByTypeChartView } from "@/services/InvestmentViewService";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -24,12 +24,14 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
   const view = wealthByTypeChartView(points, groups.map((g) => g.key));
   const label = (key: string) => {
     if (key === UNVALUED_AT_COST_BAND) return "Sem avaliação (a custo)";
+    if (key === UNDATED_CURRENT_BAND) return "Sem histórico de movimentos (valor atual)";
     const base = groups.find((g) => g.key === key)?.label ?? key;
     const origin = (view.origins[key] ?? []).map((o) => ORIGIN_LABEL[o]).filter(Boolean);
     return origin.length ? `${base} — ${origin.join(" / ")}` : base;
   };
-  const bands = [...view.keys, ...(view.hasUnvalued ? [UNVALUED_AT_COST_BAND] : [])];
-  const color = (key: string) => key === UNVALUED_AT_COST_BAND ? "var(--chart-unvalued)" : investmentTypeColor(key);
+  const bands = [...view.keys, ...(view.hasUnvalued ? [UNVALUED_AT_COST_BAND] : []), ...(view.hasUndated ? [UNDATED_CURRENT_BAND] : [])];
+  const color = (key: string) => key === UNVALUED_AT_COST_BAND || key === UNDATED_CURRENT_BAND ? "var(--chart-unvalued)" : investmentTypeColor(key);
+  const muted = (key: string) => key === UNVALUED_AT_COST_BAND || key === UNDATED_CURRENT_BAND;
   const money = (v: number) => formatCurrency(v, currency);
   const tooltip = ({ active, payload, label: date }: { active?: boolean; payload?: { dataKey?: string | number; value?: number; payload?: Datum }[]; label?: string }) => {
     const d = payload?.[0]?.payload;
@@ -38,16 +40,9 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
       <p className="font-medium">{new Date(`${date}T12:00:00Z`).toLocaleDateString("pt-BR")}</p>
       {bands.filter((k) => Number(d[k] ?? 0) !== 0).map((k) => <p key={k} className="flex justify-between gap-4"><span><span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: color(k) }} />{label(k)}</span><span className="tabular-nums">{money(Number(d[k]))}</span></p>)}
       <p className="flex justify-between gap-4 border-t pt-1 font-medium"><span>Total do mês</span><span className="tabular-nums">{money(d.total)}</span></p>
-      <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo</p>
+      <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo{d.excludedNames.length ? `: ${d.excludedNames.join(", ")}` : ""}</p>
     </div>;
   };
-  const axis = <>
-    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-    <XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} />
-    <YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} />
-    <Tooltip content={tooltip} />
-    <Legend />
-  </>;
   return <div className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-base font-semibold">Valor patrimonial por tipo de ativo · {currency}</h2>
@@ -56,11 +51,11 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
         <Button size="sm" variant={mode === "lines" ? "default" : "outline"} aria-pressed={mode === "lines"} onClick={() => setMode("lines")}>Linhas</Button>
       </div>
     </div>
-    <p className="text-xs text-muted-foreground">Cada faixa soma os ativos do tipo com valor comprovado no mês (última cotação salva no mês, saldo da conta conciliado ou renda fixa a custo). Ativos cotáveis sem nenhuma cotação ficam na faixa "Sem avaliação (a custo)", para o total fechar com o capital; nenhum preço é estimado.</p>
+    <p className="text-xs text-muted-foreground">Cada faixa soma os ativos do tipo com valor comprovado no mês (última cotação salva no mês, saldo da conta conciliado ou renda fixa a custo). Ativos cotáveis sem nenhuma cotação ficam na faixa "Sem avaliação (a custo)", para o total fechar com o capital; nenhum preço é estimado. Ativos cadastrados sem movimentos só entram no mês atual, pelo valor da Carteira, porque não se sabe desde quando são mantidos.</p>
     <div className="h-80" role="img" aria-label="Gráfico de valor patrimonial por tipo de ativo">{bands.length ? <ResponsiveContainer width="100%" height="100%">
       {mode === "stacked"
-        ? <AreaChart data={view.data}>{axis}{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={color(k)} fillOpacity={k === UNVALUED_AT_COST_BAND ? 0.3 : 0.75} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
-        : <LineChart data={view.data}>{axis}{bands.map((k) => <Line key={k} type="linear" dataKey={k} name={label(k)} stroke={color(k)} strokeWidth={2} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} dot={false} isAnimationActive={false} />)}</LineChart>}
+        ? <AreaChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={color(k)} fillOpacity={muted(k) ? 0.3 : 0.75} strokeDasharray={muted(k) ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
+        : <LineChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Line key={k} type="linear" dataKey={k} name={label(k)} stroke={color(k)} strokeWidth={2} strokeDasharray={muted(k) ? "4 3" : undefined} dot={false} isAnimationActive={false} />)}</LineChart>}
     </ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">Sem valores históricos no período.</div>}</div>
   </div>;
 }

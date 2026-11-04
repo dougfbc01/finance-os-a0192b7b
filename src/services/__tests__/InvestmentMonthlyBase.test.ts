@@ -54,7 +54,7 @@ describe("Base mensal histórica somente leitura", () => {
       prices: { a: [price("2026-01-02", 12)] }, from: "2026-01-01", to: "2026-01-31" });
     const points = monthlyInvestmentHistory(rows, "2026-01-01", "2026-01-31");
     expect(points[0]?.returns.ACAO_BRL).toBe(20);
-    expect(points[0]?.returnCoverage?.ACAO_BRL).toEqual({ pct: 0.2, valued: 1, missing: 1 });
+    expect(points[0]?.returnCoverage?.ACAO_BRL).toEqual({ pct: 0.2, valued: 1, missing: 1, noCost: 0, noCostNames: [] });
     const semAvaliado = monthlyInvestmentHistory(rows.filter((r) => r.assetId === "b"), "2026-01-01", "2026-01-31");
     expect(semAvaliado[0]?.returns.ACAO_BRL).toBeNull();
   });

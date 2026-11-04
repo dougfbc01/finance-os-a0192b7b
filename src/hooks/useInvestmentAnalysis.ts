@@ -5,10 +5,10 @@ import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceSe
 import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory, monthlyWealthByType } from "@/services/InvestmentAnalysisService";
 import type { Account, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
-import { InvestmentServiceImpl } from "@/services/InvestmentService";
+import { InvestmentServiceImpl, type InvestmentRow } from "@/services/InvestmentService";
 import { validInvestmentRange } from "@/services/InvestmentViewService";
 
-export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string, accounts: Account[] = []) {
+export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string, accounts: Account[] = [], currentRows: InvestmentRow[] = []) {
   const queryClient = useQueryClient();
   const assetsQuery = useAssets(workspaceId);
   const rawAssets = useMemo(() => InvestmentServiceImpl.filterInvestments(assetsQuery.data ?? []).filter((a) => !a.deleted_at), [assetsQuery.data]);
@@ -55,7 +55,8 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     return investmentMonthlyBase({ assets: analysisAssets, movements, prices: history.data ?? {}, from, to, accounts });
   }, [analysisAssets, movements, history.data, from, to, validRange, accounts]);
   const points = useMemo(() => monthlyInvestmentHistory(monthlyBase, from, to), [monthlyBase, from, to]);
-  const wealthByType = useMemo(() => monthlyWealthByType(monthlyBase, from, to), [monthlyBase, from, to]);
+  const currentValues = useMemo(() => Object.fromEntries(currentRows.map((r) => [r.asset.id, r.current])), [currentRows]);
+  const wealthByType = useMemo(() => monthlyWealthByType(monthlyBase, from, to, currentValues), [monthlyBase, from, to, currentValues]);
   const capitalVsMarket = useMemo(() => validRange ? capitalVsMarketMonthly({
     assets: analysisAssets, movements, prices: history.data ?? {}, from, to, accounts,
   }) : [], [analysisAssets, movements, history.data, from, to, validRange, accounts]);

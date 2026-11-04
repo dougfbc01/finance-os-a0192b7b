@@ -75,7 +75,7 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
   const queryClient = useQueryClient();
   const quoteTargets = useMemo(() => B3QuoteHistoryImportService.targetsFrom(rows.map((r) => r.asset), movements), [rows, movements]);
   // ALL is scoped to currency before aggregation; amounts in different currencies are never added.
-  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency, accounts);
+  const analysis = useInvestmentAnalysis(workspaceId, movements, range.from, range.to, selectedGroup, currency, accounts, rows);
   const visibleGroups = groups.filter((g) => (selectedGroup === "ALL" || g.key === selectedGroup) && (selectedGroup !== "ALL" || !hiddenGroups.includes(g.key)));
   const chart = historicalChartView(analysis.points, visibleGroups.map((g) => g.key));
   const chartData = chart.data;

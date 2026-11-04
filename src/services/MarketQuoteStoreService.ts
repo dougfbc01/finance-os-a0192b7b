@@ -68,15 +68,27 @@ class MarketQuoteStoreServiceImpl extends BaseService {
   /** Última cotação salva de cada ativo do workspace. */
   async loadLatest(workspaceId: UUID, tickers: string[]): Promise<MarketQuoteMap> {
     if (tickers.length === 0) return {};
-    const { data, error } = await this.client
-      .from(this.table)
-      .select("ticker, close_price, provider, fetched_at, price_date")
-      .eq("workspace_id", workspaceId)
-      .in("ticker", tickers)
-      .order("price_date", { ascending: false })
-      .limit(2000);
-    if (error) this.handleError(error, "loadLatest");
-    return MarketQuoteStoreServiceImpl.latestFromRows((data ?? []) as unknown as StoredRow[]);
+    // Page newest-first until every ticker has its latest row: a fixed row cap used to drop
+    // assets whose last saved quote is old, making them appear "a custo" despite a stored quote.
+    const rows: StoredRow[] = [];
+    const pending = new Set(tickers);
+    const PAGE = 1000;
+    for (let from = 0; pending.size > 0; from += PAGE) {
+      const { data, error } = await this.client
+        .from(this.table)
+        .select("ticker, close_price, provider, fetched_at, price_date")
+        .eq("workspace_id", workspaceId)
+        .in("ticker", tickers)
+        .order("price_date", { ascending: false })
+        .order("ticker", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) this.handleError(error, "loadLatest");
+      const page = (data ?? []) as unknown as StoredRow[];
+      rows.push(...page);
+      for (const r of page) pending.delete(r.ticker);
+      if (page.length < PAGE) break;
+    }
+    return MarketQuoteStoreServiceImpl.latestFromRows(rows);
   }
 
   /** Salva as cotações encontradas apenas para os ativos informados. */
