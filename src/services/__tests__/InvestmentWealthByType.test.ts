@@ -36,20 +36,21 @@ describe("Valor patrimonial por tipo", () => {
     asset({ id: "s", name: "Sem cotação", ticker: "SEM3" }),
     asset({ id: "t", name: "Tesouro", asset_type: AssetType.TESOURO, ticker: null }),
     asset({ id: "c", name: "Encerrado", ticker: "ENC3" }),
+    asset({ id: "u", name: "Sem movimentos", asset_type: AssetType.FII, ticker: "UND11", quantity: 2, unit_price: 50, acquisition_value: 100, current_value: 100 }),
   ];
   const movements = [
     mv(), mv({ asset_id: "f", amount: 200, quantity: 2 }), mv({ asset_id: "s", amount: 300, quantity: 3 }),
     mv({ asset_id: "t", amount: 500, quantity: 1 }),
     mv({ asset_id: "c", amount: 100 }), mv({ asset_id: "c", amount: 150, transaction_date: "2026-02-10", tags: ["op:RESGATE"] }),
   ];
-  const prices = { a: [px("AAA3", "2026-01-20", 12), px("AAA3", "2026-02-25", 15)], f: [px("FFF11", "2026-02-25", 110)], c: [px("ENC3", "2026-01-20", 11)] };
+  const prices = { a: [px("AAA3", "2026-01-20", 12), px("AAA3", "2026-02-25", 15)], f: [px("FFF11", "2026-02-25", 110)], c: [px("ENC3", "2026-01-20", 11)], u: [px("UND11", "2026-02-25", 60)] };
   const base = investmentMonthlyBase({ assets, movements, prices, from: "2026-01-01", to: "2026-02-28" });
   const points = monthlyWealthByType(base, "2026-01-01", "2026-02-28");
 
   it("soma por tipo só valor comprovado; sem cotação vai à faixa a custo; renda fixa rotulada a custo", () => {
-    expect(points[0]).toMatchObject({ values: { ACAO_BRL: 230, TESOURO_BRL: 500 }, unvaluedAtCost: 500, total: 1230, excludedAssets: 2 });
+    expect(points[0]).toMatchObject({ values: { ACAO_BRL: 230, TESOURO_BRL: 500 }, unvaluedAtCost: 500, undatedCurrent: 0, total: 1230, excludedAssets: 3 });
     expect(points[0]?.origins.TESOURO_BRL).toEqual(["COST"]);
-    expect(points[1]).toMatchObject({ values: { ACAO_BRL: 150, FII_BRL: 220, TESOURO_BRL: 500 }, unvaluedAtCost: 300, total: 1170, excludedAssets: 1 });
+    expect(points[1]).toMatchObject({ values: { ACAO_BRL: 150, FII_BRL: 220, TESOURO_BRL: 500 }, unvaluedAtCost: 300, total: 1170, excludedAssets: 2 });
     expect(UNVALUED_AT_COST_BAND).toBe("__UNVALUED_AT_COST");
   });
 
@@ -64,7 +65,12 @@ describe("Valor patrimonial por tipo", () => {
     const quoted = MarketQuotationServiceImpl.applyQuotes(AssetValuationServiceImpl.effectiveAssets(assets, past), quotes);
     const composition = summarizeInvestments(InvestmentServiceImpl.rows(quoted, past));
     const compositionTotal = Number(composition.reduce((s, g) => s + g.current, 0).toFixed(2));
-    expect(points.at(-1)?.total).toBe(compositionTotal);
-    expect(compositionTotal).toBe(1170);
+    const currentValues = Object.fromEntries(InvestmentServiceImpl.rows(quoted, past).map((r) => [r.asset.id, r.current]));
+    const withCurrent = monthlyWealthByType(base, "2026-01-01", today, currentValues);
+    expect(withCurrent.at(-1)?.total).toBe(compositionTotal);
+    expect(withCurrent.at(-1)?.undatedCurrent).toBe(120);
+    expect(compositionTotal).toBe(1290);
+    // Undated assets never enter past months.
+    expect(withCurrent[0]?.undatedCurrent).toBe(0);
   });
 });
