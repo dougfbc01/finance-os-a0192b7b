@@ -41,14 +41,6 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
       <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo</p>
     </div>;
   };
-  // Recharts only reads direct children, so the shared axes are an array, never a Fragment.
-  const axis = [
-    <CartesianGrid key="grid" stroke="var(--border)" strokeDasharray="3 3" />,
-    <XAxis key="x" dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} />,
-    <YAxis key="y" tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} />,
-    <Tooltip key="tip" content={tooltip} />,
-    <Legend key="legend" />,
-  ];
   return <div className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-base font-semibold">Valor patrimonial por tipo de ativo · {currency}</h2>
@@ -60,8 +52,8 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
     <p className="text-xs text-muted-foreground">Cada faixa soma os ativos do tipo com valor comprovado no mês (última cotação salva no mês, saldo da conta conciliado ou renda fixa a custo). Ativos cotáveis sem nenhuma cotação ficam na faixa "Sem avaliação (a custo)", para o total fechar com o capital; nenhum preço é estimado.</p>
     <div className="h-80" role="img" aria-label="Gráfico de valor patrimonial por tipo de ativo">{bands.length ? <ResponsiveContainer width="100%" height="100%">
       {mode === "stacked"
-        ? <AreaChart data={view.data}>{axis}{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={color(k)} fillOpacity={k === UNVALUED_AT_COST_BAND ? 0.3 : 0.75} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
-        : <LineChart data={view.data}>{axis}{bands.map((k) => <Line key={k} type="linear" dataKey={k} name={label(k)} stroke={color(k)} strokeWidth={2} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} dot={false} isAnimationActive={false} />)}</LineChart>}
+        ? <AreaChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={color(k)} fillOpacity={k === UNVALUED_AT_COST_BAND ? 0.3 : 0.75} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
+        : <LineChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Line key={k} type="linear" dataKey={k} name={label(k)} stroke={color(k)} strokeWidth={2} strokeDasharray={k === UNVALUED_AT_COST_BAND ? "4 3" : undefined} dot={false} isAnimationActive={false} />)}</LineChart>}
     </ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">Sem valores históricos no período.</div>}</div>
   </div>;
 }
