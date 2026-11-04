@@ -78,7 +78,7 @@ class MarketQuoteStoreServiceImpl extends BaseService {
         .from(this.table)
         .select("ticker, close_price, provider, fetched_at, price_date")
         .eq("workspace_id", workspaceId)
-        .in("ticker", [...pending])
+        .in("ticker", tickers)
         .order("price_date", { ascending: false })
         .order("ticker", { ascending: true })
         .range(from, from + PAGE - 1);
