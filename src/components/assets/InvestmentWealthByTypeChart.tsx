@@ -41,13 +41,14 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
       <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo</p>
     </div>;
   };
-  const axis = <>
-    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-    <XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} />
-    <YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} />
-    <Tooltip content={tooltip} />
-    <Legend />
-  </>;
+  // Recharts only reads direct children, so the shared axes are an array, never a Fragment.
+  const axis = [
+    <CartesianGrid key="grid" stroke="var(--border)" strokeDasharray="3 3" />,
+    <XAxis key="x" dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} />,
+    <YAxis key="y" tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} />,
+    <Tooltip key="tip" content={tooltip} />,
+    <Legend key="legend" />,
+  ];
   return <div className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-base font-semibold">Valor patrimonial por tipo de ativo · {currency}</h2>
