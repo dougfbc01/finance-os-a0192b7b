@@ -91,9 +91,9 @@ export function InvestmentAnalysis({ workspaceId, rows, movements, accounts = []
   const fetchResult = analysis.completeHistory.data;
   const providerNotes = [...new Set((fetchResult ?? []).map((r) => r.message).filter((m): m is string => !!m))];
   const groupColor = investmentTypeColor;
-  const returnDot = (key: string, color: string) => (props: { cx?: number; cy?: number; payload?: ReturnDatum }) => {
+  const returnDot = (key: string, color: string) => (props: { cx?: number; cy?: number; index?: number; payload?: ReturnDatum }) => {
     const { cx, cy } = props;
-    if (typeof cx !== "number" || typeof cy !== "number") return <g key={`${key}-empty`} />;
+    if (typeof cx !== "number" || typeof cy !== "number") return <g key={`${key}-empty-${props.index ?? 0}`} />;
     const pct = props.payload?.coverage?.[key]?.pct;
     const hollow = pct !== null && pct !== undefined && pct < GROUP_RETURN_COVERAGE_WARNING;
     return <circle key={`${key}-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill={hollow ? "var(--background)" : color} stroke={color} strokeWidth={2} />;
