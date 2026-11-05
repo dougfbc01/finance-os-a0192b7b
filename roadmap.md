@@ -84,3 +84,9 @@
 - [x] Aba Investimentos valoriza MOVEMENTS pela posição (positionOf): encerrado = 0, aberto sem cotação = custo ("A custo")
 - [x] Resultado realizado exibido separadamente, sem somar ao valor; Patrimônio/Dashboard/Fechamentos inalterados (docs/20)
 - [x] 537 testes, typecheck e build OK; Tesouro validado com dados reais (1.078,09)
+
+## Valor patrimonial por tipo e custo ausente
+- [x] Ativo sem custo fica fora da rentabilidade do grupo, listado como "sem custo" (não apaga a linha)
+- [x] Gráfico empilhado/linhas por tipo com faixas "Sem avaliação (a custo)" e "Sem histórico de movimentos"; origem rotulada
+- [x] Cores por tipo (ETF × BDR distinguíveis, renda fixa em família própria)
+- [x] Total do último mês = Composição atual (teste); última cotação salva não é mais descartada (docs/21)
