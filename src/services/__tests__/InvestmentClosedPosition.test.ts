@@ -174,3 +174,32 @@ describe("Ativo MOVEMENTS sem nenhuma operação vinculada", () => {
     expect(row.valueOrigin).toBe("MANUAL");
   });
 });
+
+describe("Patrimônio (effectiveAssets): posição por quantidade encerrada vale 0", () => {
+  it("Tesouro encerrado com lucro: valor 0 (antes −69,37)", () => {
+    const t = asset({ id: "pat-tesouro" });
+    const ops = [buy("pat-tesouro", 100, 1, "2024-01-10"), sell("pat-tesouro", 169.37, 1, "2025-01-10")];
+    const [eff] = AssetValuationServiceImpl.effectiveAssets([t], ops);
+    expect(eff.effective_value).toBe(0);
+    expect(eff.effective_acquisition).toBe(0);
+  });
+
+  it("FII encerrado com prejuízo: valor 0 (antes +33,60)", () => {
+    const f = asset({ id: "pat-fii", asset_type: AssetType.FII, ticker: "BCFF11" });
+    const ops = [buy("pat-fii", 133.6, 2, "2022-01-10"), sell("pat-fii", 100, 2, "2023-01-10")];
+    const [eff] = AssetValuationServiceImpl.effectiveAssets([f], ops);
+    expect(eff.effective_value).toBe(0);
+  });
+
+  it("Poupança sem quantidade mantém opening_value + delta", () => {
+    const p = asset({ id: "pat-poup", asset_type: AssetType.POUPANCA, opening_value: 50 });
+    const ops = [
+      movement({ asset_id: "pat-poup", amount: 200, quantity: null, unit_price: null, tags: ["op:APORTE"] }),
+      movement({ asset_id: "pat-poup", amount: 250, quantity: null, unit_price: null, type: MovementType.INCOME, tags: ["op:RESGATE"], transaction_date: "2026-02-10" }),
+    ];
+    const impact = AssetValuationServiceImpl.impactByAsset(ops).get("pat-poup")!;
+    const [eff] = AssetValuationServiceImpl.effectiveAssets([p], ops);
+    expect(eff.effective_value).toBe(AssetValuationServiceImpl.valueOf(p, impact).value);
+    expect(eff.effective_value).toBe(0);
+  });
+});
