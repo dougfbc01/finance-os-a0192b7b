@@ -45,7 +45,9 @@ export function portfolioView(rows: InvestmentRow[], options: { search: string; 
 /** Stacked/line chart rows from the service projection; only reshapes, never recalculates. */
 export function wealthByTypeChartView(points: WealthByTypePoint[], groupKeys: string[]) {
   const data = points.map((p) => ({
-    date: p.date, total: p.total, coveragePct: p.coveragePct, excludedAssets: p.excludedAssets, excludedNames: p.excludedNames,
+    date: p.date, total: p.total,
+    // The undated band is not comparable with previous months: month-to-month comparisons use this total.
+    comparableTotal: Number((p.total - p.undatedCurrent).toFixed(2)), coveragePct: p.coveragePct, excludedAssets: p.excludedAssets, excludedNames: p.excludedNames,
     ...Object.fromEntries(groupKeys.map((k) => [k, p.values[k] ?? 0])),
     [UNVALUED_AT_COST_BAND]: p.unvaluedAtCost,
     [UNDATED_CURRENT_BAND]: p.undatedCurrent,

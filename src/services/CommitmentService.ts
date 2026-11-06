@@ -7,6 +7,7 @@
 //  - a diferença de centavos vai integralmente para a ÚLTIMA parcela, de modo
 //    que a soma das parcelas seja sempre exatamente o valor total.
 import { BaseService } from "./BaseService";
+import { fetchAllPages } from "@/lib/fetchAllPages";
 import type { UUID } from "@/models";
 import { MovementType } from "@/constants/enums";
 import type { Movement } from "@/models/Movement";
@@ -463,12 +464,17 @@ class CommitmentServiceImpl extends BaseService {
     if (!commitment) return [];
 
     const wsId = (installment as CommitmentInstallment).workspace_id;
-    const { data: movements, error: movementsError } = await this.client
-      .from("movements")
-      .select("*")
-      .eq("workspace_id", wsId)
-      .is("deleted_at", null);
-    if (movementsError) this.handleError(movementsError, "findMovementCandidates.movements");
+    const movements = await fetchAllPages<Movement>(
+      (from, to) => this.client
+        .from("movements")
+        .select("*")
+        .eq("workspace_id", wsId)
+        .is("deleted_at", null)
+        .order("transaction_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+      (e) => this.handleError(e, "findMovementCandidates.movements"),
+    );
 
     const { data: linked, error: linkedError } = await this.client
       .from(this.installmentsTable)

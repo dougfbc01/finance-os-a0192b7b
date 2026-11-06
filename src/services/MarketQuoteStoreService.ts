@@ -80,7 +80,7 @@ class MarketQuoteStoreServiceImpl extends BaseService {
         .eq("workspace_id", workspaceId)
         .in("ticker", tickers)
         .order("price_date", { ascending: false })
-        .order("ticker", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) this.handleError(error, "loadLatest");
       const page = (data ?? []) as unknown as StoredRow[];
