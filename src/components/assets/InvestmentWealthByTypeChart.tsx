@@ -17,14 +17,14 @@ export const investmentTypeColor = (key: string) => TYPE_COLORS[key.replace(/_[A
 const ORIGIN_LABEL: Record<WealthBandOrigin, string | null> = { MARKET: null, ACCOUNT: "Conta (conciliado)", COST: "A custo" };
 const dateLabel = (v: string) => new Date(`${v}T12:00:00Z`).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 
-type Datum = Record<string, unknown> & { date: string; total: number; coveragePct: number | null; excludedAssets: number; excludedNames: string[] };
+type Datum = Record<string, unknown> & { date: string; total: number; comparableTotal: number; coveragePct: number | null; excludedAssets: number; excludedNames: string[] };
 
 export function InvestmentWealthByTypeChart({ points, groups, currency }: { points: WealthByTypePoint[]; groups: { key: string; label: string }[]; currency: string }) {
   const [mode, setMode] = useState<"stacked" | "lines">("stacked");
   const view = wealthByTypeChartView(points, groups.map((g) => g.key));
   const label = (key: string) => {
     if (key === UNVALUED_AT_COST_BAND) return "Sem avaliação (a custo)";
-    if (key === UNDATED_CURRENT_BAND) return "Sem histórico de movimentos (valor atual)";
+    if (key === UNDATED_CURRENT_BAND) return "Sem histórico de movimentos (valor atual) — não comparável com meses anteriores";
     const base = groups.find((g) => g.key === key)?.label ?? key;
     const origin = (view.origins[key] ?? []).map((o) => ORIGIN_LABEL[o]).filter(Boolean);
     return origin.length ? `${base} — ${origin.join(" / ")}` : base;
@@ -40,6 +40,7 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
       <p className="font-medium">{new Date(`${date}T12:00:00Z`).toLocaleDateString("pt-BR")}</p>
       {bands.filter((k) => Number(d[k] ?? 0) !== 0).map((k) => <p key={k} className="flex justify-between gap-4"><span><span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: color(k) }} />{label(k)}</span><span className="tabular-nums">{money(Number(d[k]))}</span></p>)}
       <p className="flex justify-between gap-4 border-t pt-1 font-medium"><span>Total do mês</span><span className="tabular-nums">{money(d.total)}</span></p>
+      {Number(d[UNDATED_CURRENT_BAND] ?? 0) !== 0 && <p className="flex justify-between gap-4 text-xs text-muted-foreground"><span>Comparável com meses anteriores</span><span className="tabular-nums">{money(d.comparableTotal)}</span></p>}
       <p className="text-xs text-muted-foreground">Cobertura: {d.coveragePct === null ? "—" : `${(d.coveragePct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% do capital com valor de mercado/conta`} · {d.excludedAssets} {d.excludedAssets === 1 ? "ativo" : "ativos"} fora das faixas por tipo{d.excludedNames.length ? `: ${d.excludedNames.join(", ")}` : ""}</p>
     </div>;
   };
@@ -51,10 +52,10 @@ export function InvestmentWealthByTypeChart({ points, groups, currency }: { poin
         <Button size="sm" variant={mode === "lines" ? "default" : "outline"} aria-pressed={mode === "lines"} onClick={() => setMode("lines")}>Linhas</Button>
       </div>
     </div>
-    <p className="text-xs text-muted-foreground">Cada faixa soma os ativos do tipo com valor comprovado no mês (última cotação salva no mês, saldo da conta conciliado ou renda fixa a custo). Ativos cotáveis sem nenhuma cotação ficam na faixa "Sem avaliação (a custo)", para o total fechar com o capital; nenhum preço é estimado. Ativos cadastrados sem movimentos só entram no mês atual, pelo valor da Carteira, porque não se sabe desde quando são mantidos.</p>
+    <p className="text-xs text-muted-foreground">Cada faixa soma os ativos do tipo com valor comprovado no mês (última cotação salva no mês, saldo da conta conciliado ou renda fixa a custo). Ativos cotáveis sem nenhuma cotação ficam na faixa "Sem avaliação (a custo)", para o total fechar com o capital; nenhum preço é estimado. Ativos cadastrados sem movimentos só entram no mês atual, pelo valor da Carteira, porque não se sabe desde quando são mantidos: essa faixa aparece hachurada e fica fora da comparação mês a mês.</p>
     <div className="h-80" role="img" aria-label="Gráfico de valor patrimonial por tipo de ativo">{bands.length ? <ResponsiveContainer width="100%" height="100%">
       {mode === "stacked"
-        ? <AreaChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={color(k)} fillOpacity={muted(k) ? 0.3 : 0.75} strokeDasharray={muted(k) ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
+        ? <AreaChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><defs><pattern id="wealth-undated-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--chart-unvalued)" fillOpacity={0.15} /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--chart-unvalued)" strokeWidth={2} /></pattern></defs><Legend />{bands.map((k) => <Area key={k} type="linear" dataKey={k} name={label(k)} stackId="wealth" stroke={color(k)} fill={k === UNDATED_CURRENT_BAND ? "url(#wealth-undated-hatch)" : color(k)} fillOpacity={k === UNDATED_CURRENT_BAND ? 1 : muted(k) ? 0.3 : 0.75} strokeDasharray={muted(k) ? "4 3" : undefined} isAnimationActive={false} />)}</AreaChart>
         : <LineChart data={view.data}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={dateLabel} fontSize={11} minTickGap={30} /><YAxis tickFormatter={(v) => money(Number(v)).replace(/,\d{2}$/, "")} width={90} fontSize={11} /><Tooltip content={tooltip} /><Legend />{bands.map((k) => <Line key={k} type="linear" dataKey={k} name={label(k)} stroke={color(k)} strokeWidth={2} strokeDasharray={muted(k) ? "4 3" : undefined} dot={false} isAnimationActive={false} />)}</LineChart>}
     </ResponsiveContainer> : <div className="flex h-full items-center justify-center border-y text-sm text-muted-foreground">Sem valores históricos no período.</div>}</div>
   </div>;
