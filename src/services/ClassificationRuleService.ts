@@ -12,6 +12,7 @@
 //   5. tamanho do padrão de contraparte;
 //   6. id da regra (desempate estável — nunca aleatório).
 import { BaseService } from "./BaseService";
+import { fetchAllPages } from "@/lib/fetchAllPages";
 import { logFinanceError } from "@/lib/logger";
 import { TransactionFingerprintService as FP } from "./TransactionFingerprintService";
 import { MovementType, INCOME_TYPES, EXPENSE_TYPES } from "@/constants/enums";
@@ -467,16 +468,21 @@ class ClassificationRuleServiceImpl extends BaseService {
   async findUnclassifiedMatches(workspaceId: UUID, pattern: string): Promise<UUID[]> {
     const needle = pattern.trim().toLowerCase();
     if (!needle) return [];
-    const { data, error } = await this.client
-      .from("movements")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
-      .is("category_id", null)
-      .not("type", "in", "(TRANSFER,CARD_PAYMENT)")
-      .ilike("description", `%${needle}%`);
-    if (error) this.handleError(error, "findUnclassifiedMatches");
-    return ((data ?? []) as { id: UUID }[]).map((r) => r.id);
+    const data = await fetchAllPages<{ id: UUID }>(
+      (from, to) => this.client
+        .from("movements")
+        .select("id, transaction_date")
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("category_id", null)
+        .not("type", "in", "(TRANSFER,CARD_PAYMENT)")
+        .ilike("description", `%${needle}%`)
+        .order("transaction_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+      (e) => this.handleError(e, "findUnclassifiedMatches"),
+    );
+    return data.map((r) => r.id);
   }
 
   /** Aplica categoria/subcategoria a um conjunto de movimentações. */
@@ -506,17 +512,22 @@ class ClassificationRuleServiceImpl extends BaseService {
     plan: Map<UUID, { evaluation: RuleEvaluation; tie: boolean }>;
   }> {
     const rules = (await this.list(workspaceId)).filter((r) => r.enabled);
-    const { data, error } = await this.client
-      .from("movements")
-      .select("id, description, type, amount, account_id, transfer_account_id, card_id")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
-      .is("category_id", null)
-      .not("type", "in", "(TRANSFER,CARD_PAYMENT)");
-    if (error) {
-      logFinanceError("rules", "buildPlan", error);
-      this.handleError(error, "buildPlan");
-    }
+    const data = await fetchAllPages<RuleContext & { id: UUID }>(
+      (from, to) => this.client
+        .from("movements")
+        .select("id, description, type, amount, account_id, transfer_account_id, card_id, transaction_date")
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("category_id", null)
+        .not("type", "in", "(TRANSFER,CARD_PAYMENT)")
+        .order("transaction_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+      (error) => {
+        logFinanceError("rules", "buildPlan", error);
+        return this.handleError(error, "buildPlan");
+      },
+    );
 
     const rows = ((data ?? []) as Array<RuleContext & { id: UUID }>).map((r) => ({
       ...r,

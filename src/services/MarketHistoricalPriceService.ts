@@ -78,6 +78,7 @@ class MarketHistoricalPriceServiceImpl extends BaseService {
       .gte("price_date", query.from)
       .lte("price_date", query.to)
       .order("price_date", { ascending: true })
+      .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) this.handleError(error, "listStored");
     const page = (data ?? []) as unknown as HistoryRow[];
