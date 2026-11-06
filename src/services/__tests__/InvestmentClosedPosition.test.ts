@@ -2,8 +2,8 @@
 // Regra: posição encerrada vale 0 e tem capital 0 (nunca negativo); o lucro
 // realizado já saiu como caixa e não abate o valor dos ativos abertos. Ativo
 // aberto sem cotação vale o custo da posição (positionOf), rotulado "A custo".
-// A correção vale apenas para a aba Investimentos: valueOf/effectiveAssets
-// (Patrimônio, Dashboard, Fechamentos) permanecem inalterados.
+// valueOf segue inalterado; effectiveAssets (Patrimônio/Dashboard) aplica a regra
+// a ativos com histórico de quantidade. Fechamentos gravados não mudam.
 import { describe, expect, it } from "vitest";
 import { AssetType, AssetValuationSource, MovementStatus, MovementType } from "@/constants/enums";
 import type { Asset, Movement } from "@/models";
