@@ -274,6 +274,11 @@ class AssetValuationServiceImpl extends BaseService {
     };
   }
 
+  /** True when the asset has at least one movement carrying a non-zero quantity. */
+  static hasQuantityHistory(assetId: UUID, movements: Movement[]): boolean {
+    return movements.some((m) => m.asset_id === assetId && !m.deleted_at && m.quantity != null && Number(m.quantity) !== 0);
+  }
+
   /** Um ativo espelhado numa conta nunca soma no total (o caixa já o conta). */
   static countsInTotal(asset: Asset): boolean {
     return asset.valuation_source !== AssetValuationSource.ACCOUNT;
@@ -319,12 +324,21 @@ class AssetValuationServiceImpl extends BaseService {
     const impacts = AssetValuationServiceImpl.impactByAsset(movements);
     return assets.map((asset) => {
       const impact = impacts.get(asset.id) ?? { ...EMPTY_IMPACT };
-      const { value, acquisition } = AssetValuationServiceImpl.valueOf(
+      let { value, acquisition } = AssetValuationServiceImpl.valueOf(
         asset,
         impact,
         accountBalances,
       );
       const position = AssetValuationServiceImpl.positionOf(asset.id, movements);
+      // Quantity-tracked MOVEMENTS positions: closed = 0 (realized profit already left as cash),
+      // open = positionOf cost (quotes override later). Balance-only assets keep opening + delta.
+      if (
+        asset.valuation_source === AssetValuationSource.MOVEMENTS &&
+        AssetValuationServiceImpl.hasQuantityHistory(asset.id, movements)
+      ) {
+        value = position.quantity === 0 ? 0 : position.cost;
+        if (position.quantity === 0) acquisition = 0;
+      }
       // Sprint 4.8 — quando a fonte é MOVEMENTS a posição/PM vêm das operações;
       // MANUAL e ACCOUNT preservam exatamente o comportamento anterior.
       const derived =
