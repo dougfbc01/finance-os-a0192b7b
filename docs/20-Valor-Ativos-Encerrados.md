@@ -67,3 +67,4 @@ sobrescrevia o delta e nada muda.
 - Dados reais: Tesouro = 1.078,09 (2 abertos "A custo"), realizado 238,69
   separado; 4 encerrados a 0 com realizado individual (69,37 / 56,71 / 62,69 /
   49,92).
+- Sprint 4.15F: valueOf de Patrimônio/Dashboard NÃO alterado — impacto medido atinge FII (−33,60), Poupança (−50,00) e Ações (+1,12) além do Tesouro (+238,69); aguardando decisão. Faixa sem histórico hachurada e fora da comparação; leituras paginadas por data + id.
