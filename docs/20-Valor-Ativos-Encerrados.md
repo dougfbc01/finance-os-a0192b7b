@@ -69,3 +69,4 @@ sobrescrevia o delta e nada muda.
   49,92).
 - Sprint 4.15F: valueOf de Patrimônio/Dashboard NÃO alterado — impacto medido atinge FII (−33,60), Poupança (−50,00) e Ações (+1,12) além do Tesouro (+238,69); aguardando decisão. Faixa sem histórico hachurada e fora da comparação; leituras paginadas por data + id.
 - Sprint 4.15G: Patrimônio/Dashboard (effectiveAssets) aplicam a regra a posições com histórico de quantidade (encerrada = 0, aberta sem cotação = custo); ativos sem quantidade mantêm valueOf; impacto +206,21 (Tesouro +238,69, BCFF11 −33,60, Ações +1,12); Fechamentos já gravados não foram reescritos, o que cria descontinuidade entre fechamentos antigos e novos.
+- Zerar dados (Configurações > Zona de perigo): função reset_workspace_data apaga fisicamente por workspace_id em dois modos, com auditoria em admin_audit_logs; ativos de saúde (health_check_*) são mantidos.
