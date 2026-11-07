@@ -15,6 +15,13 @@
       "when": 1791751930898,
       "tag": "0001_align_invoice_totals_and_health_diagnostics",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794087552609,
+      "tag": "0002_reset_workspace_data",
+      "breakpoints": true
     }
   ]
 }

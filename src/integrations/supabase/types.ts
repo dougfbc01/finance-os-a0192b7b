@@ -2021,6 +2021,10 @@ export type Database = {
         Args: { _workspace_id: string }
         Returns: number
       }
+      reset_workspace_data: {
+        Args: { _dry_run?: boolean; _mode: string; _workspace_id: string }
+        Returns: Json
+      }
       seed_default_categories: {
         Args: { _workspace_id: string }
         Returns: undefined
