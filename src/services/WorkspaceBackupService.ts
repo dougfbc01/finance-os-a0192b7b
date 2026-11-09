@@ -43,6 +43,28 @@ export class WorkspaceBackupServiceImpl extends BaseService {
     return { format: "finance-os-backup", version: 1, exported_at: now.toISOString(), workspace: workspace ?? null, counts, tables };
   }
 
+  /** Lê e valida o arquivo de backup antes de enviar ao banco. */
+  static parse(text: string): WorkspaceBackup {
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { throw new Error("Arquivo de backup inválido"); }
+    const b = data as Partial<WorkspaceBackup>;
+    if (!b || b.format !== "finance-os-backup" || typeof b.tables !== "object" || b.tables === null) {
+      throw new Error("Arquivo de backup inválido");
+    }
+    return b as WorkspaceBackup;
+  }
+
+  /** Substitui todos os dados do workspace pelo backup, numa única transação. */
+  async restore(workspaceId: UUID, backup: WorkspaceBackup): Promise<Record<string, number>> {
+    const { data, error } = await this.client.rpc("restore_workspace_data", {
+      _workspace_id: workspaceId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      _backup: backup as any,
+    });
+    if (error) this.handleError(error, "restore");
+    return (data ?? {}) as Record<string, number>;
+  }
+
   static fileName(workspaceName: string | null | undefined, now: Date = new Date()): string {
     const slug = (workspaceName ?? "workspace").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "workspace";
     return `finance-os-backup-${slug}-${now.toISOString().slice(0, 10)}.json`;
