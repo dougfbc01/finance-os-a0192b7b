@@ -44,7 +44,7 @@ export class WorkspaceBackupServiceImpl extends BaseService {
   }
 
   static fileName(workspaceName: string | null | undefined, now: Date = new Date()): string {
-    const slug = (workspaceName ?? "workspace").normalize("NFD").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "workspace";
+    const slug = (workspaceName ?? "workspace").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "workspace";
     return `finance-os-backup-${slug}-${now.toISOString().slice(0, 10)}.json`;
   }
 }
