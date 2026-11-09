@@ -23,6 +23,7 @@ import { HealthCheckSchedulePanel } from "@/components/configuracoes/HealthCheck
 import { HealthCheckHistoryPanel } from "@/components/configuracoes/HealthCheckHistoryPanel";
 import { MarketIntegrationPanel } from "@/components/configuracoes/MarketIntegrationPanel";
 import { WorkspaceResetPanel } from "@/components/configuracoes/WorkspaceResetPanel";
+import { WorkspaceBackupPanel } from "@/components/configuracoes/WorkspaceBackupPanel";
 import type { ReprocessReport } from "@/services/ClassificationRuleService";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -212,6 +213,7 @@ function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
+      <WorkspaceBackupPanel workspaceId={ws?.id} workspaceName={ws?.name} />
       <WorkspaceResetPanel workspaceId={ws?.id} workspaceName={ws?.name} />
 
       <AlertDialog open={!!plan} onOpenChange={(o) => !o && setPlan(null)}>
