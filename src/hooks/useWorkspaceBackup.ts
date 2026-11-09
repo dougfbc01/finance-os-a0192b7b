@@ -1,5 +1,5 @@
-import { useMutation } from "@tanstack/react-query";
-import { WorkspaceBackupService, WorkspaceBackupServiceImpl } from "@/services/WorkspaceBackupService";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { WorkspaceBackupService, WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 
 export function useWorkspaceBackup() {
   return useMutation({
@@ -13,6 +13,18 @@ export function useWorkspaceBackup() {
       a.click();
       URL.revokeObjectURL(url);
       return backup;
+    },
+  });
+}
+
+export function useWorkspaceRestore() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workspaceId, backup }: { workspaceId: string; backup: WorkspaceBackup }) =>
+      WorkspaceBackupService.restore(workspaceId, backup),
+    onSuccess: async () => {
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "workspace" });
+      await qc.invalidateQueries();
     },
   });
 }

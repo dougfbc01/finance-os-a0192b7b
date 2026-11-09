@@ -22,6 +22,13 @@
       "when": 1794087552609,
       "tag": "0002_reset_workspace_data",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794224903192,
+      "tag": "0003_restore_workspace_data",
+      "breakpoints": true
     }
   ]
 }
