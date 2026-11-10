@@ -15,12 +15,19 @@ export interface BackupProfile {
   sameWorkspace: boolean;
   tables: BackupTableProfile[];
   issues: string[];
+  /** Comparação backup × dados atuais (contagens por tabela). */
+  comparison?: BackupComparisonRow[];
 }
+
+export interface BackupComparisonRow { table: string; current: number; backup: number; delta: number }
 
 export interface BackupAiReview {
   summary: string;
   inconsistencies: { severity: "alta" | "média" | "baixa"; description: string }[];
   recommendation: string;
+  /** O que a restauração substituiria e diferenças notáveis. */
+  replacement?: string;
+  differences?: string[];
 }
 
 const DATE_FIELDS = ["transaction_date", "date", "reference_date", "due_date", "created_at"];
@@ -79,5 +86,17 @@ export class WorkspaceBackupAnalysisService {
     if (!sameWorkspace) issues.push("Backup gerado em outro workspace");
 
     return { exportedAt, sameWorkspace, tables, issues };
+  }
+
+  /** Contagens atuais × backup por tabela (união das duas listas), maiores diferenças primeiro. */
+  static compare(profile: BackupProfile, current: Record<string, number>): BackupComparisonRow[] {
+    const backupRows = new Map(profile.tables.map((t) => [t.table, t.rows]));
+    const names = new Set([...backupRows.keys(), ...Object.keys(current)]);
+    return [...names]
+      .map((table) => {
+        const c = current[table] ?? 0, b = backupRows.get(table) ?? 0;
+        return { table, current: c, backup: b, delta: b - c };
+      })
+      .sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta) || x.table.localeCompare(y.table));
   }
 }
