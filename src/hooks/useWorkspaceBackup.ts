@@ -28,3 +28,14 @@ export function useWorkspaceRestore() {
     },
   });
 }
+
+export function useBackupReview() {
+  const review = useServerFn(reviewBackupFn);
+  return useMutation({
+    mutationFn: async ({ workspaceId, backup }: { workspaceId: string; backup: WorkspaceBackup }) => {
+      const profile = WorkspaceBackupAnalysisService.profile(backup, workspaceId);
+      const res = await review({ data: { workspaceId, profile } });
+      return { profile, ...res };
+    },
+  });
+}
