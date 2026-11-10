@@ -1,6 +1,7 @@
 import { useServerFn } from "@tanstack/react-start";
 import { reviewBackupFn } from "@/lib/backupReview.functions";
 import { WorkspaceBackupAnalysisService } from "@/services/WorkspaceBackupAnalysisService";
+import { WorkspaceResetService } from "@/services/WorkspaceResetService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { WorkspaceBackupService, WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 
@@ -36,7 +37,9 @@ export function useBackupReview() {
   const review = useServerFn(reviewBackupFn);
   return useMutation({
     mutationFn: async ({ workspaceId, backup }: { workspaceId: string; backup: WorkspaceBackup }) => {
-      const profile = WorkspaceBackupAnalysisService.profile(backup, workspaceId);
+      const base = WorkspaceBackupAnalysisService.profile(backup, workspaceId);
+      const current = await WorkspaceResetService.preview(workspaceId, "ALL");
+      const profile = { ...base, comparison: WorkspaceBackupAnalysisService.compare(base, current) };
       const res = await review({ data: { workspaceId, profile } });
       return { profile, ...res };
     },
