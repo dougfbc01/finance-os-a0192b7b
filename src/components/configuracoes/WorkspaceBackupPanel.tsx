@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { useWorkspaceBackup, useWorkspaceRestore } from "@/hooks/useWorkspaceBackup";
+import { useWorkspaceBackup, useWorkspaceRestore, useBackupReview } from "@/hooks/useWorkspaceBackup";
 import { WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 import { WORKSPACE_RESET_TABLE_LABELS, WorkspaceResetServiceImpl } from "@/services/WorkspaceResetService";
 
@@ -17,6 +17,7 @@ interface Props { workspaceId?: string; workspaceName?: string | null }
 export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
   const backup = useWorkspaceBackup();
   const restore = useWorkspaceRestore();
+  const aiReview = useBackupReview();
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<WorkspaceBackup | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -34,10 +35,10 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
     }
   };
 
-  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); };
+  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); };
 
   const handleFile = async (f: File | undefined) => {
-    setFile(null); setFileError(null);
+    setFile(null); setFileError(null); aiReview.reset();
     if (!f) return;
     try { setFile(WorkspaceBackupServiceImpl.parse(await f.text())); }
     catch (e) { setFileError(e instanceof Error ? e.message : "Arquivo inválido"); }
@@ -101,6 +102,44 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
                     </li>
                   ))}
               </ul>
+            </div>
+          )}
+
+          {file && workspaceId && (
+            <div className="space-y-2 rounded-md border p-3 text-sm">
+              <Button size="sm" variant="secondary" disabled={aiReview.isPending}
+                onClick={() => aiReview.mutate({ workspaceId, backup: file })}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                {aiReview.isPending ? "Analisando…" : "Analisar backup com IA"}
+              </Button>
+              {aiReview.isError && <p className="text-destructive">{aiReview.error instanceof Error ? aiReview.error.message : "Erro na análise"}</p>}
+              {aiReview.data && (
+                <div className="space-y-2">
+                  {aiReview.data.profile.issues.length > 0 && (
+                    <div>
+                      <p className="font-medium">Problemas detectados no arquivo</p>
+                      <ul className="list-disc pl-5 text-muted-foreground">
+                        {aiReview.data.profile.issues.map((i) => <li key={i}>{i}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {aiReview.data.error && <p className="text-destructive">{aiReview.data.error}</p>}
+                  {aiReview.data.review && (
+                    <>
+                      <p>{aiReview.data.review.summary}</p>
+                      {aiReview.data.review.inconsistencies.length > 0 && (
+                        <ul className="space-y-1">
+                          {aiReview.data.review.inconsistencies.map((i, n) => (
+                            <li key={n}><span className={i.severity === "alta" ? "font-medium text-destructive" : "font-medium"}>[{i.severity}]</span> {i.description}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-muted-foreground"><strong>Recomendação:</strong> {aiReview.data.review.recommendation}</p>
+                      <p className="text-xs text-muted-foreground">Análise gerada por IA a partir de um resumo do arquivo; confira antes de restaurar.</p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

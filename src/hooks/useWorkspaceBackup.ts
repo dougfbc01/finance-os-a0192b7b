@@ -1,3 +1,6 @@
+import { useServerFn } from "@tanstack/react-start";
+import { reviewBackupFn } from "@/lib/backupReview.functions";
+import { WorkspaceBackupAnalysisService } from "@/services/WorkspaceBackupAnalysisService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { WorkspaceBackupService, WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 
@@ -25,6 +28,17 @@ export function useWorkspaceRestore() {
     onSuccess: async () => {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "workspace" });
       await qc.invalidateQueries();
+    },
+  });
+}
+
+export function useBackupReview() {
+  const review = useServerFn(reviewBackupFn);
+  return useMutation({
+    mutationFn: async ({ workspaceId, backup }: { workspaceId: string; backup: WorkspaceBackup }) => {
+      const profile = WorkspaceBackupAnalysisService.profile(backup, workspaceId);
+      const res = await review({ data: { workspaceId, profile } });
+      return { profile, ...res };
     },
   });
 }
