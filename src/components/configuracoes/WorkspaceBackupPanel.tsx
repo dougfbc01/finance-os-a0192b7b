@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Upload, Sparkles } from "lucide-react";
+import { Download, Upload, Sparkles, FileText } from "lucide-react";
+import { buildBackupReviewPdf } from "@/lib/backupReviewPdf";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,16 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
               {aiReview.isError && <p className="text-destructive">{aiReview.error instanceof Error ? aiReview.error.message : "Erro na análise"}</p>}
               {aiReview.data && (
                 <div className="space-y-2">
+                  {aiReview.data.profile.comparison && aiReview.data.profile.comparison.some((c) => c.delta !== 0) && (
+                    <div>
+                      <p className="font-medium">Atual × backup</p>
+                      <ul className="text-muted-foreground">
+                        {aiReview.data.profile.comparison.filter((c) => c.delta !== 0).slice(0, 8).map((c) => (
+                          <li key={c.table}>{WORKSPACE_RESET_TABLE_LABELS[c.table] ?? c.table}: {c.current} → {c.backup}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {aiReview.data.profile.issues.length > 0 && (
                     <div>
                       <p className="font-medium">Problemas detectados no arquivo</p>
@@ -127,6 +138,10 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
                   {aiReview.data.review && (
                     <>
                       <p>{aiReview.data.review.summary}</p>
+                      {aiReview.data.review.replacement && <p><strong>O que seria substituído:</strong> {aiReview.data.review.replacement}</p>}
+                      {!!aiReview.data.review.differences?.length && (
+                        <ul className="list-disc pl-5">{aiReview.data.review.differences.map((d, n) => <li key={n}>{d}</li>)}</ul>
+                      )}
                       {aiReview.data.review.inconsistencies.length > 0 && (
                         <ul className="space-y-1">
                           {aiReview.data.review.inconsistencies.map((i, n) => (
@@ -135,6 +150,17 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
                         </ul>
                       )}
                       <p className="text-muted-foreground"><strong>Recomendação:</strong> {aiReview.data.review.recommendation}</p>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        const d = aiReview.data!;
+                        const blob = await buildBackupReviewPdf({ workspaceName, profile: d.profile, review: d.review, labels: WORKSPACE_RESET_TABLE_LABELS });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url; a.download = `analise-backup-${new Date().toISOString().slice(0, 10)}.pdf`;
+                        document.body.appendChild(a); a.click(); a.remove();
+                        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                      }}>
+                        <FileText className="mr-2 h-4 w-4" /> Baixar relatório em PDF
+                      </Button>
                       <p className="text-xs text-muted-foreground">Análise gerada por IA a partir de um resumo do arquivo; confira antes de restaurar.</p>
                     </>
                   )}

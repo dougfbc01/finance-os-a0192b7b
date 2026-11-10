@@ -28,3 +28,16 @@ describe("WorkspaceBackupAnalysisService.profile", () => {
     expect(p.issues).toEqual([]);
   });
 });
+
+import { describe as d2, it as i2, expect as e2 } from "vitest";
+import { WorkspaceBackupAnalysisService as S2 } from "../WorkspaceBackupAnalysisService";
+d2("compare", () => {
+  i2("compares current and backup counts, biggest difference first", () => {
+    const rows = S2.compare({ exportedAt: null, sameWorkspace: true, issues: [], tables: [
+      { table: "movements", rows: 10, softDeleted: 0, firstDate: null, lastDate: null },
+      { table: "accounts", rows: 3, softDeleted: 0, firstDate: null, lastDate: null },
+    ] }, { movements: 100, accounts: 3, assets: 5 });
+    e2(rows[0]).toEqual({ table: "movements", current: 100, backup: 10, delta: -90 });
+    e2(rows.find((r) => r.table === "assets")).toEqual({ table: "assets", current: 5, backup: 0, delta: -5 });
+  });
+});
