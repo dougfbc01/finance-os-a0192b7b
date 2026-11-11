@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { useWorkspaceBackup, useWorkspaceRestore, useBackupReview } from "@/hooks/useWorkspaceBackup";
+import { useWorkspaceBackup, useWorkspaceRestore, useBackupReview, useBackupQuestion } from "@/hooks/useWorkspaceBackup";
 import { WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 import { WORKSPACE_RESET_TABLE_LABELS, WorkspaceResetServiceImpl } from "@/services/WorkspaceResetService";
 
@@ -19,6 +19,16 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
   const backup = useWorkspaceBackup();
   const restore = useWorkspaceRestore();
   const aiReview = useBackupReview();
+  const askAi = useBackupQuestion();
+  const [question, setQuestion] = useState("");
+  const [qa, setQa] = useState<{ q: string; a: string; error?: boolean }[]>([]);
+  const submitQuestion = async () => {
+    const q = question.trim();
+    if (q.length < 3 || !aiReview.data || !workspaceId) return;
+    const res = await askAi.mutateAsync({ workspaceId, profile: aiReview.data.profile, question: q, history: qa.filter((x) => !x.error).map(({ q, a }) => ({ q, a })) });
+    setQa((prev) => [...prev, res.answer ? { q, a: res.answer } : { q, a: res.error ?? "Erro", error: true }]);
+    setQuestion("");
+  };
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<WorkspaceBackup | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -36,10 +46,10 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
     }
   };
 
-  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); };
+  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); setQa([]); setQuestion(""); };
 
   const handleFile = async (f: File | undefined) => {
-    setFile(null); setFileError(null); aiReview.reset();
+    setFile(null); setFileError(null); aiReview.reset(); setQa([]);
     if (!f) return;
     try { setFile(WorkspaceBackupServiceImpl.parse(await f.text())); }
     catch (e) { setFileError(e instanceof Error ? e.message : "Arquivo inválido"); }
@@ -161,6 +171,20 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
                       }}>
                         <FileText className="mr-2 h-4 w-4" /> Baixar relatório em PDF
                       </Button>
+                      <div className="space-y-2 border-t pt-2">
+                        <p className="font-medium">Pergunte sobre este backup</p>
+                        {qa.map((x, n) => (
+                          <div key={n} className="space-y-0.5">
+                            <p className="text-muted-foreground">Você: {x.q}</p>
+                            <p className={x.error ? "text-destructive" : "whitespace-pre-wrap"}>{x.a}</p>
+                          </div>
+                        ))}
+                        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void submitQuestion(); }}>
+                          <Input value={question} maxLength={500} onChange={(e) => setQuestion(e.target.value)} placeholder="Ex.: vou perder lançamentos de 2025?" disabled={askAi.isPending} />
+                          <Button type="submit" size="sm" disabled={askAi.isPending || question.trim().length < 3}>{askAi.isPending ? "..." : "Perguntar"}</Button>
+                        </form>
+                        <p className="text-xs text-muted-foreground">A IA só vê contagens, datas e diferenças; não vê valores nem lançamentos.</p>
+                      </div>
                       <p className="text-xs text-muted-foreground">Análise gerada por IA a partir de um resumo do arquivo; confira antes de restaurar.</p>
                     </>
                   )}

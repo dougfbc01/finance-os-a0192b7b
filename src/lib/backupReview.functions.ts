@@ -48,3 +48,36 @@ export const reviewBackupFn = createServerFn({ method: "POST" })
       return { review: null, error: "Não foi possível analisar o backup agora." };
     }
   });
+
+// Perguntas livres sobre o backup: responde só a partir do resumo/comparação.
+export const askBackupQuestionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    workspaceId: z.string().uuid(),
+    profile: profileSchema,
+    question: z.string().trim().min(3).max(500),
+    history: z.array(z.object({ q: z.string().max(500), a: z.string().max(4000) })).max(6).optional(),
+  }))
+  .handler(async ({ data, context }): Promise<{ answer: string | null; error: string | null }> => {
+    const { data: ws } = await context.supabase.from("workspaces").select("owner_id").eq("id", data.workspaceId).maybeSingle();
+    if (!ws || ws.owner_id !== context.userId) throw new Error("Somente o dono do workspace pode consultar backups");
+    const { generateResponse, GatewayError } = await import("@lovable.dev/ai-gateway");
+    try {
+      const res = await generateResponse({
+        model: "openai/gpt-6-astra",
+        instructions:
+          "Você responde perguntas sobre um backup de um app de finanças pessoais antes da restauração. Use SOMENTE os dados do JSON 'profile' (contagens por tabela, datas, problemas detectados e comparison: current = hoje, backup = arquivo). " +
+          "A restauração apaga todos os dados atuais e os troca pelos do backup. Você não tem valores, nomes nem lançamentos individuais: se a pergunta exigir isso, diga claramente que essa informação não está disponível na comparação. " +
+          "Nunca invente números. Responda em português do Brasil, linguagem simples, curto (até 6 frases ou uma lista breve), texto puro sem markdown.",
+        input: JSON.stringify({ profile: data.profile, previous: data.history ?? [], question: data.question }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const text = ((res as any).output ?? []).flatMap((o: any) => o.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("").trim();
+      return text ? { answer: text, error: null } : { answer: null, error: "A IA não retornou resposta." };
+    } catch (e) {
+      console.error("askBackupQuestionFn", e);
+      if (e instanceof GatewayError && e.httpStatus === 402) return { answer: null, error: "Créditos de IA esgotados." };
+      if (e instanceof GatewayError && e.httpStatus === 429) return { answer: null, error: "Muitas perguntas seguidas. Tente em instantes." };
+      return { answer: null, error: "Não foi possível responder agora." };
+    }
+  });
