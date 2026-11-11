@@ -26,6 +26,7 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
     const q = question.trim();
     if (q.length < 3 || !aiReview.data || !workspaceId) return;
     const res = await askAi.mutateAsync({ workspaceId, profile: aiReview.data.profile, question: q, history: qa.filter((x) => !x.error).map(({ q, a }) => ({ q, a })) });
+    if (res.answer) window.__lovableEvents?.track?.("project.backup_question_answered", { follow_up: qa.length > 0 });
     setQa((prev) => [...prev, res.answer ? { q, a: res.answer } : { q, a: res.error ?? "Erro", error: true }]);
     setQuestion("");
   };
@@ -119,7 +120,7 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
           {file && workspaceId && (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <Button size="sm" variant="secondary" disabled={aiReview.isPending}
-                onClick={() => aiReview.mutate({ workspaceId, backup: file })}>
+                onClick={() => aiReview.mutate({ workspaceId, backup: file }, { onSuccess: () => window.__lovableEvents?.track?.("project.backup_analysis_completed") })}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 {aiReview.isPending ? "Analisando…" : "Analisar backup com IA"}
               </Button>
@@ -168,6 +169,7 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
                         a.href = url; a.download = `analise-backup-${new Date().toISOString().slice(0, 10)}.pdf`;
                         document.body.appendChild(a); a.click(); a.remove();
                         setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                        window.__lovableEvents?.track?.("project.backup_report_pdf_downloaded");
                       }}>
                         <FileText className="mr-2 h-4 w-4" /> Baixar relatório em PDF
                       </Button>
