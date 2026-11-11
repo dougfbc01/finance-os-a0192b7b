@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { reviewBackupFn } from "@/lib/backupReview.functions";
+import { reviewBackupFn, askBackupQuestionFn } from "@/lib/backupReview.functions";
 import { WorkspaceBackupAnalysisService } from "@/services/WorkspaceBackupAnalysisService";
 import { WorkspaceResetService } from "@/services/WorkspaceResetService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,5 +43,17 @@ export function useBackupReview() {
       const res = await review({ data: { workspaceId, profile } });
       return { profile, ...res };
     },
+  });
+}
+
+type BackupProfileWithComparison = ReturnType<typeof WorkspaceBackupAnalysisService.profile> & {
+  comparison: ReturnType<typeof WorkspaceBackupAnalysisService.compare>;
+};
+
+export function useBackupQuestion() {
+  const ask = useServerFn(askBackupQuestionFn);
+  return useMutation({
+    mutationFn: (args: { workspaceId: string; profile: BackupProfileWithComparison; question: string; history: { q: string; a: string }[] }) =>
+      ask({ data: { ...args, history: args.history.slice(-6) } }),
   });
 }
