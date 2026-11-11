@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "events": {
+    "project.backup_analysis_completed": {
+      "event_schema_version": 1,
+      "description": "The workspace owner ran the AI analysis of a backup file and it finished.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    "project.backup_question_answered": {
+      "event_schema_version": 1,
+      "description": "The AI answered a free-text question about a backup.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "follow_up"
+        ],
+        "properties": {
+          "follow_up": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "project.backup_report_pdf_downloaded": {
+      "event_schema_version": 1,
+      "description": "The backup analysis PDF report was downloaded.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    }
+  }
+}
