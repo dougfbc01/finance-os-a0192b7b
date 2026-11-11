@@ -24,7 +24,7 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
   const [qa, setQa] = useState<{ q: string; a: string; error?: boolean }[]>([]);
   const submitQuestion = async () => {
     const q = question.trim();
-    if (q.length < 3 || !aiReview.data) return;
+    if (q.length < 3 || !aiReview.data || !workspaceId) return;
     const res = await askAi.mutateAsync({ workspaceId, profile: aiReview.data.profile, question: q, history: qa.filter((x) => !x.error).map(({ q, a }) => ({ q, a })) });
     setQa((prev) => [...prev, res.answer ? { q, a: res.answer } : { q, a: res.error ?? "Erro", error: true }]);
     setQuestion("");
@@ -46,10 +46,10 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
     }
   };
 
-  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); };
+  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); setQa([]); setQuestion(""); };
 
   const handleFile = async (f: File | undefined) => {
-    setFile(null); setFileError(null); aiReview.reset();
+    setFile(null); setFileError(null); aiReview.reset(); setQa([]);
     if (!f) return;
     try { setFile(WorkspaceBackupServiceImpl.parse(await f.text())); }
     catch (e) { setFileError(e instanceof Error ? e.message : "Arquivo inválido"); }
