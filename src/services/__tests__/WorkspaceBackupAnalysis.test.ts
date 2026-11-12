@@ -4,7 +4,7 @@ import type { WorkspaceBackup } from "../WorkspaceBackupService";
 
 const WS = "11111111-1111-1111-1111-111111111111";
 const backup = (tables: Record<string, unknown[]>, wsId = WS): WorkspaceBackup => ({
-  format: "finance-os-backup", version: 1, exported_at: "2026-01-01T00:00:00Z",
+  format: "finance-os-backup", version: 1, schema_version: "test", exported_at: "2026-01-01T00:00:00Z",
   workspace: { id: wsId }, counts: {}, tables,
 });
 
