@@ -28,4 +28,9 @@ describe("WorkspaceResetService", () => {
     });
     expect(counts).toEqual({ movements: 3 });
   });
+  it("Zerar tudo pode recriar categorias padrão (reseed)", async () => {
+    const { rpc, service } = svc();
+    await service.execute("ws1", "ALL", true);
+    expect(rpc).toHaveBeenCalledWith("reset_workspace_data", { _workspace_id: "ws1", _mode: "ALL", _dry_run: false, _reseed: true });
+  });
 });

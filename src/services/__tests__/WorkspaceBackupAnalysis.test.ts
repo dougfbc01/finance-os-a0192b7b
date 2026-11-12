@@ -40,4 +40,10 @@ d2("compare", () => {
     e2(rows[0]).toEqual({ table: "movements", current: 100, backup: 10, delta: -90 });
     e2(rows.find((r) => r.table === "assets")).toEqual({ table: "assets", current: 5, backup: 0, delta: -5 });
   });
+  it("invoice_id é conferido contra card_invoices", () => {
+    const backup = { format: "finance-os-backup", version: 1, schema_version: "x", exported_at: null, workspace: null, counts: {},
+      tables: { card_invoices: [{ id: "inv1" }], movements: [{ id: "m1", invoice_id: "inv1" }, { id: "m2", invoice_id: "ghost" }] } } as never;
+    const issues = WorkspaceBackupAnalysisService.profile(backup, "ws1").issues;
+    expect(issues.some((i) => i.includes("movements: 1 registro(s) apontam para card_invoices"))).toBe(true);
+  });
 });
