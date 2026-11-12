@@ -5,6 +5,9 @@ import { fetchAllPages } from "@/lib/fetchAllPages";
 import { WORKSPACE_RESET_TABLE_LABELS } from "./WorkspaceResetService";
 import type { UUID } from "@/models";
 
+/** Última migration do banco; backups de outra versão são recusados na restauração. */
+export const BACKUP_SCHEMA_VERSION = "0004_reset_reseed_and_backup_schema_version";
+
 /** Tabelas com workspace_id incluídas no backup. */
 export const WORKSPACE_BACKUP_TABLES: string[] = [
   ...Object.keys(WORKSPACE_RESET_TABLE_LABELS),
@@ -15,6 +18,7 @@ export const WORKSPACE_BACKUP_TABLES: string[] = [
 export interface WorkspaceBackup {
   format: "finance-os-backup";
   version: 1;
+  schema_version: string;
   exported_at: string;
   workspace: Record<string, unknown> | null;
   counts: Record<string, number>;
@@ -40,7 +44,7 @@ export class WorkspaceBackupServiceImpl extends BaseService {
       tables[table] = rows;
       counts[table] = rows.length;
     }
-    return { format: "finance-os-backup", version: 1, exported_at: now.toISOString(), workspace: workspace ?? null, counts, tables };
+    return { format: "finance-os-backup", version: 1, schema_version: BACKUP_SCHEMA_VERSION, exported_at: now.toISOString(), workspace: workspace ?? null, counts, tables };
   }
 
   /** Lê e valida o arquivo de backup antes de enviar ao banco. */
@@ -50,6 +54,11 @@ export class WorkspaceBackupServiceImpl extends BaseService {
     const b = data as Partial<WorkspaceBackup>;
     if (!b || b.format !== "finance-os-backup" || typeof b.tables !== "object" || b.tables === null) {
       throw new Error("Arquivo de backup inválido");
+    }
+    if (b.schema_version !== BACKUP_SCHEMA_VERSION) {
+      throw new Error(
+        `Versão do backup incompatível (arquivo: ${b.schema_version ?? "sem versão"}; sistema: ${BACKUP_SCHEMA_VERSION}). Gere um novo backup nesta versão do sistema.`,
+      );
     }
     return b as WorkspaceBackup;
   }

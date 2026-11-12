@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { useWorkspaceBackup, useWorkspaceRestore, useBackupReview, useBackupQuestion } from "@/hooks/useWorkspaceBackup";
+import { useWorkspaceBackup, useWorkspaceRestore, useBackupReview, useBackupQuestion, useBackupLocalReview } from "@/hooks/useWorkspaceBackup";
 import { WorkspaceBackupServiceImpl, type WorkspaceBackup } from "@/services/WorkspaceBackupService";
 import { WORKSPACE_RESET_TABLE_LABELS, WorkspaceResetServiceImpl } from "@/services/WorkspaceResetService";
 
@@ -19,6 +19,7 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
   const backup = useWorkspaceBackup();
   const restore = useWorkspaceRestore();
   const aiReview = useBackupReview();
+  const localReview = useBackupLocalReview();
   const askAi = useBackupQuestion();
   const [question, setQuestion] = useState("");
   const [qa, setQa] = useState<{ q: string; a: string; error?: boolean }[]>([]);
@@ -47,12 +48,17 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
     }
   };
 
-  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); setQa([]); setQuestion(""); };
+  const close = () => { setOpen(false); setFile(null); setFileError(null); setTyped(""); aiReview.reset(); localReview.reset(); setQa([]); setQuestion(""); };
 
   const handleFile = async (f: File | undefined) => {
     setFile(null); setFileError(null); aiReview.reset(); setQa([]);
     if (!f) return;
-    try { setFile(WorkspaceBackupServiceImpl.parse(await f.text())); }
+    localReview.reset();
+    try {
+      const parsed = WorkspaceBackupServiceImpl.parse(await f.text());
+      setFile(parsed);
+      if (workspaceId) localReview.mutate({ workspaceId, backup: parsed });
+    }
     catch (e) { setFileError(e instanceof Error ? e.message : "Arquivo inválido"); }
   };
 
@@ -117,34 +123,41 @@ export function WorkspaceBackupPanel({ workspaceId, workspaceName }: Props) {
             </div>
           )}
 
+          {file && (
+            <div className="space-y-2 rounded-md border p-3 text-sm">
+              {localReview.isPending && <p className="text-muted-foreground">Comparando com os dados atuais…</p>}
+              {localReview.isError && <p className="text-destructive">{localReview.error instanceof Error ? localReview.error.message : "Erro na comparação"}</p>}
+              {localReview.data && (
+                <>
+                  <p className="font-medium">Atual × backup</p>
+                  {localReview.data.comparison.some((c) => c.delta !== 0) ? (
+                    <ul className="text-muted-foreground">
+                      {localReview.data.comparison.filter((c) => c.delta !== 0).map((c) => (
+                        <li key={c.table}>{WORKSPACE_RESET_TABLE_LABELS[c.table] ?? c.table}: {c.current} → {c.backup}</li>
+                      ))}
+                    </ul>
+                  ) : <p className="text-muted-foreground">Mesmas quantidades de registros dos dados atuais.</p>}
+                  <p className="font-medium">Problemas detectados no arquivo</p>
+                  {localReview.data.issues.length > 0 ? (
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {localReview.data.issues.map((i) => <li key={i}>{i}</li>)}
+                    </ul>
+                  ) : <p className="text-muted-foreground">Nenhum problema encontrado.</p>}
+                </>
+              )}
+            </div>
+          )}
+
           {file && workspaceId && (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <Button size="sm" variant="secondary" disabled={aiReview.isPending}
                 onClick={() => aiReview.mutate({ workspaceId, backup: file }, { onSuccess: () => window.__lovableEvents?.track?.("project.backup_analysis_completed") })}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {aiReview.isPending ? "Analisando…" : "Analisar backup com IA"}
+                {aiReview.isPending ? "Analisando…" : "Analisar com IA (opcional)"}
               </Button>
               {aiReview.isError && <p className="text-destructive">{aiReview.error instanceof Error ? aiReview.error.message : "Erro na análise"}</p>}
               {aiReview.data && (
                 <div className="space-y-2">
-                  {aiReview.data.profile.comparison && aiReview.data.profile.comparison.some((c) => c.delta !== 0) && (
-                    <div>
-                      <p className="font-medium">Atual × backup</p>
-                      <ul className="text-muted-foreground">
-                        {aiReview.data.profile.comparison.filter((c) => c.delta !== 0).slice(0, 8).map((c) => (
-                          <li key={c.table}>{WORKSPACE_RESET_TABLE_LABELS[c.table] ?? c.table}: {c.current} → {c.backup}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {aiReview.data.profile.issues.length > 0 && (
-                    <div>
-                      <p className="font-medium">Problemas detectados no arquivo</p>
-                      <ul className="list-disc pl-5 text-muted-foreground">
-                        {aiReview.data.profile.issues.map((i) => <li key={i}>{i}</li>)}
-                      </ul>
-                    </div>
-                  )}
                   {aiReview.data.error && <p className="text-destructive">{aiReview.data.error}</p>}
                   {aiReview.data.review && (
                     <>
