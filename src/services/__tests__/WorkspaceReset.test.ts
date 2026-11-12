@@ -17,15 +17,20 @@ describe("WorkspaceResetService", () => {
   it("execute chama a função com o modo e sem dry run", async () => {
     const { rpc, service } = svc();
     await service.execute("ws1", "ALL");
-    expect(rpc).toHaveBeenCalledWith("reset_workspace_data", { _workspace_id: "ws1", _mode: "ALL", _dry_run: false });
+    expect(rpc).toHaveBeenCalledWith("reset_workspace_data", { _workspace_id: "ws1", _mode: "ALL", _dry_run: false, _reseed: false });
   });
 
   it("preview chama a função em dry run com o modo escolhido", async () => {
     const { rpc, service } = svc();
     const counts = await service.preview("ws1", "MOVEMENTS_AND_INVESTMENTS");
     expect(rpc).toHaveBeenCalledWith("reset_workspace_data", {
-      _workspace_id: "ws1", _mode: "MOVEMENTS_AND_INVESTMENTS", _dry_run: true,
+      _workspace_id: "ws1", _mode: "MOVEMENTS_AND_INVESTMENTS", _dry_run: true, _reseed: false,
     });
     expect(counts).toEqual({ movements: 3 });
+  });
+  it("Zerar tudo pode recriar categorias padrão (reseed)", async () => {
+    const { rpc, service } = svc();
+    await service.execute("ws1", "ALL", true);
+    expect(rpc).toHaveBeenCalledWith("reset_workspace_data", { _workspace_id: "ws1", _mode: "ALL", _dry_run: false, _reseed: true });
   });
 });

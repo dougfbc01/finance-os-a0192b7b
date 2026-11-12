@@ -14,7 +14,7 @@ export function useWorkspaceReset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ workspaceId, mode }: { workspaceId: string; mode: WorkspaceResetMode }) =>
-      WorkspaceResetService.execute(workspaceId, mode),
+      WorkspaceResetService.execute(workspaceId, mode, mode === "ALL"),
     onSuccess: async () => {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "workspace" });
       await qc.invalidateQueries();

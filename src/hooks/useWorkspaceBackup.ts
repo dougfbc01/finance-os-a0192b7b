@@ -33,6 +33,17 @@ export function useWorkspaceRestore() {
   });
 }
 
+/** Comparação atual × backup e problemas do arquivo, sem IA. */
+export function useBackupLocalReview() {
+  return useMutation({
+    mutationFn: async ({ workspaceId, backup }: { workspaceId: string; backup: WorkspaceBackup }) => {
+      const base = WorkspaceBackupAnalysisService.profile(backup, workspaceId);
+      const current = await WorkspaceResetService.preview(workspaceId, "ALL");
+      return { ...base, comparison: WorkspaceBackupAnalysisService.compare(base, current) };
+    },
+  });
+}
+
 export function useBackupReview() {
   const review = useServerFn(reviewBackupFn);
   return useMutation({

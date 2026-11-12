@@ -41,8 +41,9 @@ export class WorkspaceResetServiceImpl extends BaseService {
     return this.call(workspaceId, mode, true, "preview");
   }
 
-  async execute(workspaceId: UUID, mode: WorkspaceResetMode): Promise<WorkspaceResetCounts> {
-    return this.call(workspaceId, mode, false, "execute");
+  /** reseed: no modo ALL, recria as categorias padrão ao final. */
+  async execute(workspaceId: UUID, mode: WorkspaceResetMode, reseed = false): Promise<WorkspaceResetCounts> {
+    return this.call(workspaceId, mode, false, "execute", reseed);
   }
 
   /** O botão destrutivo só habilita com o nome exato do workspace. */
@@ -50,11 +51,12 @@ export class WorkspaceResetServiceImpl extends BaseService {
     return !!workspaceName && typed === workspaceName;
   }
 
-  private async call(workspaceId: UUID, mode: WorkspaceResetMode, dryRun: boolean, ctx: string) {
+  private async call(workspaceId: UUID, mode: WorkspaceResetMode, dryRun: boolean, ctx: string, reseed = false) {
     const { data, error } = await this.client.rpc("reset_workspace_data", {
       _workspace_id: workspaceId,
       _mode: mode,
       _dry_run: dryRun,
+      _reseed: reseed,
     });
     if (error) this.handleError(error, ctx);
     return (data ?? {}) as WorkspaceResetCounts;

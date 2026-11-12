@@ -60,3 +60,4 @@ Nunca declarar sprint concluída sem auditoria final. Apresentar: arquivos criad
 - Investment rows (Investimentos tab only) value MOVEMENTS assets by the reconstructed position (positionOf): closed positions are 0 with realized result shown separately, open unquoted positions are shown at cost ("A custo"), because the redemption amount includes realized profit that already left as cash and must not reduce other assets; effectiveAssets applies the same rule to Patrimony/Dashboard only for quantity-tracked positions, balance-only assets keep valueOf (opening+delta), and recorded Closings are never rewritten.
 - monthlyWealthByType's last month must equal Composição atual; loadLatest pages per ticker so old quotes are never dropped.
 - AI backup review sends the model only WorkspaceBackupAnalysisService's profile, never raw records.
+- Restore rejects backups whose `schema_version` differs, to avoid schema corruption.

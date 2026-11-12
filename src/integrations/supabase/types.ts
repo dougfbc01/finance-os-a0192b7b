@@ -2022,7 +2022,12 @@ export type Database = {
         Returns: number
       }
       reset_workspace_data: {
-        Args: { _dry_run?: boolean; _mode: string; _workspace_id: string }
+        Args: {
+          _dry_run?: boolean
+          _mode: string
+          _reseed?: boolean
+          _workspace_id: string
+        }
         Returns: Json
       }
       restore_workspace_data: {

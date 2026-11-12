@@ -36,7 +36,7 @@ const REFERENCES: Record<string, string> = {
   account_id: "accounts",
   asset_id: "assets",
   card_id: "cards",
-  invoice_id: "invoices",
+  invoice_id: "card_invoices",
   category_id: "categories",
 };
 
