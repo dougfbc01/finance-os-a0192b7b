@@ -4,7 +4,8 @@
 import { BaseService } from "./BaseService";
 import { MovementServiceImpl } from "./MovementService";
 import { DashboardFilterService, type DateRange } from "./DashboardFilterService";
-import { INCOME_TYPES, EXPENSE_TYPES, MovementType } from "@/constants/enums";
+import { INCOME_TYPES, EXPENSE_TYPES, INVESTMENT_ASSET_TYPES, MovementType } from "@/constants/enums";
+import { AssetValuationServiceImpl } from "./AssetValuationService";
 import type { Account, Asset, Movement, UUID } from "@/models";
 import type { CardInvoice } from "@/models/CardInvoice";
 
@@ -352,11 +353,35 @@ class DashboardServiceImpl extends BaseService {
     }
   }
 
+  /** Último dia do mês `yyyy-mm`, limitado a hoje (nunca uma data futura). */
+  monthEndDate(key: string, today = new Date().toISOString().slice(0, 10)): string {
+    const [y, m] = key.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    return last > today ? today : last;
+  }
+
+  /**
+   * Passivo de cartões em uma data: faturas com vencimento até a data e ainda
+   * não pagas naquela data. Fatura PAID sem `paid_at` (legado) conta como paga,
+   * pois não há data comprovada para mantê-la em aberto.
+   */
+  liabilitiesAt(invoices: CardInvoice[], date: string): number {
+    return invoices
+      .filter((i) => {
+        if (i.deleted_at || i.due_date.slice(0, 10) > date) return false;
+        if (i.paid_at) return i.paid_at.slice(0, 10) > date;
+        return i.status !== "PAID";
+      })
+      .reduce((s, i) => s + Number(i.amount), 0);
+  }
+
   /**
    * Evolução mensal do patrimônio total dentro do período.
    * Caixa: saldo acumulado real por mês.
-   * Ativos: valor atual declarado (não há histórico de marcação a mercado).
-   * Passivo: faturas não pagas com vencimento até o fim do mês.
+   * Investimentos: valor do fim do mês vindo da base mensal da Análise
+   * (`investmentsByMonth`); ativos fora da carteira de investimentos mantêm o
+   * valor declarado. Sem `investmentsByMonth`, usa o valor atual (legado).
+   * Passivo: faturas vencidas até o fim do mês e não pagas até essa data.
    */
   netWorthSeries(params: {
     accounts: Account[];
@@ -364,21 +389,23 @@ class DashboardServiceImpl extends BaseService {
     assets: Asset[];
     invoices: CardInvoice[];
     months: string[];
+    investmentsByMonth?: Record<string, number>;
+    today?: string;
   }): NetWorthPoint[] {
     const balances = this.accountBalanceSeries(params.accounts, params.movements, params.months);
-    const assetsValue = params.assets
-      .filter((a) => a.is_active && !a.deleted_at)
-      .reduce((s, a) => s + Number(a.current_value), 0);
+    const countable = params.assets.filter(
+      (a) => a.is_active && !a.deleted_at && AssetValuationServiceImpl.countsInTotal(a),
+    );
+    const byMonth = params.investmentsByMonth;
+    const otherAssetsValue = (byMonth
+      ? countable.filter((a) => !INVESTMENT_ASSET_TYPES.includes(a.asset_type))
+      : countable
+    ).reduce((s, a) => s + Number(a.current_value), 0);
 
     return balances.map((point) => {
-      const liabilities = params.invoices
-        .filter(
-          (i) =>
-            !i.deleted_at &&
-            i.status !== "PAID" &&
-            i.due_date.slice(0, 7) <= point.key,
-        )
-        .reduce((s, i) => s + Number(i.amount), 0);
+      const date = this.monthEndDate(point.key, params.today);
+      const liabilities = this.liabilitiesAt(params.invoices, date);
+      const assetsValue = otherAssetsValue + (byMonth ? byMonth[point.key] ?? 0 : 0);
       return {
         key: point.key,
         label: point.label,
@@ -398,6 +425,7 @@ class DashboardServiceImpl extends BaseService {
     invoices: CardInvoice[];
     current: DateRange;
     previous: DateRange;
+    investmentsByMonth?: Record<string, number>;
   }): ComparisonRow[] {
     const cur = this.summaryInRange(params.movements, params.current);
     const prev = this.summaryInRange(params.movements, params.previous);
@@ -410,6 +438,7 @@ class DashboardServiceImpl extends BaseService {
         assets: params.assets,
         invoices: params.invoices,
         months,
+        investmentsByMonth: params.investmentsByMonth,
       });
       return series[0];
     };

@@ -77,6 +77,8 @@ export interface ClosingInvestments {
   count: number;
   /** Aportes registrados no período. */
   contributions: number;
+  /** Parte do total mantida a custo por falta de cotação no mês (snapshots novos). */
+  atCost?: number;
 }
 
 export interface ClosingTransfers {
@@ -103,6 +105,8 @@ export interface ClosingSnapshot {
   transfers: ClosingTransfers;
   /** Planejado x Realizado congelado (Sprint 4.3). Nunca recalculado. */
   budget?: ClosingBudget;
+  /** Totais congelados do fechamento do mês anterior (variação vs fechamento anterior). */
+  previous?: { year: number; month: number; closedAt: ISODateString | null; totals: ClosingTotals } | null;
 }
 
 export interface MonthlyClosing {

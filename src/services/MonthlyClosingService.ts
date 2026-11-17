@@ -48,6 +48,12 @@ export interface BuildSnapshotParams {
   health: ClosingHealth;
   /** Comparação Planejado x Realizado do mês (Sprint 4.3). */
   budget?: BudgetComparison | null;
+  /** Valor dos investimentos no fim de cada mês (base mensal da Análise). */
+  investmentsByMonth?: Record<string, number>;
+  /** Parcela a custo (sem cotação) do valor de investimentos por mês. */
+  investmentsAtCostByMonth?: Record<string, number>;
+  /** Fechamento do mês anterior, para congelar a variação no snapshot. */
+  previousClosing?: MonthlyClosing | null;
 }
 
 interface ClosingRow {
@@ -125,6 +131,7 @@ class MonthlyClosingServiceImpl extends BaseService {
       assets: params.assets,
       invoices: params.invoices,
       months: [monthKey],
+      investmentsByMonth: params.investmentsByMonth,
     });
     const nw = netWorthSeries[netWorthSeries.length - 1];
     const fallbackPatrimony = PatrimonyServiceImpl.snapshot({
@@ -227,7 +234,10 @@ class MonthlyClosingServiceImpl extends BaseService {
       byCard,
       cards: byCard,
       investments: {
-        total: PatrimonyServiceImpl.totalAssetsValue(params.assets),
+        total: params.investmentsByMonth
+          ? params.investmentsByMonth[monthKey] ?? 0
+          : PatrimonyServiceImpl.totalAssetsValue(params.assets),
+        atCost: params.investmentsAtCostByMonth?.[monthKey] ?? 0,
         profit: PatrimonyServiceImpl.totalAssetProfit(params.assets),
         count: params.assets.filter((a) => a.is_active && !a.deleted_at).length,
         contributions: inMonth
@@ -239,9 +249,17 @@ class MonthlyClosingServiceImpl extends BaseService {
         count: transfersRows.length,
         amount: transfersRows.reduce((s, m) => s + Number(m.amount), 0),
       },
+      previous: this.previousTotals(params.previousClosing ?? null, year, month),
     };
 
     return snapshot;
+  }
+
+  /** Totais do fechamento imediatamente anterior (somente se for o mês anterior). */
+  private previousTotals(prev: MonthlyClosing | null, year: number, month: number): ClosingSnapshot["previous"] {
+    const expected = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+    if (!prev?.snapshot_json?.totals || prev.year !== expected.year || prev.month !== expected.month) return null;
+    return { year: prev.year, month: prev.month, closedAt: prev.closed_at, totals: prev.snapshot_json.totals };
   }
 
   // ------------------------------------------------------------------
@@ -297,8 +315,35 @@ class MonthlyClosingServiceImpl extends BaseService {
   // Comparação entre fechamentos
   // ------------------------------------------------------------------
   compareClosing(current: MonthlyClosing, previous: MonthlyClosing): ClosingComparison {
-    const a = current.snapshot_json.totals;
-    const b = previous.snapshot_json.totals;
+    return this.compareTotals(
+      current.snapshot_json.totals,
+      previous.snapshot_json.totals,
+      { year: previous.year, month: previous.month },
+      { year: current.year, month: current.month },
+    );
+  }
+
+  /**
+   * "O que mudou" num fechamento desatualizado: snapshot gravado × recalculado
+   * agora. Reutiliza a mesma comparação de totais; só retorna linhas alteradas.
+   */
+  staleChanges(stored: MonthlyClosing, fresh: ClosingSnapshot): ClosingComparison {
+    const period = { year: stored.year, month: stored.month };
+    const cmp = this.compareTotals(fresh.totals, stored.snapshot_json.totals, period, period);
+    const extra = [
+      { key: "movements", label: "Lançamentos no mês", cur: fresh.quality.movements, prev: stored.snapshot_json.quality?.movements ?? 0 },
+      { key: "uncategorized", label: "Sem categoria", cur: fresh.quality.uncategorized, prev: stored.snapshot_json.quality?.uncategorized ?? 0 },
+    ].map((r) => ({ key: r.key, label: r.label, current: r.cur, previous: r.prev, delta: r.cur - r.prev,
+      percent: r.prev === 0 ? null : ((r.cur - r.prev) / Math.abs(r.prev)) * 100 }));
+    return { ...cmp, rows: [...cmp.rows, ...extra].filter((r) => Math.abs(r.delta) >= 0.005) };
+  }
+
+  compareTotals(
+    a: ClosingSnapshot["totals"],
+    b: ClosingSnapshot["totals"],
+    from: { year: number; month: number },
+    to: { year: number; month: number },
+  ): ClosingComparison {
     const row = (key: string, label: string, cur: number, prev: number): ClosingComparisonRow => ({
       key,
       label,
@@ -308,13 +353,14 @@ class MonthlyClosingServiceImpl extends BaseService {
       percent: prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100,
     });
     return {
-      from: { year: previous.year, month: previous.month },
-      to: { year: current.year, month: current.month },
+      from,
+      to,
       rows: [
         row("income", "Receitas", a.income, b.income),
         row("expense", "Despesas", a.expense, b.expense),
         row("result", "Resultado", a.result, b.result),
         row("netWorth", "Patrimônio líquido", a.netWorth, b.netWorth),
+        row("assets", "Investimentos", a.assets, b.assets),
         row("liabilities", "Passivo", a.liabilities, b.liabilities),
       ],
     };

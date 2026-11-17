@@ -7,6 +7,7 @@ import { useAllMovements } from "./useMovements";
 import { useAssets } from "./useAssets";
 import { useCardInvoices } from "./useCardInvoices";
 import { useCategories, useSubcategories } from "./useCategories";
+import { useInvestmentMonthEndValues } from "./useInvestmentMonthEndValues";
 import { DashboardService } from "@/services/DashboardService";
 import type { ResolvedPeriod } from "@/services/DashboardFilterService";
 
@@ -21,6 +22,8 @@ export function useDashboardAnalytics(resolved: ResolvedPeriod) {
   const categoriesQ = useCategories(wsId);
   const subcategoriesQ = useSubcategories(wsId);
 
+  const investmentValues = useInvestmentMonthEndValues(wsId);
+  const investmentsByMonth = investmentValues.values;
   const accounts = accountsQ.data ?? [];
   const movements = movementsQ.data ?? [];
   const assets = assetsQ.data ?? [];
@@ -69,8 +72,9 @@ export function useDashboardAnalytics(resolved: ResolvedPeriod) {
         assets,
         invoices,
         months: resolved.months,
+        investmentsByMonth,
       }),
-    [accounts, movements, assets, invoices, resolved.months],
+    [accounts, movements, assets, invoices, resolved.months, investmentsByMonth],
   );
 
   const comparison = useMemo(
@@ -82,8 +86,9 @@ export function useDashboardAnalytics(resolved: ResolvedPeriod) {
         invoices,
         current: range,
         previous: resolved.previous,
+        investmentsByMonth,
       }),
-    [accounts, movements, assets, invoices, range, resolved.previous],
+    [accounts, movements, assets, invoices, range, resolved.previous, investmentsByMonth],
   );
 
   return {
@@ -105,6 +110,7 @@ export function useDashboardAnalytics(resolved: ResolvedPeriod) {
       accountsQ.isLoading ||
       movementsQ.isLoading ||
       assetsQ.isLoading ||
-      invoicesQ.isLoading,
+      invoicesQ.isLoading ||
+      investmentValues.isLoading,
   };
 }

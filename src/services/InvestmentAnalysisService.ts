@@ -612,3 +612,27 @@ export function capitalVsMarketMonthly(params: {
   }
   return result;
 }
+export interface MonthEndInvestmentValue {
+  /** Month total with the same bands as "Valor patrimonial por tipo" (market, fixed income at cost, unvalued at cost). */
+  value: number;
+  /** Part of `value` held at positionOf cost because no valuation evidence exists in the month. */
+  atCost: number;
+}
+
+/**
+ * Month-end investment value for net worth (Dashboard/Fechamentos), read from the same monthly
+ * ledger as Investimentos > Análise: last stored quote of the month, closed positions 0 and
+ * positions without quote at cost (labelled). ACCOUNT-mirrored rows are excluded because their
+ * balance is already counted in cash; counting them here would double count patrimony.
+ */
+export function monthEndInvestmentValues(base: InvestmentMonthlyRow[], to: string,
+  currentValues: Record<string, number> = {}): Record<string, MonthEndInvestmentValue> {
+  const rows = base.filter((r) => r.valueOrigin !== "ACCOUNT");
+  const out: Record<string, MonthEndInvestmentValue> = {};
+  for (const p of monthlyWealthByType(rows, "0000-01-01", to, currentValues)) {
+    const atCost = rows.filter((r) => r.month === p.month && r.totalValue === null && r.status !== "NO_HISTORY" && r.status !== "CLOSED")
+      .reduce((s, r) => s + Math.max(0, r.cost ?? 0), 0);
+    out[p.month] = { value: p.total, atCost: Number(atCost.toFixed(2)) };
+  }
+  return out;
+}

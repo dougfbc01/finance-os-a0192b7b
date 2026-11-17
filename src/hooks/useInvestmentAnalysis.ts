@@ -3,25 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssets } from "./useAssets";
 import { MarketHistoricalPriceService } from "@/services/MarketHistoricalPriceService";
 import { accountMirrorRows, capitalVsMarketMonthly, investmentMonthlyBase, isAccountMirrorInvestment, monthlyInvestmentHistory, monthlyWealthByType } from "@/services/InvestmentAnalysisService";
-import type { Account, Movement } from "@/models";
+import type { Account, Asset, Movement } from "@/models";
 import type { MarketPricePoint } from "@/models/MarketData";
 import { InvestmentServiceImpl, type InvestmentRow } from "@/services/InvestmentService";
 import { validInvestmentRange } from "@/services/InvestmentViewService";
 
-export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string, accounts: Account[] = [], currentRows: InvestmentRow[] = []) {
-  const queryClient = useQueryClient();
-  const assetsQuery = useAssets(workspaceId);
-  const rawAssets = useMemo(() => InvestmentServiceImpl.filterInvestments(assetsQuery.data ?? []).filter((a) => !a.deleted_at), [assetsQuery.data]);
-  // Ativos espelhados em conta (caixinha/CDB) não entram em filterInvestments;
-  // na Análise eles são valorados pelo saldo da conta, sem tocar no Patrimônio.
-  const mirrorAssets = useMemo(() => (assetsQuery.data ?? []).filter((a) => !a.deleted_at && isAccountMirrorInvestment(a)), [assetsQuery.data]);
-  const validRange = validInvestmentRange(from, to, new Date().toISOString().slice(0, 10));
-  const inScope = (a: { currency: string; asset_type: string }) => a.currency === currency && (`${a.asset_type}_${a.currency}` === group || group === "ALL");
-  const scoped = useMemo(() => rawAssets.filter(inScope), [rawAssets, currency, group]);
-  const scopedMirrors = useMemo(() => mirrorAssets.filter(inScope), [mirrorAssets, currency, group]);
-  const history = useQuery({
+/**
+ * Stored quotes of the investment portfolio (never queries the provider). Shared cache key with
+ * every consumer of the monthly ledger, so quote updates refresh Análise, Dashboard and Fechamentos.
+ */
+export function useStoredInvestmentPrices(workspaceId: string | undefined, rawAssets: Asset[], to: string, enabled = true) {
+  return useQuery({
     queryKey: ["investment-analysis-prices", workspaceId, rawAssets.map((a) => a.id).sort().join(","), to],
-    enabled: !!workspaceId && rawAssets.length > 0 && validRange,
+    enabled: !!workspaceId && rawAssets.length > 0 && enabled,
     queryFn: async () => {
       if (!workspaceId) return {};
       const entries = await Promise.all(rawAssets.filter((a) => a.ticker && !a.deleted_at).map(async (a) => {
@@ -35,6 +29,20 @@ export function useInvestmentAnalysis(workspaceId: string | undefined, movements
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
+}
+
+export function useInvestmentAnalysis(workspaceId: string | undefined, movements: Movement[], from: string, to: string, group: string, currency: string, accounts: Account[] = [], currentRows: InvestmentRow[] = []) {
+  const queryClient = useQueryClient();
+  const assetsQuery = useAssets(workspaceId);
+  const rawAssets = useMemo(() => InvestmentServiceImpl.filterInvestments(assetsQuery.data ?? []).filter((a) => !a.deleted_at), [assetsQuery.data]);
+  // Ativos espelhados em conta (caixinha/CDB) não entram em filterInvestments;
+  // na Análise eles são valorados pelo saldo da conta, sem tocar no Patrimônio.
+  const mirrorAssets = useMemo(() => (assetsQuery.data ?? []).filter((a) => !a.deleted_at && isAccountMirrorInvestment(a)), [assetsQuery.data]);
+  const validRange = validInvestmentRange(from, to, new Date().toISOString().slice(0, 10));
+  const inScope = (a: { currency: string; asset_type: string }) => a.currency === currency && (`${a.asset_type}_${a.currency}` === group || group === "ALL");
+  const scoped = useMemo(() => rawAssets.filter(inScope), [rawAssets, currency, group]);
+  const scopedMirrors = useMemo(() => mirrorAssets.filter(inScope), [mirrorAssets, currency, group]);
+  const history = useStoredInvestmentPrices(workspaceId, rawAssets, to, validRange);
   // Provider is queried only on explicit request; one quote per asset/month from its first movement until today.
   const completeHistory = useMutation({
     mutationFn: async () => {
