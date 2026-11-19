@@ -17,6 +17,7 @@ import { useRuleIntegrity } from "./useRuleIntegrity";
 import { useHealthCheckRuns } from "./useHealthCheck";
 import { useFinancialInsights } from "./useFinancialInsights";
 import { invalidateFinancialQueries } from "./invalidate";
+import { useInvestmentMonthEndValues } from "./useInvestmentMonthEndValues";
 import { DashboardFilterService } from "@/services/DashboardFilterService";
 import { DashboardPeriod } from "@/constants/dashboard";
 import { HealthCheckService } from "@/services/HealthCheckService";
@@ -87,6 +88,17 @@ export function useClosingBuilder(year: number, month: number): ClosingBuilderSt
   const ruleReport = useRuleIntegrity(rules);
   const { data: runs = [] } = useHealthCheckRuns(wsId);
   const insightsState = useFinancialInsights(resolved);
+  const investments = useInvestmentMonthEndValues(wsId);
+  const closingsQ = useMonthlyClosings(wsId);
+  const previousClosing = useMemo(() => {
+    const py = month === 1 ? year - 1 : year;
+    const pm = month === 1 ? 12 : month - 1;
+    return (closingsQ.data ?? []).find((c) => c.year === py && c.month === pm && c.status !== "OPEN") ?? null;
+  }, [closingsQ.data, year, month]);
+  const atCostByMonth = useMemo(
+    () => Object.fromEntries(Object.entries(investments.detail).map(([k, v]) => [k, v.atCost])) as Record<string, number>,
+    [investments.detail],
+  );
 
   const lastRun = runs[0];
 
@@ -114,8 +126,14 @@ export function useClosingBuilder(year: number, month: number): ClosingBuilderSt
       insights: insightsState.insights,
       insightsSummary: insightsState.summary,
       health,
+      investmentsByMonth: investments.values,
+      investmentsAtCostByMonth: atCostByMonth,
+      previousClosing,
     };
   }, [
+    investments.values,
+    atCostByMonth,
+    previousClosing,
     wsId,
     year,
     month,
@@ -153,6 +171,7 @@ export function useClosingBuilder(year: number, month: number): ClosingBuilderSt
       movementsQ.isLoading ||
       assetsQ.isLoading ||
       invoicesQ.isLoading ||
+      investments.isLoading ||
       insightsState.isLoading,
   };
 }
