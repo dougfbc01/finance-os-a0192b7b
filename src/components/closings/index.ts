@@ -3,3 +3,5 @@ export { CloseMonthDialog } from "./CloseMonthDialog";
 export { ReopenDialog } from "./ReopenDialog";
 export { SnapshotView } from "./SnapshotView";
 export { ClosingAuditTrail } from "./ClosingAuditTrail";
+export { ClosingTrendChart } from "./ClosingTrendChart";
+export { MonthGrid } from "./MonthGrid";

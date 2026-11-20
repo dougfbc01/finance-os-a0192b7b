@@ -1,0 +1,5 @@
+# Patrimônio histórico, Resumo do mês e Fechamentos
+
+- **Patrimônio por mês** (`DashboardService.netWorthSeries`): investimentos = valor do fim do mês vindo da base mensal da Análise (`monthEndInvestmentValues`: última cotação do mês, encerrados 0, sem cotação a custo). Ativos espelhados em conta ficam fora porque o saldo da conta já está no caixa. Passivo = faturas com vencimento até o fim do mês e não pagas até essa data (`liabilitiesAt`). Fechamentos já gravados não são reescritos.
+- **Resumo do mês** (`MonthlySummaryService`, Relatórios): somente leitura; checklist, KPIs vs mês anterior e média de 6 meses, ponte do patrimônio (o "não explicado" é o resíduo), categorias, maiores despesas, gastos incomuns (≥ 2× ticket médio da categoria e ≥ R$ 100), cartões, orçamento e investimentos.
+- **Fechamentos**: grade de 12 meses, fechamento em lote dos meses encerrados abertos/reabertos, gráfico resultado × patrimônio, variação vs fechamento anterior congelada no snapshot (`previous`) e "o que mudou" em desatualizados (`staleChanges`).

@@ -244,3 +244,63 @@ export function useStaleClosings(closings: MonthlyClosing[]) {
     return set;
   }, [closings, movements]);
 }
+
+/**
+ * Fecha em lote os meses abertos informados (ordem cronológica). Usa os mesmos
+ * insumos do builder, trocando apenas o período; cada mês congela a variação
+ * em relação ao fechamento anterior recém-gravado. Insights são do mês
+ * selecionado na tela, por isso não são congelados nos meses do lote.
+ */
+export function useCloseOpenMonths() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (vars: {
+      workspaceId: UUID;
+      buildParams: BuildSnapshotParams;
+      months: { year: number; month: number }[];
+      closings: MonthlyClosing[];
+    }) => {
+      let health: ClosingHealth = vars.buildParams.health;
+      try {
+        const report = await HealthCheckService.run(vars.workspaceId);
+        health = { issues: report.issues, checkedAt: report.checkedAt, items: report.items };
+      } catch {
+        // Mantém o último Health Check conhecido.
+      }
+      const known = [...vars.closings];
+      const done: MonthlyClosing[] = [];
+      for (const { year, month } of vars.months) {
+        const py = month === 1 ? year - 1 : year;
+        const pm = month === 1 ? 12 : month - 1;
+        const previousClosing = known.find((c) => c.year === py && c.month === pm && c.status !== "OPEN") ?? null;
+        const snapshot = MonthlyClosingService.buildSnapshot({
+          ...vars.buildParams,
+          year,
+          month,
+          health,
+          insights: [],
+          insightsSummary: { critical: 0, warning: 0, info: 0, total: 0 },
+          budget: null,
+          previousClosing,
+        });
+        const closing = await MonthlyClosingService.close({
+          workspaceId: vars.workspaceId,
+          year,
+          month,
+          snapshot,
+          notes: "Fechamento em lote",
+          performedBy: (user?.id as UUID | undefined) ?? null,
+        });
+        known.push(closing);
+        done.push(closing);
+      }
+      return done;
+    },
+    onSettled: () => {
+      invalidateFinancialQueries(qc);
+      qc.invalidateQueries({ queryKey: [KEY] });
+      qc.invalidateQueries({ queryKey: ["health-check-runs"] });
+    },
+  });
+}

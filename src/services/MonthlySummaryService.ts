@@ -240,3 +240,30 @@ class MonthlySummaryServiceImpl extends BaseService {
 
 export const MonthlySummaryService = new MonthlySummaryServiceImpl();
 export { MonthlySummaryServiceImpl };
+
+export interface MonthGridCell { year: number; month: number; key: string; status: MonthStatus; closingId: UUID | null }
+
+/** Últimos `count` meses (mais antigo primeiro, incluindo o atual) com o status de fechamento. */
+export function lastMonthsGrid(closings: MonthlyClosing[], staleIds: Set<UUID>, today = new Date().toISOString().slice(0, 10), count = 12): MonthGridCell[] {
+  const [ty, tm] = today.split("-").map(Number);
+  return Array.from({ length: count }, (_, i) => {
+    const { year, month } = shiftMonth(ty, tm, i - (count - 1));
+    const key = keyOf(year, month);
+    const closing = closings.find((c) => c.year === year && c.month === month) ?? null;
+    return { year, month, key, closingId: closing?.id ?? null,
+      status: MonthlySummaryService.status(closing, !!closing && staleIds.has(closing.id), key, today) };
+  });
+}
+
+/** Meses que o fechamento em lote pode fechar: abertos ou reabertos e já encerrados, em ordem cronológica. */
+export function monthsToBatchClose(grid: MonthGridCell[]): MonthGridCell[] {
+  return grid.filter((c) => c.status === "OPEN" || c.status === "REOPENED");
+}
+
+/** Série de resultado e patrimônio para o gráfico dos Fechamentos (mesmas regras do Dashboard). */
+export function closingTrend(p: { accounts: Account[]; movements: Movement[]; assets: Asset[]; invoices: CardInvoice[];
+  investmentsByMonth: Record<string, number>; months: string[]; today?: string }) {
+  const results = Dashboard.monthlySeries(p.movements, p.months);
+  const nw = Dashboard.netWorthSeries({ ...p });
+  return p.months.map((key, i) => ({ key, label: results[i]?.label ?? key, result: results[i]?.result ?? 0, netWorth: nw[i]?.netWorth ?? 0 }));
+}

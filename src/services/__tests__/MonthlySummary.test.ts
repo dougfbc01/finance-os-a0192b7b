@@ -36,3 +36,21 @@ describe("Resumo do mês", () => {
     expect(s.checklist.find((c) => c.key === "uncategorized")).toMatchObject({ ok: false, count: 3 });
   });
 });
+
+import { lastMonthsGrid, monthsToBatchClose } from "../MonthlySummaryService";
+import type { MonthlyClosing } from "@/models/MonthlyClosing";
+
+describe("Grade de fechamentos", () => {
+  it("12 meses até o atual; lote só pega meses encerrados e abertos", () => {
+    const closed = { id: "c1", year: 2026, month: 2, status: "CLOSED", reopened_at: null } as unknown as MonthlyClosing;
+    const grid = lastMonthsGrid([closed], new Set(), "2026-04-15");
+    expect(grid).toHaveLength(12);
+    expect(grid.at(-1)).toMatchObject({ key: "2026-04", status: "IN_PROGRESS" });
+    expect(grid.find((g) => g.key === "2026-02")?.status).toBe("CLOSED");
+    expect(lastMonthsGrid([closed], new Set(["c1"]), "2026-04-15").find((g) => g.key === "2026-02")?.status).toBe("STALE");
+    const batch = monthsToBatchClose(grid).map((g) => g.key);
+    expect(batch).not.toContain("2026-02");
+    expect(batch).not.toContain("2026-04");
+    expect(batch.at(-1)).toBe("2026-03");
+  });
+});

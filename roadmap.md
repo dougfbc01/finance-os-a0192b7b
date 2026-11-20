@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Patrimônio histórico (investimentos no fim do mês, passivo na data), Relatórios > Resumo do mês e Fechamentos (grade 12 meses, lote, gráfico, variação, o que mudou); docs/22.
+
 - [x] Renda fixa nas análises: caixinha/CDB (fonte ACCOUNT) entram na aba Análise e na Composição pelo saldo espelhado da conta (origem "Conta (conciliado)"), com capital, rendimento em degrau na conciliação e cobertura no Capital × Mercado; Patrimônio/Dashboard inalterados; Tesouro rotulado "A custo" com diagnóstico em docs/19-Renda-Fixa-Analises.md.
 - [x] Validar 528 testes em 43 arquivos e typecheck tsgo sem erros; build automático verificado no encerramento.
 

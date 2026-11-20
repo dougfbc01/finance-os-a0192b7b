@@ -81,6 +81,26 @@ export function SnapshotView({ closing }: Props) {
             <Metric label="Patrimônio líquido" value={s.totals.netWorth} />
             <Metric label="Aportes no período" value={s.investments.contributions} />
           </div>
+          {s.previous && (
+            <div className="rounded-md border p-3 text-sm">
+              <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                Variação vs fechamento de {MONTH_LABELS[s.previous.month - 1]} {s.previous.year}
+              </p>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {([
+                  ["Resultado", s.totals.result - s.previous.totals.result],
+                  ["Patrimônio líquido", s.totals.netWorth - s.previous.totals.netWorth],
+                  ["Investimentos", s.totals.assets - s.previous.totals.assets],
+                  ["Passivo", s.totals.liabilities - s.previous.totals.liabilities],
+                ] as const).map(([label, delta]) => (
+                  <div key={label}>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="tabular-nums">{delta > 0 ? "+" : ""}{formatCurrency(delta)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Separator />
 
